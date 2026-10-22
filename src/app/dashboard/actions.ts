@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { syncRecent } from "@/lib/insights/sync";
+import { clearLiveCache } from "@/lib/insights/live";
 import { buildPeriodReport, findDataWarnings } from "@/lib/insights/report";
 import { isValidDate, minAllowedDate, rangeQuery, resolveRange, todayIn } from "@/lib/dates";
 import { AiError } from "@/lib/ai/providers";
@@ -44,6 +45,7 @@ export async function refreshInsights(formData: FormData) {
 
   let status = "refreshed";
   try {
+    await clearLiveCache(supabase, user.id, connection.selected_ad_account_id);
     await syncRecent(
       {
         supabase,
@@ -58,8 +60,16 @@ export async function refreshInsights(formData: FormData) {
     status = "refresh_error";
   }
 
+  // বর্তমান ভিউ ও ব্রেকডাউন ঠিক রেখে ফিরে যায় (শুধু চেনা মান)
+  const keep = new URLSearchParams();
+  const view = field(formData, "view");
+  const bd = field(formData, "bd");
+  if (view && /^[a-z]{1,20}$/.test(view)) keep.set("view", view);
+  if (bd && /^[a-z_]{1,20}$/.test(bd)) keep.set("bd", bd);
+  const extra = keep.toString();
+
   revalidatePath("/dashboard");
-  redirect(`/dashboard?${rangeQuery(range)}&status=${status}`);
+  redirect(`/dashboard?${rangeQuery(range)}${extra ? `&${extra}` : ""}&status=${status}`);
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

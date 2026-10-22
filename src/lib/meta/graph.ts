@@ -141,6 +141,27 @@ export async function getAdAccounts(token: string) {
 
 export const AD_ACCOUNT_ID_PATTERN = /^act_\d{1,20}$/;
 
+// cursor ধরে সব পাতা এনে একসাথে দেয় (সর্বোচ্চ maxPages পাতা)
+export async function graphGetAll<T>(
+  path: string,
+  params: Record<string, string>,
+  token: string,
+  maxPages = 20,
+) {
+  const items: T[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await graphRequest<{
+      data: T[];
+      paging?: { cursors?: { after?: string }; next?: string };
+    }>(path, { params: { ...params, ...(after ? { after } : {}) }, token });
+    items.push(...res.data);
+    after = res.paging?.cursors?.after;
+    if (!res.paging?.next || !after) break;
+  }
+  return items;
+}
+
 export async function getAdAccount(token: string, accountId: string) {
   return graphRequest<AdAccount>(`/${accountId}`, {
     params: { fields: "id,name,currency,timezone_name,account_status" },

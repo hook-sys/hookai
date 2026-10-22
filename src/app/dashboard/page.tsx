@@ -1,23 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  Eye,
-  Link2Off,
-  ListChecks,
-  MousePointerClick,
-  Receipt,
-  RefreshCw,
-  ShoppingCart,
-  Tag,
-  TimerOff,
-  TrendingUp,
-  UserPlus,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { AlertTriangle, Link2Off, ListChecks, RefreshCw, TimerOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import {
@@ -27,44 +10,49 @@ import {
   syncRecent,
   syncToday,
 } from "@/lib/insights/sync";
+import { buildPeriodReport, earliestDataDate, findDataWarnings } from "@/lib/insights/report";
 import {
-  buildPeriodReport,
-  earliestDataDate,
-  findDataWarnings,
-} from "@/lib/insights/report";
+  indicatorLabel,
+  loadBreakdown,
+  loadLiveReport,
+  type BreakdownRow,
+  type LiveReport,
+} from "@/lib/insights/live";
+import { isBreakdownId, type BreakdownId } from "@/lib/meta/rangeInsights";
 import {
   addDays,
+  daysInRange,
   formatRange,
   minAllowedDate,
+  previousRange,
+  rangeQuery,
   resolveRange,
   todayIn,
 } from "@/lib/dates";
 import { getLatestSummary } from "@/lib/ai/summary";
 import { getActiveAlerts } from "@/lib/alerts/store";
-import {
-  formatMoney,
-  formatNumber,
-  formatPercent,
-  formatRoas,
-} from "@/lib/format";
 import AppShell from "@/components/AppShell";
-import {
-  Badge,
-  Card,
-  EmptyState,
-  Notice,
-  PageHeader,
-  buttonClass,
-  cn,
-} from "@/components/ui";
+import { Card, EmptyState, Notice, PageHeader, buttonClass } from "@/components/ui";
 import { refreshInsights } from "./actions";
 import AiSummaryCard from "./AiSummaryCard";
 import AlertsCard from "./AlertsCard";
 import DateRangePicker from "./DateRangePicker";
+import {
+  BreakdownSection,
+  CampaignTable,
+  FunnelCard,
+  KpiGrid,
+  ViewTabs,
+  kpisFor,
+  parseView,
+  videoFunnel,
+  websiteFunnel,
+  type ViewId,
+} from "./views";
 
 export const metadata = { title: "ড্যাশবোর্ড" };
 
-// AI সারসংক্ষেপ তৈরিতে কখনো এক মিনিটের বেশি লাগতে পারে
+// AI সারসংক্ষেপ বা পুরনো ডাটা আনতে কখনো এক মিনিটের বেশি লাগতে পারে
 export const maxDuration = 120;
 
 const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger" }> = {
@@ -75,84 +63,20 @@ const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger"
   },
 };
 
-// ROAS ২ বা তার বেশি ভালো, ১-২ মাঝারি, ১-এর কম মানে খরচের চেয়ে কম বিক্রি
-function roasTone(roas: number | null) {
-  if (roas === null) return "neutral" as const;
-  if (roas >= 2) return "success" as const;
-  if (roas >= 1) return "warning" as const;
-  return "danger" as const;
-}
-
-type Change = { current: number | null; previous: number | null; goodWhenUp: boolean };
-
-// আগের সমান সময়ের তুলনায় শতকরা পরিবর্তন; খরচ বাড়া ভালো না খারাপ তা নির্ভর করে মেট্রিকের উপর
-function Delta({ change, label }: { change: Change; label: string }) {
-  const { current, previous, goodWhenUp } = change;
-  if (current === null || previous === null || previous === 0) return null;
-  const pct = ((current - previous) / previous) * 100;
-  if (!Number.isFinite(pct)) return null;
-
-  const up = pct >= 0;
-  const flat = Math.abs(pct) < 0.5;
-  const good = flat ? null : up === goodWhenUp;
-  const Icon = up ? ArrowUpRight : ArrowDownRight;
-
-  return (
-    <p
-      className={cn(
-        "mt-1 flex items-center gap-0.5 text-xs",
-        good === null
-          ? "text-zinc-400"
-          : good
-            ? "text-emerald-600 dark:text-emerald-400"
-            : "text-red-600 dark:text-red-400",
-      )}
-    >
-      {!flat && <Icon className="size-3.5" aria-hidden />}
-      {flat ? "প্রায় একই" : `${Math.abs(pct).toFixed(0)}%`}
-      <span className="text-zinc-400 dark:text-zinc-500"> · {label}</span>
-    </p>
-  );
-}
-
-function Kpi({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  change,
-  changeLabel,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  hint?: string;
-  change?: Change;
-  changeLabel: string;
-}) {
-  return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
-          <Icon className="size-4" aria-hidden />
-        </span>
-        {label}
-      </div>
-      <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50">
-        {value}
-      </p>
-      {change && <Delta change={change} label={changeLabel} />}
-      {hint && <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">{hint}</p>}
-    </Card>
-  );
-}
-
 type Props = {
-  searchParams: Promise<{ preset?: string; since?: string; until?: string; status?: string }>;
+  searchParams: Promise<{
+    preset?: string;
+    since?: string;
+    until?: string;
+    view?: string;
+    bd?: string;
+    status?: string;
+  }>;
 };
 
 export default async function DashboardPage({ searchParams }: Props) {
   const params = await searchParams;
+  const view = parseView(params.view);
 
   const supabase = await createClient();
   const {
@@ -173,8 +97,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     .maybeSingle();
 
   const expired =
-    connection?.token_expires_at &&
-    new Date(connection.token_expires_at) < new Date();
+    connection?.token_expires_at && new Date(connection.token_expires_at) < new Date();
 
   if (!connection || expired || !connection.selected_ad_account_id) {
     const empty = !connection
@@ -230,7 +153,7 @@ export default async function DashboardPage({ searchParams }: Props) {
     accountId,
   };
 
-  // গত ৩০ দিনের ডাটা না থাকলে বা পুরনো হলে খোলার সময়ই Meta থেকে নতুন করে আনে
+  // দিনভিত্তিক ডাটা (অ্যালার্ট, AI ও তুলনার জন্য): না থাকলে বা পুরনো হলে নতুন করে আনে
   const stale =
     !syncedAt || !timeZone || Date.now() - new Date(syncedAt).getTime() > STALE_AFTER_MS;
   let todayFresh = false;
@@ -241,8 +164,8 @@ export default async function DashboardPage({ searchParams }: Props) {
       accountName = account.name;
       timeZone = account.timezone_name;
       syncedAt = new Date().toISOString();
-      const today = todayIn(timeZone);
-      syncedFrom = syncedFrom && syncedFrom < addDays(today, -30) ? syncedFrom : addDays(today, -30);
+      const t = todayIn(timeZone);
+      syncedFrom = syncedFrom && syncedFrom < addDays(t, -30) ? syncedFrom : addDays(t, -30);
       todayFresh = true;
     } catch (err) {
       console.error("auto sync failed", err instanceof Error ? err.message : err);
@@ -258,9 +181,9 @@ export default async function DashboardPage({ searchParams }: Props) {
   );
   const isMaximum = range.preset === "maximum";
 
-  // পুরনো তারিখ বাছলে ডাটাবেসে না থাকা অংশ Meta থেকে আনে
   if (!syncError) {
     try {
+      // পুরনো তারিখ বাছলে ডাটাবেসে না থাকা অংশ Meta থেকে আনে
       if (await ensureCoverage(ctx, isMaximum ? minDate : range.since, syncedFrom, timeZone)) {
         syncedFrom = isMaximum ? minDate : range.since;
       }
@@ -282,26 +205,45 @@ export default async function DashboardPage({ searchParams }: Props) {
     ? ((await earliestDataDate(supabase, user.id, accountId)) ?? today)
     : range.since;
   const until = range.until;
-  const compare = !isMaximum;
+  // আজ অসম্পূর্ণ দিন, তাই আজকে-সহ ছোট সময়কে পুরো আগের দিনের সাথে তুলনা করলে ভুল ছবি আসে
+  const compare = !isMaximum && !(until >= today && daysInRange(since, until) < 7);
+  const prevRange = previousRange(since, until);
+  const breakdown: BreakdownId = isBreakdownId(params.bd) ? params.bd : "placement";
+
+  // Reach, Frequency, Result, বাজেট ও ব্রেকডাউন সরাসরি Meta থেকে (Ads Manager-এর সাথে মেলে)
+  let live: LiveReport | null = null;
+  let livePrev: LiveReport | null = null;
+  let breakdownRows: BreakdownRow[] = [];
+  let liveError: string | null = null;
+  try {
+    [live, livePrev] = await Promise.all([
+      loadLiveReport(ctx, { since, until }, today, currency),
+      compare ? loadLiveReport(ctx, prevRange, today, currency) : Promise.resolve(null),
+    ]);
+    if (view === "insights") {
+      breakdownRows = await loadBreakdown(ctx, { since, until }, today, breakdown, live.primaryIndicator);
+    }
+  } catch (err) {
+    console.error("live insights failed", err instanceof Error ? err.message : err);
+    liveError = "Meta থেকে এই তারিখের বিস্তারিত হিসাব আনা যায়নি। কিছুক্ষণ পরে রিফ্রেশ করো।";
+  }
 
   const [report, latestSummary, alerts] = await Promise.all([
     buildPeriodReport(supabase, user.id, accountId, { since, until }, { compare, dataFrom: syncedFrom }),
     getLatestSummary(supabase, user.id, accountId, { since, until }),
     getActiveAlerts(supabase, user.id, accountId, timeZone),
   ]);
-  const { current, previous } = report;
-  const total = current.total;
-  const m = current.m;
-  const prev = previous?.total;
-  const pm = previous?.m;
-  const warnings = findDataWarnings(current);
+  const warnings = findDataWarnings(report.current);
 
-  const money = (v: number | null) => formatMoney(v, currency);
   const status = params.status ? STATUS_MESSAGES[params.status] : undefined;
   const changeLabel = report.days === 1 ? "আগের দিনের তুলনায়" : `আগের ${report.days} দিনের তুলনায়`;
-  const change = (c: number | null, p: number | null | undefined, goodWhenUp: boolean) =>
-    previous ? { current: c, previous: p ?? null, goodWhenUp } : undefined;
   const includesToday = until >= today;
+
+  // তারিখ ঠিক রেখে ভিউ বা ব্রেকডাউন বদলানোর লিংক
+  const dateQuery = rangeQuery(range);
+  const href = (v: ViewId, bd?: BreakdownId) =>
+    `/dashboard?${dateQuery}&view=${v}${bd ? `&bd=${bd}` : ""}`;
+  const keepParams = { view, ...(view === "insights" ? { bd: breakdown } : {}) };
 
   const refreshButton = (
     <form action={refreshInsights}>
@@ -313,6 +255,9 @@ export default async function DashboardPage({ searchParams }: Props) {
       ) : (
         <input type="hidden" name="preset" value={range.preset} />
       )}
+      {Object.entries(keepParams).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
       <button type="submit" className={buttonClass("secondary")}>
         <RefreshCw className="size-4" aria-hidden />
         রিফ্রেশ
@@ -341,6 +286,7 @@ export default async function DashboardPage({ searchParams }: Props) {
               until={until}
               today={today}
               minDate={minDate}
+              keepParams={keepParams}
             />
             {refreshButton}
           </>
@@ -379,124 +325,43 @@ export default async function DashboardPage({ searchParams }: Props) {
         </Card>
       )}
 
-      <section aria-label="মূল হিসাব" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi
-          icon={Wallet}
-          label="খরচ"
-          value={money(total.spend)}
-          change={change(total.spend, prev?.spend, false)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={ShoppingCart}
-          label="Purchase"
-          value={formatNumber(total.purchases)}
-          change={change(total.purchases, prev?.purchases, true)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={Receipt}
-          label="Cost per Purchase"
-          value={money(m.costPerPurchase)}
-          change={change(m.costPerPurchase, pm?.costPerPurchase, false)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={TrendingUp}
-          label="ROAS"
-          value={formatRoas(m.roas)}
-          hint={`Purchase মূল্য ${money(total.purchaseValue)}`}
-          change={change(m.roas, pm?.roas, true)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={UserPlus}
-          label="Lead"
-          value={formatNumber(total.leads)}
-          change={change(total.leads, prev?.leads, true)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={Tag}
-          label="Cost per Lead"
-          value={money(m.costPerLead)}
-          change={change(m.costPerLead, pm?.costPerLead, false)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={MousePointerClick}
-          label="CTR"
-          value={formatPercent(m.ctr)}
-          hint={`${formatNumber(total.clicks)} ক্লিক`}
-          change={change(m.ctr, pm?.ctr, true)}
-          changeLabel={changeLabel}
-        />
-        <Kpi
-          icon={Eye}
-          label="CPM"
-          value={money(m.cpm)}
-          hint={`${formatNumber(total.impressions)} impression`}
-          change={change(m.cpm, pm?.cpm, false)}
-          changeLabel={changeLabel}
-        />
-      </section>
+      <ViewTabs view={view} hrefFor={(v) => href(v, v === "insights" ? breakdown : undefined)} />
 
-      <Card className="mt-6 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">ক্যাম্পেইন</h2>
-          <Badge>{current.campaigns.length}টি সক্রিয়</Badge>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
-              <tr>
-                <th scope="col" className="px-5 py-3">ক্যাম্পেইন</th>
-                <th scope="col" className="px-3 py-3 text-right">খরচ</th>
-                <th scope="col" className="px-3 py-3 text-right">Purchase</th>
-                <th scope="col" className="px-3 py-3 text-right">Cost/Purchase</th>
-                <th scope="col" className="px-3 py-3 text-right">ROAS</th>
-                <th scope="col" className="px-3 py-3 text-right">Lead</th>
-                <th scope="col" className="px-3 py-3 text-right">Cost/Lead</th>
-                <th scope="col" className="px-3 py-3 text-right">CTR</th>
-                <th scope="col" className="px-5 py-3 text-right">CPC</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {current.campaigns.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-5 py-10 text-center text-zinc-500">
-                    এই সময়ে কোনো ক্যাম্পেইনে খরচ হয়নি।
-                  </td>
-                </tr>
-              )}
-              {current.campaigns.map((c) => (
-                <tr key={c.id} className="tabular-nums hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                  <td
-                    className="max-w-xs truncate px-5 py-3 font-medium text-zinc-900 dark:text-zinc-100"
-                    title={c.name}
-                  >
-                    {c.name}
-                  </td>
-                  <td className="px-3 py-3 text-right">{money(c.totals.spend)}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(c.totals.purchases)}</td>
-                  <td className="px-3 py-3 text-right">{money(c.m.costPerPurchase)}</td>
-                  <td className="px-3 py-3 text-right">
-                    <Badge tone={roasTone(c.m.roas)}>{formatRoas(c.m.roas)}</Badge>
-                  </td>
-                  <td className="px-3 py-3 text-right">{formatNumber(c.totals.leads)}</td>
-                  <td className="px-3 py-3 text-right">{money(c.m.costPerLead)}</td>
-                  <td className="px-3 py-3 text-right">{formatPercent(c.m.ctr)}</td>
-                  <td className="px-5 py-3 text-right">{money(c.m.cpc)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {liveError && <Notice tone="warning">{liveError}</Notice>}
+
+      {live && (
+        <>
+          <KpiGrid
+            defs={kpisFor(view)}
+            report={live}
+            previous={livePrev}
+            currency={currency}
+            changeLabel={changeLabel}
+          />
+
+          {view === "video" && (
+            <FunnelCard title="ভিডিও কতটা দেখা হচ্ছে" steps={videoFunnel(live.account)} />
+          )}
+          {view === "website" && (
+            <FunnelCard title="ওয়েবসাইটে কেনাকাটার ধাপ" steps={websiteFunnel(live.account)} />
+          )}
+          {view === "insights" && (
+            <BreakdownSection
+              breakdown={breakdown}
+              rows={breakdownRows}
+              resultLabel={indicatorLabel(live.primaryIndicator)}
+              currency={currency}
+              hrefFor={(bd) => href("insights", bd)}
+            />
+          )}
+
+          <CampaignTable view={view} campaigns={live.campaigns} currency={currency} />
+        </>
+      )}
 
       <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
-        শেষ আপডেট: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} · ডাটা
-        প্রতি ৬ ঘণ্টায় নিজে থেকে আপডেট হয়
+        শেষ আপডেট: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} · Reach,
+        Frequency, Result ও ব্রেকডাউন সরাসরি Meta থেকে (আজ/গতকাল ১৫ মিনিট, পুরনো তারিখ ৬ ঘণ্টা পর পর নতুন)
       </p>
     </AppShell>
   );
