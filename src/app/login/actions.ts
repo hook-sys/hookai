@@ -1,0 +1,104 @@
+"use server";
+
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+export type AuthState = { error?: string; message?: string } | null;
+
+// Supabase-এর ত্রুটি কোড থেকে ব্যবহারকারী-বান্ধব বার্তা।
+// লগইনে "ইমেইল আছে কিনা" আলাদা করে বলা হয় না, যাতে অ্যাকাউন্ট খোঁজা না যায়।
+function authErrorMessage(code: string | undefined, fallback: string) {
+  switch (code) {
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করো।";
+    case "email_address_invalid":
+      return "ইমেইল ঠিকানাটি গ্রহণযোগ্য নয়।";
+    case "weak_password":
+      return "পাসওয়ার্ড দুর্বল। আরও লম্বা ও জটিল পাসওয়ার্ড দাও।";
+    case "user_already_exists":
+      return "এই ইমেইল দিয়ে আগে থেকেই অ্যাকাউন্ট আছে। লগইন করো।";
+    default:
+      return fallback;
+  }
+}
+
+// ইমেইল নিশ্চিতকরণ লিংকের ঠিকানা। env না থাকলে রিকোয়েস্টের origin ব্যবহার হয়।
+async function getSiteUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  const origin = (await headers()).get("origin");
+  if (origin) return origin;
+
+  throw new Error("NEXT_PUBLIC_SITE_URL সেট করা নেই");
+}
+
+export async function signIn(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return {
+      error: authErrorMessage(
+        error.code,
+        "ইমেইল বা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করো।",
+      ),
+    };
+  }
+
+  redirect("/dashboard");
+}
+
+export async function signUp(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 8) {
+    return { error: "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।" };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${await getSiteUrl()}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    return {
+      error: authErrorMessage(
+        error.code,
+        "অ্যাকাউন্ট তৈরি করা যায়নি। আবার চেষ্টা করো।",
+      ),
+    };
+  }
+
+  // ইমেইল নিশ্চিতকরণ বন্ধ থাকলে Supabase সাথে সাথেই session দেয়
+  if (data.session) {
+    redirect("/dashboard");
+  }
+
+  return {
+    message:
+      "অ্যাকাউন্ট তৈরি হয়েছে। ইমেইলে আসা লিংকে ক্লিক করে নিশ্চিত করো, তারপর লগইন করো।",
+  };
+}
+
+export async function signOut() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
