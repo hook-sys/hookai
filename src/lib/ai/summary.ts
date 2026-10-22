@@ -26,14 +26,26 @@ export type StoredSummary = {
 const SYSTEM_PROMPT = `You are a senior Meta (Facebook/Instagram) ads performance analyst helping a small business owner in Bangladesh.
 
 You receive ad performance data as JSON. All numbers are already calculated correctly by code.
+
 Rules:
 - Use ONLY numbers present in the data. Never invent, estimate or recalculate figures.
-- Write every text field in simple, friendly Bengali (Bangla). Keep metric names (Spend, CPA, ROAS, CTR, CPC, CPM, Purchase, Lead) and campaign names exactly as given.
+- Write EVERY text field in simple, friendly Bengali (Bangla), including recommendation "action". Keep only metric names (Spend, Cost per Purchase, ROAS, CTR, CPC, CPM, Purchase, Lead) and campaign names exactly as given.
 - Address the reader as "তুমি".
+- "headline": one specific sentence with the single most important takeaway and a number (not a generic title like "performance report").
 - If "previous" is present, compare current vs previous period and mention the important changes with numbers.
-- If "data_warnings" is not empty, treat those campaigns' ROAS / purchase value as unreliable: do not praise or blame them on ROAS, and mention fixing tracking in concerns.
-- Recommendations must be concrete actions on named campaigns (pause, scale budget, refresh creative, fix tracking, test audience), each with a short data-based reason.
-- Be concise: overview 2-3 sentences; at most 4 highlights, 4 concerns and 5 recommendations.
+
+Unreliable data:
+- "data_warnings" lists campaigns whose purchase value (and therefore ROAS) is unreliable, per period.
+- For those campaigns and for the account totals they affect, NEVER mention ROAS or purchase value as good news or as a reason for any action. Judge them on Cost per Purchase, Purchase count, CTR and Cost per Lead instead.
+- Put fixing the tracking in "concerns" and as one recommendation.
+
+Recommendations:
+- Only for campaigns listed in "current.campaigns" (they are running now). Never recommend actions for campaigns that only appear in "previous".
+- "action" is a short Bengali instruction, e.g. "বাজেট ২০% বাড়াও", "ক্যাম্পেইন বন্ধ করো", "নতুন ক্রিয়েটিভ পরীক্ষা করো", "Purchase ট্র্যাকিং ঠিক করো". Use "campaign": null only for account-wide actions.
+- Each "reason" cites the specific numbers behind it.
+- "high" priority only for money being wasted now or broken tracking.
+
+Be concise: overview 2-3 sentences; at most 4 highlights, 4 concerns and 5 recommendations.
 
 Respond with ONLY one JSON object, no markdown, no code fences, matching exactly:
 {"headline": string, "overview": string, "highlights": string[], "concerns": string[], "recommendations": [{"action": string, "campaign": string | null, "reason": string, "priority": "high" | "medium" | "low"}]}`;
@@ -72,11 +84,16 @@ function periodJson(p: PeriodStats) {
   };
 }
 
+export type PeriodWarnings = { current: DataWarning[]; previous: DataWarning[] };
+
 export function buildPrompt(
   report: PeriodReport,
   account: { name: string; currency: string | null },
-  warnings: DataWarning[],
+  warnings: PeriodWarnings,
 ) {
+  const warningJson = (period: string, list: DataWarning[]) =>
+    list.map((w) => ({ period, issue: w.title, campaigns: w.campaigns }));
+
   const data = {
     ad_account: account.name,
     currency: account.currency ?? "unknown",
@@ -84,7 +101,10 @@ export function buildPrompt(
     note: "Dates exclude today because today's data is incomplete. null means not computable (division by zero).",
     current: periodJson(report.current),
     previous: report.previous ? periodJson(report.previous) : null,
-    data_warnings: warnings.map((w) => ({ issue: w.title, campaigns: w.campaigns })),
+    data_warnings: [
+      ...warningJson("current", warnings.current),
+      ...warningJson("previous", warnings.previous),
+    ],
   };
   return `Analyze this Meta ads data and respond with the JSON object only.\n\n${JSON.stringify(data)}`;
 }
@@ -150,7 +170,7 @@ export async function generateAndStoreSummary(
   accountId: string,
   report: PeriodReport,
   account: { name: string; currency: string | null },
-  warnings: DataWarning[],
+  warnings: PeriodWarnings,
 ): Promise<StoredSummary> {
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: recent } = await supabase
@@ -177,7 +197,16 @@ export async function generateAndStoreSummary(
     prompt: buildPrompt(report, account, warnings),
     maxTokens: 8000,
   });
-  const content = parseSummary(text);
+  const parsed = parseSummary(text);
+
+  // AI নির্দেশ না মানলেও এখন বন্ধ থাকা ক্যাম্পেইনের সুপারিশ ব্যবহারকারী দেখবে না
+  const running = new Set(report.current.campaigns.map((c) => c.name.trim().toLowerCase()));
+  const content: AiSummary = {
+    ...parsed,
+    recommendations: parsed.recommendations.filter(
+      (r) => r.campaign === null || running.has(r.campaign.trim().toLowerCase()),
+    ),
+  };
 
   const { data, error } = await supabase
     .from("ai_summaries")

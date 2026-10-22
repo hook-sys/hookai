@@ -84,7 +84,10 @@ export async function generateAiSummary(
         name: connection.selected_ad_account_name ?? accountId,
         currency: connection.selected_ad_account_currency,
       },
-      findDataWarnings(report.current),
+      {
+        current: findDataWarnings(report.current),
+        previous: report.previous ? findDataWarnings(report.previous) : [],
+      },
     );
     return { ok: true, summary };
   } catch (err) {
