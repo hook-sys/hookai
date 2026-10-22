@@ -1,7 +1,21 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  Eye,
+  Link2Off,
+  ListChecks,
+  MousePointerClick,
+  Receipt,
+  RefreshCw,
+  ShoppingCart,
+  Tag,
+  TimerOff,
+  TrendingUp,
+  UserPlus,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { STALE_AFTER_MS, syncInsights } from "@/lib/insights/sync";
@@ -17,17 +31,28 @@ import {
   formatPercent,
   formatRoas,
 } from "@/lib/format";
-import AppHeader from "@/components/AppHeader";
+import AppShell from "@/components/AppShell";
+import {
+  Badge,
+  Card,
+  EmptyState,
+  Notice,
+  PageHeader,
+  buttonClass,
+  cn,
+} from "@/components/ui";
 import { refreshInsights } from "./actions";
+
+export const metadata = { title: "ড্যাশবোর্ড" };
 
 const RANGES = [7, 14, 30] as const;
 type Range = (typeof RANGES)[number];
 
-const STATUS_MESSAGES: Record<string, { text: string; tone: string }> = {
-  refreshed: { text: "ডাটা রিফ্রেশ হয়েছে।", tone: "text-emerald-600" },
+const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger" }> = {
+  refreshed: { text: "ডাটা রিফ্রেশ হয়েছে।", tone: "success" },
   refresh_error: {
     text: "Meta থেকে ডাটা আনা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।",
-    tone: "text-red-600",
+    tone: "danger",
   },
 };
 
@@ -91,29 +116,38 @@ function toTotals(r: InsightRow): Totals {
   };
 }
 
-function MessageCard({ text, href, cta }: { text: string; href: string; cta: string }) {
-  return (
-    <section className="max-w-xl rounded-2xl bg-white p-6 shadow-sm dark:bg-zinc-900">
-      <p className="mb-4 text-sm text-zinc-700 dark:text-zinc-300">{text}</p>
-      <Link
-        href={href}
-        className="inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-900"
-      >
-        {cta}
-      </Link>
-    </section>
-  );
+// ROAS ২ বা তার বেশি ভালো, ১-২ মাঝারি, ১-এর কম মানে খরচের চেয়ে কম বিক্রি
+function roasTone(roas: number | null) {
+  if (roas === null) return "neutral" as const;
+  if (roas >= 2) return "success" as const;
+  if (roas >= 1) return "warning" as const;
+  return "danger" as const;
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
+    <Card className="p-4 sm:p-5">
+      <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+          <Icon className="size-4" aria-hidden />
+        </span>
+        {label}
+      </div>
+      <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50">
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-zinc-400">{hint}</p>}
-    </div>
+      {hint && <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">{hint}</p>}
+    </Card>
   );
 }
 
@@ -147,39 +181,44 @@ export default async function DashboardPage({ searchParams }: Props) {
     connection?.token_expires_at &&
     new Date(connection.token_expires_at) < new Date();
 
-  const header = <AppHeader active="dashboard" />;
-  const wrap = (body: ReactNode) => (
-    <main className="min-h-screen bg-zinc-50 p-6 dark:bg-zinc-950">
-      {header}
-      {body}
-    </main>
+  const settingsButton = (label: string) => (
+    <Link href="/settings" className={buttonClass("primary")}>
+      {label}
+    </Link>
   );
 
-  if (!connection) {
-    return wrap(
-      <MessageCard
-        text="বিজ্ঞাপনের হিসাব দেখতে প্রথমে তোমার Meta অ্যাকাউন্ট কানেক্ট করো।"
-        href="/settings"
-        cta="সেটিংসে যাও"
-      />,
-    );
-  }
-  if (expired) {
-    return wrap(
-      <MessageCard
-        text="Meta সংযোগের মেয়াদ শেষ হয়ে গেছে। সেটিংস থেকে আবার কানেক্ট করো।"
-        href="/settings"
-        cta="সেটিংসে যাও"
-      />,
-    );
-  }
-  if (!connection.selected_ad_account_id) {
-    return wrap(
-      <MessageCard
-        text="কোন Ad Account-এর হিসাব দেখবে সেটি সেটিংস থেকে বেছে নাও।"
-        href="/settings"
-        cta="Ad Account বেছে নাও"
-      />,
+  if (!connection || expired || !connection.selected_ad_account_id) {
+    const empty = !connection
+      ? {
+          icon: Link2Off,
+          title: "Meta অ্যাকাউন্ট কানেক্ট করা নেই",
+          text: "বিজ্ঞাপনের হিসাব দেখতে প্রথমে তোমার Meta অ্যাকাউন্ট কানেক্ট করো।",
+          cta: "কানেক্ট করতে সেটিংসে যাও",
+        }
+      : expired
+        ? {
+            icon: TimerOff,
+            title: "Meta সংযোগের মেয়াদ শেষ",
+            text: "নিরাপত্তার জন্য Meta সংযোগ কিছুদিন পর পর নবায়ন করতে হয়। সেটিংস থেকে আবার কানেক্ট করো।",
+            cta: "আবার কানেক্ট করো",
+          }
+        : {
+            icon: ListChecks,
+            title: "Ad Account বেছে নাও",
+            text: "কোন Ad Account-এর হিসাব দেখবে সেটি সেটিংস থেকে বেছে নাও।",
+            cta: "Ad Account বেছে নাও",
+          };
+
+    return (
+      <AppShell active="dashboard">
+        <PageHeader title="ড্যাশবোর্ড" />
+        <EmptyState
+          icon={empty.icon}
+          title={empty.title}
+          text={empty.text}
+          action={settingsButton(empty.cta)}
+        />
+      </AppShell>
     );
   }
 
@@ -241,112 +280,143 @@ export default async function DashboardPage({ searchParams }: Props) {
   const money = (v: number | null) => formatMoney(v, currency);
   const status = params.status ? STATUS_MESSAGES[params.status] : undefined;
 
-  return wrap(
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {accountName ?? accountId}
-          </h1>
-          <p className="text-sm text-zinc-500">
-            {accountId} · গত {range} দিন ({since} থেকে {until}, আজ বাদে)
-          </p>
-        </div>
+  const rangePicker = (
+    <nav
+      aria-label="সময়সীমা"
+      className="flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      {RANGES.map((r) => (
+        <Link
+          key={r}
+          href={`/dashboard?range=${r}`}
+          aria-current={r === range ? "page" : undefined}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            r === range
+              ? "bg-indigo-600 text-white dark:bg-indigo-500"
+              : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800",
+          )}
+        >
+          {r} দিন
+        </Link>
+      ))}
+    </nav>
+  );
 
-        <div className="flex flex-wrap items-center gap-2">
-          <nav className="flex gap-1 rounded-lg bg-white p-1 shadow-sm dark:bg-zinc-900">
-            {RANGES.map((r) => (
-              <Link
-                key={r}
-                href={`/dashboard?range=${r}`}
-                className={`rounded-md px-3 py-1 text-sm ${
-                  r === range
-                    ? "bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900"
-                    : "text-zinc-600 dark:text-zinc-400"
-                }`}
-              >
-                {r} দিন
-              </Link>
-            ))}
-          </nav>
-          <form action={refreshInsights}>
-            <input type="hidden" name="range" value={range} />
-            <button
-              type="submit"
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              ডাটা রিফ্রেশ
-            </button>
-          </form>
-        </div>
-      </div>
+  const refreshButton = (
+    <form action={refreshInsights}>
+      <input type="hidden" name="range" value={range} />
+      <button type="submit" className={buttonClass("secondary")}>
+        <RefreshCw className="size-4" aria-hidden />
+        রিফ্রেশ
+      </button>
+    </form>
+  );
 
-      {(status || syncError) && (
-        <p className={`text-sm ${syncError ? "text-amber-600" : status?.tone}`}>
-          {syncError ?? status?.text}
-        </p>
-      )}
+  return (
+    <AppShell active="dashboard">
+      <PageHeader
+        title={accountName ?? accountId}
+        description={
+          <>
+            <span className="font-mono text-xs">{accountId}</span> · গত {range} দিন ({since}{" "}
+            থেকে {until}, আজ বাদে)
+          </>
+        }
+        actions={
+          <>
+            {rangePicker}
+            {refreshButton}
+          </>
+        }
+      />
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="খরচ (Spend)" value={money(total.spend)} />
-        <Kpi label="Purchase" value={formatNumber(total.purchases)} />
-        <Kpi label="Cost per Purchase" value={money(m.costPerPurchase)} />
-        <Kpi label="ROAS" value={formatRoas(m.roas)} hint={`Purchase মূল্য ${money(total.purchaseValue)}`} />
-        <Kpi label="Lead" value={formatNumber(total.leads)} />
-        <Kpi label="Cost per Lead" value={money(m.costPerLead)} />
-        <Kpi label="CTR" value={formatPercent(m.ctr)} hint={`${formatNumber(total.clicks)} ক্লিক`} />
-        <Kpi label="CPM" value={money(m.cpm)} hint={`${formatNumber(total.impressions)} impression`} />
+      {syncError && <Notice tone="warning">{syncError}</Notice>}
+      {!syncError && status && <Notice tone={status.tone}>{status.text}</Notice>}
+
+      <section aria-label="মূল হিসাব" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Kpi icon={Wallet} label="খরচ" value={money(total.spend)} />
+        <Kpi icon={ShoppingCart} label="Purchase" value={formatNumber(total.purchases)} />
+        <Kpi icon={Receipt} label="Cost per Purchase" value={money(m.costPerPurchase)} />
+        <Kpi
+          icon={TrendingUp}
+          label="ROAS"
+          value={formatRoas(m.roas)}
+          hint={`Purchase মূল্য ${money(total.purchaseValue)}`}
+        />
+        <Kpi icon={UserPlus} label="Lead" value={formatNumber(total.leads)} />
+        <Kpi icon={Tag} label="Cost per Lead" value={money(m.costPerLead)} />
+        <Kpi
+          icon={MousePointerClick}
+          label="CTR"
+          value={formatPercent(m.ctr)}
+          hint={`${formatNumber(total.clicks)} ক্লিক`}
+        />
+        <Kpi
+          icon={Eye}
+          label="CPM"
+          value={money(m.cpm)}
+          hint={`${formatNumber(total.impressions)} impression`}
+        />
       </section>
 
-      <section className="overflow-x-auto rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-zinc-800">
-              <th className="p-3 font-medium">ক্যাম্পেইন</th>
-              <th className="p-3 text-right font-medium">খরচ</th>
-              <th className="p-3 text-right font-medium">Purchase</th>
-              <th className="p-3 text-right font-medium">Cost/Purchase</th>
-              <th className="p-3 text-right font-medium">ROAS</th>
-              <th className="p-3 text-right font-medium">Lead</th>
-              <th className="p-3 text-right font-medium">Cost/Lead</th>
-              <th className="p-3 text-right font-medium">CTR</th>
-              <th className="p-3 text-right font-medium">CPC</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campaigns.length === 0 && (
+      <Card className="mt-6 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">ক্যাম্পেইন</h2>
+          <Badge>{campaigns.length}টি সক্রিয়</Badge>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
               <tr>
-                <td colSpan={9} className="p-6 text-center text-zinc-500">
-                  এই সময়ে কোনো ক্যাম্পেইনে খরচ হয়নি।
-                </td>
+                <th scope="col" className="px-5 py-3">ক্যাম্পেইন</th>
+                <th scope="col" className="px-3 py-3 text-right">খরচ</th>
+                <th scope="col" className="px-3 py-3 text-right">Purchase</th>
+                <th scope="col" className="px-3 py-3 text-right">Cost/Purchase</th>
+                <th scope="col" className="px-3 py-3 text-right">ROAS</th>
+                <th scope="col" className="px-3 py-3 text-right">Lead</th>
+                <th scope="col" className="px-3 py-3 text-right">Cost/Lead</th>
+                <th scope="col" className="px-3 py-3 text-right">CTR</th>
+                <th scope="col" className="px-5 py-3 text-right">CPC</th>
               </tr>
-            )}
-            {campaigns.map((c) => (
-              <tr
-                key={c.id}
-                className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
-              >
-                <td className="max-w-xs truncate p-3 text-zinc-900 dark:text-zinc-100" title={c.name}>
-                  {c.name}
-                </td>
-                <td className="p-3 text-right tabular-nums">{money(c.totals.spend)}</td>
-                <td className="p-3 text-right tabular-nums">{formatNumber(c.totals.purchases)}</td>
-                <td className="p-3 text-right tabular-nums">{money(c.m.costPerPurchase)}</td>
-                <td className="p-3 text-right tabular-nums">{formatRoas(c.m.roas)}</td>
-                <td className="p-3 text-right tabular-nums">{formatNumber(c.totals.leads)}</td>
-                <td className="p-3 text-right tabular-nums">{money(c.m.costPerLead)}</td>
-                <td className="p-3 text-right tabular-nums">{formatPercent(c.m.ctr)}</td>
-                <td className="p-3 text-right tabular-nums">{money(c.m.cpc)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {campaigns.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-5 py-10 text-center text-zinc-500">
+                    এই সময়ে কোনো ক্যাম্পেইনে খরচ হয়নি।
+                  </td>
+                </tr>
+              )}
+              {campaigns.map((c) => (
+                <tr key={c.id} className="tabular-nums hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <td
+                    className="max-w-xs truncate px-5 py-3 font-medium text-zinc-900 dark:text-zinc-100"
+                    title={c.name}
+                  >
+                    {c.name}
+                  </td>
+                  <td className="px-3 py-3 text-right">{money(c.totals.spend)}</td>
+                  <td className="px-3 py-3 text-right">{formatNumber(c.totals.purchases)}</td>
+                  <td className="px-3 py-3 text-right">{money(c.m.costPerPurchase)}</td>
+                  <td className="px-3 py-3 text-right">
+                    <Badge tone={roasTone(c.m.roas)}>{formatRoas(c.m.roas)}</Badge>
+                  </td>
+                  <td className="px-3 py-3 text-right">{formatNumber(c.totals.leads)}</td>
+                  <td className="px-3 py-3 text-right">{money(c.m.costPerLead)}</td>
+                  <td className="px-3 py-3 text-right">{formatPercent(c.m.ctr)}</td>
+                  <td className="px-5 py-3 text-right">{money(c.m.cpc)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-      <p className="text-xs text-zinc-400">
-        শেষ আপডেট: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} ·
-        ডাটা প্রতি ৬ ঘণ্টায় নিজে থেকে আপডেট হয়
+      <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
+        শেষ আপডেট: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} · ডাটা
+        প্রতি ৬ ঘণ্টায় নিজে থেকে আপডেট হয়
       </p>
-    </div>,
+    </AppShell>
   );
 }

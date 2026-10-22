@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
+@theme {
+  /* Inter-এ বাংলা অক্ষর নেই, তাই বাংলা অক্ষর আপনাআপনি Hind Siliguri থেকে আসে */
+  --font-sans: var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui,
+    sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* স্ক্রলবার, ফর্ম কন্ট্রোল ইত্যাদি ব্রাউজারের নিজস্ব UI-ও লাইট/ডার্ক মোড মানবে */
+  color-scheme: light dark;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --brand-light: #4f46e5; /* indigo-600 */
+  --brand-dark: #818cf8; /* indigo-400 */
+  --brand: var(--brand-light);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @media (prefers-color-scheme: dark) {
+    --brand: var(--brand-dark);
   }
+
+  /* রেডিও বাটন ও চেকবক্সে ব্র্যান্ডের রং */
+  accent-color: var(--brand);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+::selection {
+  @apply bg-indigo-200 text-indigo-950 dark:bg-indigo-800 dark:text-indigo-50;
 }

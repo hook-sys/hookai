@@ -1,26 +1,33 @@
 import { notFound } from "next/navigation";
+import { Bot, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
-import { AI_PROVIDERS, AI_PROVIDER_IDS } from "@/lib/ai/providers";
-import AppHeader from "@/components/AppHeader";
+import { AI_PROVIDERS, AI_PROVIDER_IDS, isAiProvider } from "@/lib/ai/providers";
+import AppShell from "@/components/AppShell";
+import {
+  Badge,
+  Card,
+  Notice,
+  PageHeader,
+  buttonClass,
+  cn,
+  inputClass,
+} from "@/components/ui";
 import { activateProvider, removeProviderKey, saveProviderConfig } from "./actions";
 import TestButton from "./TestButton";
 
-const STATUS: Record<string, { text: string; tone: string }> = {
-  saved: { text: "সংরক্ষণ হয়েছে।", tone: "text-emerald-600" },
-  activated: { text: "চালু করা হয়েছে। এখন থেকে সব AI কাজ এটি দিয়ে হবে।", tone: "text-emerald-600" },
-  removed: { text: "কী মুছে ফেলা হয়েছে।", tone: "text-zinc-600" },
-  no_key: { text: "আগে API key সংরক্ষণ করো, তারপর চালু করো।", tone: "text-amber-600" },
-  bad_model: { text: "মডেলের নাম সঠিক নয়।", tone: "text-red-600" },
-  bad_key: { text: "API key অস্বাভাবিক লম্বা।", tone: "text-red-600" },
-  error: { text: "সংরক্ষণ করা যায়নি। আবার চেষ্টা করো।", tone: "text-red-600" },
-};
+export const metadata = { title: "সুপার অ্যাডমিন" };
 
-const input =
-  "rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
-const primary =
-  "w-fit rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-900";
+const STATUS: Record<string, { text: string; tone: "success" | "warning" | "danger" | "info" }> = {
+  saved: { text: "সংরক্ষণ হয়েছে।", tone: "success" },
+  activated: { text: "চালু করা হয়েছে। এখন থেকে সব AI কাজ এটি দিয়ে হবে।", tone: "success" },
+  removed: { text: "কী মুছে ফেলা হয়েছে।", tone: "info" },
+  no_key: { text: "আগে API key সংরক্ষণ করো, তারপর চালু করো।", tone: "warning" },
+  bad_model: { text: "মডেলের নাম সঠিক নয়।", tone: "danger" },
+  bad_key: { text: "API key অস্বাভাবিক লম্বা।", tone: "danger" },
+  error: { text: "সংরক্ষণ করা যায়নি। আবার চেষ্টা করো।", tone: "danger" },
+};
 
 // কী-এর শেষ ৪ অক্ষর, যাতে কোন কী বসানো আছে চেনা যায়
 function keyTail(encrypted: string | null) {
@@ -50,38 +57,35 @@ export default async function AdminAiPage({ searchParams }: Props) {
   ]);
 
   const byProvider = new Map((configs ?? []).map((c) => [c.provider, c]));
-  const active = settings?.active_provider ?? null;
+  const active =
+    settings?.active_provider && isAiProvider(settings.active_provider)
+      ? settings.active_provider
+      : null;
   const status = params.status ? STATUS[params.status] : undefined;
+  const statusProvider =
+    params.provider && isAiProvider(params.provider) ? AI_PROVIDERS[params.provider].label : null;
 
   return (
-    <main className="min-h-screen bg-zinc-50 p-6 dark:bg-zinc-950">
-      <AppHeader active="admin" />
+    <AppShell active="admin">
+      <PageHeader
+        title="AI প্রোভাইডার"
+        description="যে প্রোভাইডার চালু থাকবে, অ্যাপের সব AI কাজ (সারসংক্ষেপ, সুপারিশ) সেটি দিয়েই হবে। কী এনক্রিপ্ট করে রাখা হয়, ব্রাউজারে কখনো পাঠানো হয় না।"
+        actions={
+          <Badge tone={active ? "success" : "warning"}>
+            <Bot className="size-3.5" aria-hidden />
+            {active ? `চালু: ${AI_PROVIDERS[active].label}` : "কোনো প্রোভাইডার চালু নেই"}
+          </Badge>
+        }
+      />
 
-      <div className="mb-6 max-w-3xl">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          সুপার অ্যাডমিন: AI প্রোভাইডার
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          যে প্রোভাইডার চালু থাকবে, অ্যাপের সব AI কাজ (সারসংক্ষেপ, সুপারিশ) সেটি দিয়েই হবে।
-          কী এনক্রিপ্ট করে রাখা হয় এবং ব্রাউজারে কখনো পাঠানো হয় না।
-        </p>
-        <p className="mt-3 text-sm">
-          এখন চালু:{" "}
-          <span className="font-medium text-zinc-900 dark:text-zinc-50">
-            {active ? AI_PROVIDERS[active as keyof typeof AI_PROVIDERS]?.label ?? active : "কোনোটি না"}
-          </span>
-        </p>
-        {status && (
-          <p className={`mt-2 text-sm ${status.tone}`}>
-            {params.provider && AI_PROVIDERS[params.provider as keyof typeof AI_PROVIDERS]
-              ? `${AI_PROVIDERS[params.provider as keyof typeof AI_PROVIDERS].label}: `
-              : ""}
-            {status.text}
-          </p>
-        )}
-      </div>
+      {status && (
+        <Notice tone={status.tone}>
+          {statusProvider && `${statusProvider}: `}
+          {status.text}
+        </Notice>
+      )}
 
-      <div className="grid max-w-5xl gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {AI_PROVIDER_IDS.map((id) => {
           const meta = AI_PROVIDERS[id];
           const cfg = byProvider.get(id);
@@ -89,81 +93,87 @@ export default async function AdminAiPage({ searchParams }: Props) {
           const isActive = active === id;
 
           return (
-            <section
+            <Card
               key={id}
-              className={`flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm dark:bg-zinc-900 ${
-                isActive ? "ring-2 ring-emerald-500" : ""
-              }`}
+              className={cn(
+                "flex flex-col",
+                isActive && "ring-2 ring-indigo-500 dark:ring-indigo-400",
+              )}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-50">
+              <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+                <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
                   {meta.label}
                 </h2>
-                {isActive && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
-                    চালু
-                  </span>
+                {isActive ? (
+                  <Badge tone="success">চালু</Badge>
+                ) : tail ? (
+                  <Badge tone="brand">কী সেট আছে</Badge>
+                ) : (
+                  <Badge>সেট নেই</Badge>
                 )}
               </div>
 
-              <p className="text-xs text-zinc-500">
-                API key: {tail ? `সেট আছে (…${tail})` : "সেট নেই"} · কোথায় পাবে: {meta.keyHint}
-              </p>
+              <div className="flex flex-1 flex-col gap-4 px-5 py-5">
+                <p className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <KeyRound className="size-3.5" aria-hidden />
+                  {tail ? `বর্তমান কী …${tail}` : "কী বসানো নেই"} · কোথায় পাবে: {meta.keyHint}
+                </p>
 
-              <form action={saveProviderConfig} className="flex flex-col gap-3">
-                <input type="hidden" name="provider" value={id} />
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-zinc-700 dark:text-zinc-300">API key</span>
-                  <input
-                    name="apiKey"
-                    type="password"
-                    autoComplete="off"
-                    placeholder={tail ? "নতুন কী দিলে আগেরটি বদলাবে" : "কী বসাও"}
-                    className={input}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-zinc-700 dark:text-zinc-300">মডেল</span>
-                  <input
-                    name="model"
-                    defaultValue={cfg?.model ?? ""}
-                    placeholder={meta.defaultModel}
-                    className={input}
-                  />
-                  <span className="text-xs text-zinc-400">
-                    খালি রাখলে {meta.defaultModel} · {meta.modelHint}
-                  </span>
-                </label>
-                <button type="submit" className={primary}>
-                  সংরক্ষণ করো
-                </button>
-              </form>
+                <form action={saveProviderConfig} className="flex flex-col gap-3">
+                  <input type="hidden" name="provider" value={id} />
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">API key</span>
+                    <input
+                      name="apiKey"
+                      type="password"
+                      autoComplete="off"
+                      placeholder={tail ? "নতুন কী দিলে আগেরটি বদলাবে" : "কী বসাও"}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">মডেল</span>
+                    <input
+                      name="model"
+                      defaultValue={cfg?.model ?? ""}
+                      placeholder={meta.defaultModel}
+                      className={cn(inputClass, "font-mono")}
+                    />
+                    <span className="text-xs text-zinc-400">
+                      খালি রাখলে {meta.defaultModel} · {meta.modelHint}
+                    </span>
+                  </label>
+                  <button type="submit" className={buttonClass("secondary", "w-fit")}>
+                    সংরক্ষণ করো
+                  </button>
+                </form>
 
-              {tail && (
-                <div className="flex flex-col gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                  <TestButton provider={id} />
-                  <div className="flex flex-wrap gap-3">
-                    {!isActive && (
-                      <form action={activateProvider}>
+                {tail && (
+                  <div className="mt-auto flex flex-col gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                    <TestButton provider={id} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isActive && (
+                        <form action={activateProvider}>
+                          <input type="hidden" name="provider" value={id} />
+                          <button type="submit" className={buttonClass("primary")}>
+                            এটি চালু করো
+                          </button>
+                        </form>
+                      )}
+                      <form action={removeProviderKey}>
                         <input type="hidden" name="provider" value={id} />
-                        <button type="submit" className={primary}>
-                          এটি চালু করো
+                        <button type="submit" className={buttonClass("danger")}>
+                          কী মুছে দাও
                         </button>
                       </form>
-                    )}
-                    <form action={removeProviderKey}>
-                      <input type="hidden" name="provider" value={id} />
-                      <button type="submit" className="text-sm text-red-600 underline">
-                        কী মুছে দাও
-                      </button>
-                    </form>
+                    </div>
                   </div>
-                </div>
-              )}
-            </section>
+                )}
+              </div>
+            </Card>
           );
         })}
       </div>
-    </main>
+    </AppShell>
   );
 }
