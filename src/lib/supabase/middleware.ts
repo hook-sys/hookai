@@ -32,8 +32,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  // ল্যান্ডিং পেজ ও লগইন লগইন ছাড়াই দেখা যায়
   const isPublicPath =
-    pathname.startsWith("/login") || pathname.startsWith("/auth");
+    pathname === "/" || pathname.startsWith("/login") || pathname.startsWith("/auth");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

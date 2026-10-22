@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { BarChart3, BellRing, Sparkles, type LucideIcon } from "lucide-react";
-import { Logo, buttonClass, inputClass } from "@/components/ui";
+import { Logo, LogoMark, buttonClass, inputClass } from "@/components/ui";
 import { signIn, signUp, type AuthState } from "./actions";
 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
@@ -35,12 +36,12 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
       <section className="relative hidden overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-12 text-white lg:flex lg:flex-col">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 text-base font-bold">
-            H
+        <Link href="/" className="flex w-fit items-center gap-2.5">
+          <LogoMark className="size-9 rounded-[10px] ring-2 ring-white/30" />
+          <span className="text-sm font-bold tracking-wide">
+            HOOK <span className="text-[#FF9A75]">AI</span>
           </span>
-          <span className="text-sm font-semibold">Hook AI</span>
-        </div>
+        </Link>
 
         <div className="my-auto max-w-md">
           <h1 className="text-4xl font-semibold leading-tight">

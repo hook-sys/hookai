@@ -4,14 +4,44 @@
   /* Inter-এ বাংলা অক্ষর নেই, তাই বাংলা অক্ষর আপনাআপনি Hind Siliguri থেকে আসে */
   --font-sans: var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui,
     sans-serif;
+
+  /* Hook-এর ব্র্যান্ড নীল (লোগোর #3157B0 = 600)। পুরো অ্যাপ "indigo" নামে এই রং ব্যবহার করে,
+     তাই এখানে বদলালেই সব জায়গায় বদলায়। */
+  --color-indigo-50: #f0f4fc;
+  --color-indigo-100: #e0e8f8;
+  --color-indigo-200: #c4d3f1;
+  --color-indigo-300: #9cb4e6;
+  --color-indigo-400: #6f8fd8;
+  --color-indigo-500: #4a6fca;
+  --color-indigo-600: #3157b0;
+  --color-indigo-700: #2a4a96;
+  --color-indigo-800: #253f7c;
+  --color-indigo-900: #213665;
+  --color-indigo-950: #172340;
+
+  /* গ্রেডিয়েন্টের দ্বিতীয় রং: গাঢ় নীল */
+  --color-violet-50: #eef0fa;
+  --color-violet-100: #dde2f5;
+  --color-violet-200: #bcc6eb;
+  --color-violet-300: #8e9fd9;
+  --color-violet-400: #5b6fc0;
+  --color-violet-500: #3f53a8;
+  --color-violet-600: #2c3f8f;
+  --color-violet-700: #233478;
+  --color-violet-800: #1c2a61;
+  --color-violet-900: #18234f;
+  --color-violet-950: #10172f;
+
+  /* লোগোর কমলা, হাইলাইটের জন্য */
+  --color-brand-orange: #ff5a2c;
 }
 
 :root {
   /* স্ক্রলবার, ফর্ম কন্ট্রোল ইত্যাদি ব্রাউজারের নিজস্ব UI-ও লাইট/ডার্ক মোড মানবে */
   color-scheme: light dark;
 
-  --brand-light: #4f46e5; /* indigo-600 */
-  --brand-dark: #818cf8; /* indigo-400 */
+  --brand-light: #3157b0; /* লোগোর নীল */
+  --brand-dark: #6f8fd8;
   --brand: var(--brand-light);
 
   @media (prefers-color-scheme: dark) {
