@@ -141,6 +141,16 @@ export async function getAdAccounts(token: string) {
 
 export const AD_ACCOUNT_ID_PATTERN = /^act_\d{1,20}$/;
 
+export type CampaignInfo = { id: string; name: string; account_id: string; objective?: string };
+
+// ক্যাম্পেইনটি কোন Ad Account-এর তা যাচাই করতেও লাগে
+export async function getCampaignInfo(token: string, campaignId: string) {
+  return graphRequest<CampaignInfo>(`/${campaignId}`, {
+    params: { fields: "id,name,account_id,objective" },
+    token,
+  });
+}
+
 // cursor ধরে সব পাতা এনে একসাথে দেয় (সর্বোচ্চ maxPages পাতা)
 export async function graphGetAll<T>(
   path: string,

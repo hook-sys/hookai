@@ -14,6 +14,7 @@ import {
   PlayCircle,
   Repeat,
   ShoppingCart,
+  Sparkles,
   Tag,
   Target,
   Timer,
@@ -460,14 +461,28 @@ function Cell({
 
 const TH = "px-3 py-3 text-right whitespace-nowrap";
 
+// অ্যাকাউন্টের গড়ের তুলনায়: ২০% কম খরচ ভালো (সবুজ), ২৫% বেশি খারাপ (লাল)
+function cprTone(cpr: number | null, avg: number | null) {
+  if (cpr === null || avg === null || avg <= 0) return "neutral" as const;
+  if (cpr <= avg * 0.8) return "success" as const;
+  if (cpr >= avg * 1.25) return "danger" as const;
+  return "warning" as const;
+}
+
 export function CampaignTable({
   view,
   campaigns,
   currency,
+  primaryIndicator,
+  averageCpr,
+  analysisHref,
 }: {
   view: ViewId;
   campaigns: LiveCampaign[];
   currency: string | null;
+  primaryIndicator: string | null;
+  averageCpr: number | null;
+  analysisHref: (campaignId: string) => string;
 }) {
   const cols = statColumns[view];
   const showResults = view === "regular" || view === "insights";
@@ -492,13 +507,16 @@ export function CampaignTable({
               {cols.map((c) => (
                 <th key={c.label} scope="col" className={TH}>{c.label}</th>
               ))}
-              {showResults && <th scope="col" className={cn(TH, "pr-5")}>দৈনিক বাজেট</th>}
+              {showResults && <th scope="col" className={TH}>দৈনিক বাজেট</th>}
+              <th scope="col" className={cn(TH, "pr-5")}>
+                <span className="sr-only">বিশ্লেষণ</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
             {campaigns.length === 0 && (
               <tr>
-                <td colSpan={cols.length + 4} className="px-5 py-10 text-center text-zinc-500">
+                <td colSpan={cols.length + 5} className="px-5 py-10 text-center text-zinc-500">
                   এই সময়ে কোনো ক্যাম্পেইনে খরচ হয়নি।
                 </td>
               </tr>
@@ -515,7 +533,16 @@ export function CampaignTable({
                       <span className="block text-xs text-zinc-400">{indicatorLabel(c.resultIndicator)}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      {formatValue(ratio(c.spend, c.results), "money", currency)}
+                      {/* একই ধরনের Result হলে অ্যাকাউন্টের গড়ের সাথে তুলনা করে রঙ */}
+                      <Badge
+                        tone={
+                          c.resultIndicator === primaryIndicator
+                            ? cprTone(ratio(c.spend, c.results), averageCpr)
+                            : "neutral"
+                        }
+                      >
+                        {formatValue(ratio(c.spend, c.results), "money", currency)}
+                      </Badge>
                     </td>
                   </>
                 )}
@@ -523,7 +550,7 @@ export function CampaignTable({
                   <Cell key={col.label} col={col} value={col.get(c)} currency={currency} />
                 ))}
                 {showResults && (
-                  <td className="px-3 py-3 pr-5 text-right">
+                  <td className="px-3 py-3 text-right">
                     {c.budget && c.budget.daily > 0
                       ? formatMoney(c.budget.daily, currency)
                       : c.budget && c.budget.lifetime > 0
@@ -531,6 +558,15 @@ export function CampaignTable({
                         : "—"}
                   </td>
                 )}
+                <td className="px-3 py-2 pr-5 text-right">
+                  <Link
+                    href={analysisHref(c.id)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
+                  >
+                    <Sparkles className="size-3.5" aria-hidden />
+                    বিশ্লেষণ
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

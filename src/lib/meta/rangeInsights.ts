@@ -106,6 +106,32 @@ export async function fetchBreakdown(
   );
 }
 
+// ---------- একটি ক্যাম্পেইনের বিস্তারিত ----------
+
+// একটি ক্যাম্পেইনের নির্দিষ্ট ব্রেকডাউন (বয়স, এলাকা, ঘণ্টা ইত্যাদি)
+export async function fetchObjectBreakdown(
+  token: string,
+  objectId: string,
+  since: string,
+  until: string,
+  breakdowns: string,
+) {
+  return graphGetAll<RawRangeRow>(
+    `/${objectId}/insights`,
+    { time_range: timeRange(since, until), breakdowns, fields: BASE_FIELDS, limit: "500" },
+    token,
+  );
+}
+
+// দিনভিত্তিক (সপ্তাহের কোন দিন ভালো চলে তা বের করতে)
+export async function fetchObjectDaily(token: string, objectId: string, since: string, until: string) {
+  return graphGetAll<RawRangeRow & { date_start?: string }>(
+    `/${objectId}/insights`,
+    { time_range: timeRange(since, until), time_increment: "1", fields: BASE_FIELDS, limit: "500" },
+    token,
+  );
+}
+
 type BudgetObject = {
   id: string;
   campaign_id?: string;

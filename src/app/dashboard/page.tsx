@@ -61,6 +61,10 @@ const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger"
     text: "Meta থেকে ডাটা আনা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।",
     tone: "danger",
   },
+  campaign_other_account: {
+    text: "ওই ক্যাম্পেইনটি অন্য Ad Account-এর। সেটি দেখতে সেটিংস থেকে সেই Ad Account বেছে নাও।",
+    tone: "danger",
+  },
 };
 
 type Props = {
@@ -355,7 +359,14 @@ export default async function DashboardPage({ searchParams }: Props) {
             />
           )}
 
-          <CampaignTable view={view} campaigns={live.campaigns} currency={currency} />
+          <CampaignTable
+            view={view}
+            campaigns={live.campaigns}
+            currency={currency}
+            primaryIndicator={live.primaryIndicator}
+            averageCpr={live.primaryResults > 0 ? live.primarySpend / live.primaryResults : null}
+            analysisHref={(id) => `/dashboard/campaigns/${id}?${dateQuery}`}
+          />
         </>
       )}
 

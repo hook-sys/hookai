@@ -19,9 +19,9 @@ import { addDays } from "@/lib/dates";
 const RECENT_TTL_MS = 15 * 60 * 1000;
 const PAST_TTL_MS = 6 * 60 * 60 * 1000;
 
-type Ctx = { supabase: SupabaseClient; userId: string; token: string; accountId: string };
+export type Ctx = { supabase: SupabaseClient; userId: string; token: string; accountId: string };
 
-async function cached<T>(
+export async function cached<T>(
   ctx: Ctx,
   kind: string,
   since: string,
@@ -159,6 +159,8 @@ function parseStats(r: RawRangeRow): LiveStats {
   };
 }
 
+export { parseStats };
+
 const emptyStats = (): LiveStats => parseStats({});
 
 export async function loadLiveReport(
@@ -249,7 +251,7 @@ const PLACEMENT_LABELS: Record<string, string> = {
 
 const GENDER_LABELS: Record<string, string> = { male: "পুরুষ", female: "নারী", unknown: "অজানা" };
 
-function breakdownLabel(r: RawRangeRow, id: BreakdownId) {
+export function breakdownLabel(r: RawRangeRow, id: BreakdownId) {
   const s = (k: string) => String(r[k] ?? "");
   switch (id) {
     case "placement": {

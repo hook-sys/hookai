@@ -15,6 +15,7 @@ export default function DateRangePicker({
   today,
   minDate,
   keepParams,
+  basePath = "/dashboard",
 }: {
   preset: PresetId | "custom";
   label: string;
@@ -24,6 +25,8 @@ export default function DateRangePicker({
   minDate: string;
   // তারিখ বদলালেও বর্তমান ভিউ (ভিডিও, ওয়েবসাইট ইত্যাদি) থেকে যায়
   keepParams: Record<string, string>;
+  // কোন পেজে তারিখ বদলাবে (ড্যাশবোর্ড বা ক্যাম্পেইন বিশ্লেষণ)
+  basePath?: string;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const extra = new URLSearchParams(keepParams).toString();
@@ -70,7 +73,7 @@ export default function DateRangePicker({
           {PRESETS.map((p) => (
             <Link
               key={p.id}
-              href={`/dashboard?preset=${p.id}${extra ? `&${extra}` : ""}`}
+              href={`${basePath}?preset=${p.id}${extra ? `&${extra}` : ""}`}
               aria-current={p.id === preset ? "page" : undefined}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm transition-colors",
@@ -84,7 +87,7 @@ export default function DateRangePicker({
           ))}
         </nav>
 
-        <form action="/dashboard" method="get" className="flex flex-1 flex-col gap-3 p-4">
+        <form action={basePath} method="get" className="flex flex-1 flex-col gap-3 p-4">
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">কাস্টম তারিখ</p>
           {Object.entries(keepParams).map(([k, v]) => (
             <input key={k} type="hidden" name={k} value={v} />
