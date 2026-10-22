@@ -1,0 +1,80 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatMoney } from "@/lib/format";
+import { isoDate, loadDailyRows } from "@/lib/insights/report";
+import { BASELINE_DAYS, RECENT_DAYS, evaluateAll, type Severity } from "./rules";
+
+export type StoredAlert = {
+  id: string;
+  campaign_name: string | null;
+  type: string;
+  severity: Severity;
+  title: string;
+  message: string;
+  alert_date: string;
+};
+
+// জমা থাকা ডাটা থেকে অ্যালার্ট খুঁজে সংরক্ষণ করে। একই দিনের একই অ্যালার্ট আবার যোগ হয় না,
+// তাই ব্যবহারকারী "দেখেছি" চাপলে সেটি আর ফিরে আসে না।
+export async function evaluateAndStoreAlerts(
+  supabase: SupabaseClient,
+  userId: string,
+  accountId: string,
+  currency: string | null,
+) {
+  const yesterday = isoDate(1);
+  const windows = {
+    yesterday,
+    recentFrom: isoDate(RECENT_DAYS),
+    baselineTo: isoDate(RECENT_DAYS + 1),
+    baselineFrom: isoDate(RECENT_DAYS + BASELINE_DAYS),
+  };
+
+  const rows = await loadDailyRows(
+    supabase,
+    userId,
+    accountId,
+    windows.baselineFrom,
+    yesterday,
+  );
+  const found = evaluateAll(rows, windows, (v) => formatMoney(v, currency));
+  if (found.length === 0) return 0;
+
+  const { error } = await supabase.from("alerts").upsert(
+    found.map((a) => ({
+      user_id: userId,
+      ad_account_id: accountId,
+      campaign_id: a.campaignId,
+      campaign_name: a.campaignName,
+      type: a.type,
+      severity: a.severity,
+      title: a.title,
+      message: a.message,
+      data: a.data,
+      alert_date: yesterday,
+    })),
+    { onConflict: "user_id,ad_account_id,campaign_id,type,alert_date", ignoreDuplicates: true },
+  );
+  if (error) throw new Error(`অ্যালার্ট সংরক্ষণ ব্যর্থ: ${error.message}`);
+  return found.length;
+}
+
+// গত কয়েক দিনের যেগুলো এখনো "দেখেছি" করা হয়নি
+export async function getActiveAlerts(
+  supabase: SupabaseClient,
+  userId: string,
+  accountId: string,
+): Promise<StoredAlert[]> {
+  const { data } = await supabase
+    .from("alerts")
+    .select("id, campaign_name, type, severity, title, message, alert_date")
+    .eq("user_id", userId)
+    .eq("ad_account_id", accountId)
+    .is("dismissed_at", null)
+    .gte("alert_date", isoDate(RECENT_DAYS))
+    .order("alert_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const list = (data ?? []) as StoredAlert[];
+  // জরুরিগুলো আগে
+  return list.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "high" ? -1 : 1));
+}

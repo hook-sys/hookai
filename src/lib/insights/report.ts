@@ -18,6 +18,7 @@ export function parseRange(value: unknown): Range {
 }
 
 type InsightRow = {
+  date: string;
   campaign_id: string;
   campaign_name: string | null;
   spend: number;
@@ -65,7 +66,7 @@ async function loadRows(
     const { data, error } = await supabase
       .from("ad_insights_daily")
       .select(
-        "campaign_id, campaign_name, spend, impressions, clicks, purchases, purchase_value, leads",
+        "date, campaign_id, campaign_name, spend, impressions, clicks, purchases, purchase_value, leads",
       )
       .eq("user_id", userId)
       .eq("ad_account_id", accountId)
@@ -90,6 +91,23 @@ function toTotals(r: InsightRow): Totals {
     purchaseValue: Number(r.purchase_value),
     leads: Number(r.leads),
   };
+}
+
+// দিনভিত্তিক সারি (অ্যালার্টের নিয়মের জন্য)
+export async function loadDailyRows(
+  supabase: SupabaseClient,
+  userId: string,
+  accountId: string,
+  since: string,
+  until: string,
+) {
+  const rows = await loadRows(supabase, userId, accountId, since, until);
+  return rows.map((r) => ({
+    date: r.date,
+    campaign_id: r.campaign_id,
+    campaign_name: r.campaign_name,
+    totals: toTotals(r),
+  }));
 }
 
 async function loadPeriod(

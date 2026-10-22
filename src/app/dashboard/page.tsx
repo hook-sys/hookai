@@ -28,6 +28,7 @@ import {
   parseRange,
 } from "@/lib/insights/report";
 import { getLatestSummary } from "@/lib/ai/summary";
+import { getActiveAlerts } from "@/lib/alerts/store";
 import {
   formatMoney,
   formatNumber,
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui";
 import { refreshInsights } from "./actions";
 import AiSummaryCard from "./AiSummaryCard";
+import AlertsCard from "./AlertsCard";
 
 export const metadata = { title: "ড্যাশবোর্ড" };
 
@@ -230,9 +232,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     }
   }
 
-  const [report, latestSummary] = await Promise.all([
+  const [report, latestSummary, alerts] = await Promise.all([
     buildPeriodReport(supabase, user.id, accountId, range),
     getLatestSummary(supabase, user.id, accountId, range),
+    getActiveAlerts(supabase, user.id, accountId),
   ]);
   const { current, previous } = report;
   const total = current.total;
@@ -300,6 +303,8 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       {syncError && <Notice tone="warning">{syncError}</Notice>}
       {!syncError && status && <Notice tone={status.tone}>{status.text}</Notice>}
+
+      <AlertsCard alerts={alerts} />
 
       <AiSummaryCard key={range} initial={latestSummary} range={range} />
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdAccount, getCampaignInsightsDaily } from "@/lib/meta/graph";
 import { pickLeads, pickPurchaseValue, pickPurchases } from "@/lib/metrics";
+import { evaluateAndStoreAlerts } from "@/lib/alerts/store";
 
 // এর চেয়ে পুরনো ডাটা হলে ড্যাশবোর্ড খোলার সময় নিজে থেকে আবার আনা হয়
 export const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
@@ -55,6 +56,13 @@ export async function syncInsights(
     })
     .eq("user_id", userId);
   if (error) throw new Error(`sync সময় সংরক্ষণ ব্যর্থ: ${error.message}`);
+
+  // নতুন ডাটা এলেই অ্যালার্ট যাচাই; ব্যর্থ হলেও sync সফল ধরা হয়
+  try {
+    await evaluateAndStoreAlerts(supabase, userId, accountId, account.currency);
+  } catch (err) {
+    console.error("alert evaluation failed", err instanceof Error ? err.message : err);
+  }
 
   return records.length;
 }

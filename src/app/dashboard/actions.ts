@@ -44,6 +44,28 @@ export async function refreshInsights(formData: FormData) {
   redirect(`/dashboard?range=${encodeURIComponent(range)}&status=${status}`);
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// "দেখেছি" বোতাম: অ্যালার্টটি তালিকা থেকে সরিয়ে দেয় (RLS নিশ্চিত করে শুধু নিজের অ্যালার্ট)
+export async function dismissAlert(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!UUID_PATTERN.test(id)) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("alerts")
+    .update({ dismissed_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  revalidatePath("/dashboard");
+}
+
 export type SummaryState =
   | { ok: true; summary: StoredSummary }
   | { ok: false; error: string }
