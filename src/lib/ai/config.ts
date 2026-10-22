@@ -34,17 +34,23 @@ export async function getProviderConfig(
   };
 }
 
-// সুপার অ্যাডমিন যে প্রোভাইডার চালু রেখেছে সেটির কনফিগ
-export async function getActiveAiConfig(supabase: SupabaseClient) {
-  const { data } = await supabase
-    .from("ai_settings")
-    .select("active_provider")
-    .eq("id", 1)
-    .maybeSingle();
+// সুপার অ্যাডমিন যে প্রোভাইডার চালু রেখেছে সেটির কনফিগ।
+// যেকোনো লগইন-করা ব্যবহারকারীর জন্য কাজ করে (ডাটাবেস ফাংশন শুধু চালু সারিটি দেয়)।
+export async function getActiveAiConfig(
+  supabase: SupabaseClient,
+): Promise<AiConfig> {
+  const { data, error } = await supabase.rpc("get_active_ai_config").maybeSingle<{
+    provider: string;
+    model: string | null;
+    api_key_encrypted: string;
+  }>();
 
-  const provider = data?.active_provider;
-  if (!provider || !isAiProvider(provider)) {
-    throw new AiError("কোনো AI প্রোভাইডার চালু করা নেই। সুপার অ্যাডমিন পেজ থেকে বেছে নাও।");
+  if (error || !data || !isAiProvider(data.provider)) {
+    throw new AiError("AI এখনো চালু করা হয়নি। সুপার অ্যাডমিনকে একটি AI প্রোভাইডার চালু করতে বলো।");
   }
-  return getProviderConfig(supabase, provider);
+  return {
+    provider: data.provider,
+    model: data.model || AI_PROVIDERS[data.provider].defaultModel,
+    apiKey: decrypt(data.api_key_encrypted),
+  };
 }
