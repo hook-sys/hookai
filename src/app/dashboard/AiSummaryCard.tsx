@@ -47,10 +47,16 @@ function List({
 
 export default function AiSummaryCard({
   initial,
-  range,
+  since,
+  until,
+  periodLabel,
+  compare,
 }: {
   initial: StoredSummary | null;
-  range: number;
+  since: string;
+  until: string;
+  periodLabel: string;
+  compare: boolean;
 }) {
   const [state, formAction, pending] = useActionState<SummaryState, FormData>(
     generateAiSummary,
@@ -63,7 +69,9 @@ export default function AiSummaryCard({
 
   const button = (
     <form action={formAction}>
-      <input type="hidden" name="range" value={range} />
+      <input type="hidden" name="since" value={since} />
+      <input type="hidden" name="until" value={until} />
+      <input type="hidden" name="compare" value={compare ? "1" : "0"} />
       <button
         type="submit"
         disabled={pending}
@@ -91,7 +99,7 @@ export default function AiSummaryCard({
               AI সারসংক্ষেপ
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              গত {range} দিনের হিসাব দেখে AI-এর বিশ্লেষণ ও পরামর্শ
+              {periodLabel}-এর হিসাব দেখে AI-এর বিশ্লেষণ ও পরামর্শ
             </p>
           </div>
         </div>

@@ -20,13 +20,25 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
-import { STALE_AFTER_MS, syncInsights } from "@/lib/insights/sync";
 import {
-  RANGES,
+  STALE_AFTER_MS,
+  TODAY_STALE_MS,
+  ensureCoverage,
+  syncRecent,
+  syncToday,
+} from "@/lib/insights/sync";
+import {
   buildPeriodReport,
+  earliestDataDate,
   findDataWarnings,
-  parseRange,
 } from "@/lib/insights/report";
+import {
+  addDays,
+  formatRange,
+  minAllowedDate,
+  resolveRange,
+  todayIn,
+} from "@/lib/dates";
 import { getLatestSummary } from "@/lib/ai/summary";
 import { getActiveAlerts } from "@/lib/alerts/store";
 import {
@@ -48,6 +60,7 @@ import {
 import { refreshInsights } from "./actions";
 import AiSummaryCard from "./AiSummaryCard";
 import AlertsCard from "./AlertsCard";
+import DateRangePicker from "./DateRangePicker";
 
 export const metadata = { title: "ড্যাশবোর্ড" };
 
@@ -134,11 +147,12 @@ function Kpi({
   );
 }
 
-type Props = { searchParams: Promise<{ range?: string; status?: string }> };
+type Props = {
+  searchParams: Promise<{ preset?: string; since?: string; until?: string; status?: string }>;
+};
 
 export default async function DashboardPage({ searchParams }: Props) {
   const params = await searchParams;
-  const range = parseRange(params.range);
 
   const supabase = await createClient();
   const {
@@ -153,7 +167,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   const { data: connection } = await supabase
     .from("meta_connections")
     .select(
-      "access_token_encrypted, token_expires_at, selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency, insights_synced_at",
+      "access_token_encrypted, token_expires_at, selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency, selected_ad_account_timezone, insights_synced_at, insights_synced_from, insights_today_synced_at",
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -204,38 +218,76 @@ export default async function DashboardPage({ searchParams }: Props) {
   const accountId = connection.selected_ad_account_id;
   let currency = connection.selected_ad_account_currency;
   let accountName = connection.selected_ad_account_name;
+  let timeZone = connection.selected_ad_account_timezone;
   let syncedAt = connection.insights_synced_at;
+  let syncedFrom = connection.insights_synced_from;
   let syncError: string | null = null;
 
-  // ডাটা না থাকলে বা পুরনো হলে খোলার সময়ই Meta থেকে নতুন করে আনে
+  const ctx = {
+    supabase,
+    userId: user.id,
+    token: decrypt(connection.access_token_encrypted),
+    accountId,
+  };
+
+  // গত ৩০ দিনের ডাটা না থাকলে বা পুরনো হলে খোলার সময়ই Meta থেকে নতুন করে আনে
   const stale =
-    !syncedAt || Date.now() - new Date(syncedAt).getTime() > STALE_AFTER_MS;
+    !syncedAt || !timeZone || Date.now() - new Date(syncedAt).getTime() > STALE_AFTER_MS;
+  let todayFresh = false;
   if (stale) {
     try {
-      await syncInsights(
-        supabase,
-        user.id,
-        decrypt(connection.access_token_encrypted),
-        accountId,
-      );
-      const { data: fresh } = await supabase
-        .from("meta_connections")
-        .select("selected_ad_account_name, selected_ad_account_currency, insights_synced_at")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      currency = fresh?.selected_ad_account_currency ?? currency;
-      accountName = fresh?.selected_ad_account_name ?? accountName;
-      syncedAt = fresh?.insights_synced_at ?? syncedAt;
+      const { account } = await syncRecent(ctx, syncedFrom);
+      currency = account.currency;
+      accountName = account.name;
+      timeZone = account.timezone_name;
+      syncedAt = new Date().toISOString();
+      const today = todayIn(timeZone);
+      syncedFrom = syncedFrom && syncedFrom < addDays(today, -30) ? syncedFrom : addDays(today, -30);
+      todayFresh = true;
     } catch (err) {
       console.error("auto sync failed", err instanceof Error ? err.message : err);
       syncError = "Meta থেকে নতুন ডাটা আনা যায়নি। সংরক্ষিত ডাটা দেখানো হচ্ছে।";
     }
   }
 
+  const today = todayIn(timeZone);
+  const minDate = minAllowedDate(today);
+  const range = resolveRange(
+    { preset: params.preset, since: params.since, until: params.until || params.since },
+    today,
+  );
+  const isMaximum = range.preset === "maximum";
+
+  // পুরনো তারিখ বাছলে ডাটাবেসে না থাকা অংশ Meta থেকে আনে
+  if (!syncError) {
+    try {
+      if (await ensureCoverage(ctx, isMaximum ? minDate : range.since, syncedFrom, timeZone)) {
+        syncedFrom = isMaximum ? minDate : range.since;
+      }
+      // আজ বা গতকাল দেখলে এই দুই দিন ঘন ঘন আপডেট হয়
+      const recentStale =
+        !connection.insights_today_synced_at ||
+        Date.now() - new Date(connection.insights_today_synced_at).getTime() > TODAY_STALE_MS;
+      if (!todayFresh && range.until >= addDays(today, -1) && recentStale) {
+        await syncToday(ctx, timeZone);
+      }
+    } catch (err) {
+      console.error("range sync failed", err instanceof Error ? err.message : err);
+      syncError = "এই তারিখের সব ডাটা Meta থেকে আনা যায়নি। যা আছে তা দেখানো হচ্ছে।";
+    }
+  }
+
+  // "সর্বোচ্চ" মানে ডাটাবেসে থাকা সবচেয়ে পুরনো দিন থেকে আজ পর্যন্ত
+  const since = isMaximum
+    ? ((await earliestDataDate(supabase, user.id, accountId)) ?? today)
+    : range.since;
+  const until = range.until;
+  const compare = !isMaximum;
+
   const [report, latestSummary, alerts] = await Promise.all([
-    buildPeriodReport(supabase, user.id, accountId, range),
-    getLatestSummary(supabase, user.id, accountId, range),
-    getActiveAlerts(supabase, user.id, accountId),
+    buildPeriodReport(supabase, user.id, accountId, { since, until }, { compare, dataFrom: syncedFrom }),
+    getLatestSummary(supabase, user.id, accountId, { since, until }),
+    getActiveAlerts(supabase, user.id, accountId, timeZone),
   ]);
   const { current, previous } = report;
   const total = current.total;
@@ -246,36 +298,21 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const money = (v: number | null) => formatMoney(v, currency);
   const status = params.status ? STATUS_MESSAGES[params.status] : undefined;
-  const changeLabel = `আগের ${range} দিনের তুলনায়`;
+  const changeLabel = report.days === 1 ? "আগের দিনের তুলনায়" : `আগের ${report.days} দিনের তুলনায়`;
   const change = (c: number | null, p: number | null | undefined, goodWhenUp: boolean) =>
     previous ? { current: c, previous: p ?? null, goodWhenUp } : undefined;
-
-  const rangePicker = (
-    <nav
-      aria-label="সময়সীমা"
-      className="flex rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-    >
-      {RANGES.map((r) => (
-        <Link
-          key={r}
-          href={`/dashboard?range=${r}`}
-          aria-current={r === range ? "page" : undefined}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            r === range
-              ? "bg-indigo-600 text-white dark:bg-indigo-500"
-              : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800",
-          )}
-        >
-          {r} দিন
-        </Link>
-      ))}
-    </nav>
-  );
+  const includesToday = until >= today;
 
   const refreshButton = (
     <form action={refreshInsights}>
-      <input type="hidden" name="range" value={range} />
+      {range.preset === "custom" ? (
+        <>
+          <input type="hidden" name="since" value={range.since} />
+          <input type="hidden" name="until" value={range.until} />
+        </>
+      ) : (
+        <input type="hidden" name="preset" value={range.preset} />
+      )}
       <button type="submit" className={buttonClass("secondary")}>
         <RefreshCw className="size-4" aria-hidden />
         রিফ্রেশ
@@ -289,13 +326,22 @@ export default async function DashboardPage({ searchParams }: Props) {
         title={accountName ?? accountId}
         description={
           <>
-            <span className="font-mono text-xs">{accountId}</span> · গত {range} দিন (
-            {current.since} থেকে {current.until}, আজ বাদে)
+            <span className="font-mono text-xs">{accountId}</span> · {range.label}:{" "}
+            {formatRange(since, until)} ({report.days} দিন)
+            {includesToday && " · আজকের ডাটা এখনো চলমান"}
           </>
         }
         actions={
           <>
-            {rangePicker}
+            <DateRangePicker
+              key={`${range.preset}-${since}-${until}`}
+              preset={range.preset}
+              label={range.label}
+              since={since}
+              until={until}
+              today={today}
+              minDate={minDate}
+            />
             {refreshButton}
           </>
         }
@@ -306,7 +352,14 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <AlertsCard alerts={alerts} />
 
-      <AiSummaryCard key={range} initial={latestSummary} range={range} />
+      <AiSummaryCard
+        key={`${since}-${until}`}
+        initial={latestSummary}
+        since={since}
+        until={until}
+        periodLabel={range.preset === "custom" ? formatRange(since, until) : range.label}
+        compare={compare}
+      />
 
       {warnings.length > 0 && (
         <Card className="mb-6 border-amber-200 dark:border-amber-900">

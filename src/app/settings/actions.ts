@@ -56,8 +56,11 @@ export async function selectAdAccount(formData: FormData) {
       selected_ad_account_id: account.id,
       selected_ad_account_name: account.name,
       selected_ad_account_currency: account.currency,
+      selected_ad_account_timezone: account.timezone_name,
       // নতুন Ad Account হলে ড্যাশবোর্ড খোলার সময় নতুন করে ডাটা আনবে
-      ...(changed ? { insights_synced_at: null } : {}),
+      ...(changed
+        ? { insights_synced_at: null, insights_today_synced_at: null, insights_synced_from: null }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id);

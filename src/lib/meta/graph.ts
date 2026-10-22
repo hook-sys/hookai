@@ -161,10 +161,15 @@ export type CampaignInsightRow = {
   action_values?: MetaAction[];
 };
 
-// গত ৩০ দিনের (আজ বাদে) ক্যাম্পেইন-লেভেলের দৈনিক ডাটা
-const INSIGHTS_MAX_PAGES = 20;
+// নির্দিষ্ট তারিখের (দুই দিনসহ) ক্যাম্পেইন-লেভেলের দৈনিক ডাটা।
+// তারিখ Ad Account-এর টাইমজোনে; লম্বা সময়ের জন্য ডাকার আগে ছোট ভাগে ভাগ করা উচিত।
+const INSIGHTS_MAX_PAGES = 100;
 
-export async function getCampaignInsightsDaily(token: string, accountId: string) {
+export async function getCampaignInsightsDaily(
+  token: string,
+  accountId: string,
+  range: { since: string; until: string },
+) {
   const rows: CampaignInsightRow[] = [];
   let after: string | undefined;
 
@@ -176,7 +181,7 @@ export async function getCampaignInsightsDaily(token: string, accountId: string)
       params: {
         level: "campaign",
         time_increment: "1",
-        date_preset: "last_30d",
+        time_range: JSON.stringify(range),
         fields:
           "campaign_id,campaign_name,spend,impressions,clicks,actions,action_values",
         limit: "500",

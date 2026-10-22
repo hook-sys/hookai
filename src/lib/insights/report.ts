@@ -7,15 +7,9 @@ import {
   type Totals,
 } from "@/lib/metrics";
 
+import { daysInRange, previousRange } from "@/lib/dates";
+
 // ড্যাশবোর্ড ও AI দুটোই এখান থেকে একই হিসাব নেয়, যাতে দুই জায়গায় সংখ্যা আলাদা না হয়
-
-export const RANGES = [7, 14, 30] as const;
-export type Range = (typeof RANGES)[number];
-
-export function parseRange(value: unknown): Range {
-  const n = Number(value);
-  return RANGES.includes(n as Range) ? (n as Range) : 7;
-}
 
 type InsightRow = {
   date: string;
@@ -43,13 +37,6 @@ export type PeriodStats = {
   m: DerivedMetrics;
   campaigns: CampaignStat[];
 };
-
-// UTC তারিখ YYYY-MM-DD
-export function isoDate(daysAgo: number) {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-}
 
 // Supabase এক কোয়েরিতে সর্বোচ্চ ১০০০ সারি দেয়, তাই পাতায় পাতায় আনা হয়
 const PAGE = 1000;
@@ -141,27 +128,47 @@ async function loadPeriod(
 }
 
 export type PeriodReport = {
-  range: Range;
+  days: number;
   current: PeriodStats;
-  // ঠিক আগের সমান সময়ের হিসাব (তুলনার জন্য)। ৩০ দিনের জন্য নেই, কারণ ডাটা ৩০ দিনের বেশি রাখা হয় না।
+  // ঠিক আগের সমান দৈর্ঘ্যের সময়ের হিসাব (তুলনার জন্য); "সর্বোচ্চ" সময়ে তুলনা হয় না
   previous: PeriodStats | null;
 };
 
-// গত N দিন, আজ বাদে (আজকের ডাটা এখনো অসম্পূর্ণ)
+// নির্দিষ্ট তারিখের হিসাব (দুই দিনসহ)। আগের সময়ের ডাটা ডাটাবেসে না থাকলে তুলনা বাদ।
 export async function buildPeriodReport(
   supabase: SupabaseClient,
   userId: string,
   accountId: string,
-  range: Range,
+  range: { since: string; until: string },
+  options: { compare: boolean; dataFrom: string | null },
 ): Promise<PeriodReport> {
-  const currentP = loadPeriod(supabase, userId, accountId, isoDate(range), isoDate(1));
-  const previousP =
-    range * 2 <= 30
-      ? loadPeriod(supabase, userId, accountId, isoDate(range * 2), isoDate(range + 1))
-      : Promise.resolve(null);
+  const prev = previousRange(range.since, range.until);
+  const canCompare = options.compare && options.dataFrom !== null && prev.since >= options.dataFrom;
 
-  const [current, previous] = await Promise.all([currentP, previousP]);
-  return { range, current, previous };
+  const [current, previous] = await Promise.all([
+    loadPeriod(supabase, userId, accountId, range.since, range.until),
+    canCompare
+      ? loadPeriod(supabase, userId, accountId, prev.since, prev.until)
+      : Promise.resolve(null),
+  ]);
+  return { days: daysInRange(range.since, range.until), current, previous };
+}
+
+// ডাটাবেসে এই Ad Account-এর সবচেয়ে পুরনো দিন ("সর্বোচ্চ" সময়ের শুরু)
+export async function earliestDataDate(
+  supabase: SupabaseClient,
+  userId: string,
+  accountId: string,
+) {
+  const { data } = await supabase
+    .from("ad_insights_daily")
+    .select("date")
+    .eq("user_id", userId)
+    .eq("ad_account_id", accountId)
+    .order("date", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return (data?.date as string | undefined) ?? null;
 }
 
 export type DataWarning = { title: string; detail: string; campaigns: string[] };

@@ -33,6 +33,8 @@ Rules:
 - Address the reader as "তুমি".
 - "headline": one specific sentence with the single most important takeaway and a number (not a generic title like "performance report").
 - If "previous" is present, compare current vs previous period and mention the important changes with numbers.
+- If "includes_today_incomplete_data" is true, today is still running: do not treat lower totals as a decline, and say the numbers are partial.
+- Refer to the period by its dates (current.date_from to current.date_to) or as "এই সময়ে". Never call it "আজ" / "আজকে" unless includes_today_incomplete_data is true, and never call it "সপ্তাহ" unless it is exactly 7 days.
 
 Unreliable data:
 - "data_warnings" lists campaigns whose purchase value (and therefore ROAS) is unreliable, per period.
@@ -88,7 +90,7 @@ export type PeriodWarnings = { current: DataWarning[]; previous: DataWarning[] }
 
 export function buildPrompt(
   report: PeriodReport,
-  account: { name: string; currency: string | null },
+  account: { name: string; currency: string | null; today: string },
   warnings: PeriodWarnings,
 ) {
   const warningJson = (period: string, list: DataWarning[]) =>
@@ -97,8 +99,10 @@ export function buildPrompt(
   const data = {
     ad_account: account.name,
     currency: account.currency ?? "unknown",
-    period_days: report.range,
-    note: "Dates exclude today because today's data is incomplete. null means not computable (division by zero).",
+    period_days: report.days,
+    note: "null means not computable (division by zero).",
+    // আজকের দিন চলমান, তাই আজ থাকলে সংখ্যা কম দেখানো স্বাভাবিক
+    includes_today_incomplete_data: report.current.until >= account.today,
     current: periodJson(report.current),
     previous: report.previous ? periodJson(report.previous) : null,
     data_warnings: [
@@ -169,7 +173,7 @@ export async function generateAndStoreSummary(
   userId: string,
   accountId: string,
   report: PeriodReport,
-  account: { name: string; currency: string | null },
+  account: { name: string; currency: string | null; today: string },
   warnings: PeriodWarnings,
 ): Promise<StoredSummary> {
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -213,7 +217,8 @@ export async function generateAndStoreSummary(
     .insert({
       user_id: userId,
       ad_account_id: accountId,
-      range_days: report.range,
+      date_from: report.current.since,
+      date_to: report.current.until,
       provider: cfg.provider,
       model: cfg.model,
       content,
@@ -231,14 +236,15 @@ export async function getLatestSummary(
   supabase: SupabaseClient,
   userId: string,
   accountId: string,
-  range: number,
+  range: { since: string; until: string },
 ): Promise<StoredSummary | null> {
   const { data } = await supabase
     .from("ai_summaries")
     .select("id, provider, model, content, created_at")
     .eq("user_id", userId)
     .eq("ad_account_id", accountId)
-    .eq("range_days", range)
+    .eq("date_from", range.since)
+    .eq("date_to", range.until)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

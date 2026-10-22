@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatMoney } from "@/lib/format";
-import { isoDate, loadDailyRows } from "@/lib/insights/report";
+import { addDays, todayIn } from "@/lib/dates";
+import { loadDailyRows } from "@/lib/insights/report";
 import { BASELINE_DAYS, RECENT_DAYS, evaluateAll, type Severity } from "./rules";
 
 export type StoredAlert = {
@@ -15,18 +16,21 @@ export type StoredAlert = {
 
 // জমা থাকা ডাটা থেকে অ্যালার্ট খুঁজে সংরক্ষণ করে। একই দিনের একই অ্যালার্ট আবার যোগ হয় না,
 // তাই ব্যবহারকারী "দেখেছি" চাপলে সেটি আর ফিরে আসে না।
+// দিনগুলো Ad Account-এর টাইমজোনে গোনা হয়; আজকের অসম্পূর্ণ দিন বাদ।
 export async function evaluateAndStoreAlerts(
   supabase: SupabaseClient,
   userId: string,
   accountId: string,
   currency: string | null,
+  timeZone: string | null,
 ) {
-  const yesterday = isoDate(1);
+  const today = todayIn(timeZone);
+  const yesterday = addDays(today, -1);
   const windows = {
     yesterday,
-    recentFrom: isoDate(RECENT_DAYS),
-    baselineTo: isoDate(RECENT_DAYS + 1),
-    baselineFrom: isoDate(RECENT_DAYS + BASELINE_DAYS),
+    recentFrom: addDays(today, -RECENT_DAYS),
+    baselineTo: addDays(today, -RECENT_DAYS - 1),
+    baselineFrom: addDays(today, -RECENT_DAYS - BASELINE_DAYS),
   };
 
   const rows = await loadDailyRows(
@@ -63,6 +67,7 @@ export async function getActiveAlerts(
   supabase: SupabaseClient,
   userId: string,
   accountId: string,
+  timeZone: string | null,
 ): Promise<StoredAlert[]> {
   const { data } = await supabase
     .from("alerts")
@@ -70,7 +75,7 @@ export async function getActiveAlerts(
     .eq("user_id", userId)
     .eq("ad_account_id", accountId)
     .is("dismissed_at", null)
-    .gte("alert_date", isoDate(RECENT_DAYS))
+    .gte("alert_date", addDays(todayIn(timeZone), -RECENT_DAYS))
     .order("alert_date", { ascending: false })
     .order("created_at", { ascending: false });
 

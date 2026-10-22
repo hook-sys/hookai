@@ -4,15 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
-import { syncInsights } from "@/lib/insights/sync";
-import { buildPeriodReport, findDataWarnings, parseRange } from "@/lib/insights/report";
+import { syncRecent } from "@/lib/insights/sync";
+import { buildPeriodReport, findDataWarnings } from "@/lib/insights/report";
+import { isValidDate, minAllowedDate, rangeQuery, resolveRange, todayIn } from "@/lib/dates";
 import { AiError } from "@/lib/ai/providers";
 import { generateAndStoreSummary, type StoredSummary } from "@/lib/ai/summary";
 
-// "ডাটা রিফ্রেশ" বোতাম: Meta থেকে এখনই নতুন ডাটা আনে
-export async function refreshInsights(formData: FormData) {
-  const range = String(formData.get("range") ?? "7");
+const field = (formData: FormData, name: string) => {
+  const v = formData.get(name);
+  return typeof v === "string" && v ? v : undefined;
+};
 
+// "রিফ্রেশ" বোতাম: Meta থেকে এখনই নতুন ডাটা আনে, তারপর একই তারিখে ফিরে যায়
+export async function refreshInsights(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,19 +25,33 @@ export async function refreshInsights(formData: FormData) {
 
   const { data: connection } = await supabase
     .from("meta_connections")
-    .select("access_token_encrypted, selected_ad_account_id")
+    .select(
+      "access_token_encrypted, selected_ad_account_id, selected_ad_account_timezone, insights_synced_from",
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!connection?.selected_ad_account_id) redirect("/settings");
 
+  const range = resolveRange(
+    {
+      preset: field(formData, "preset"),
+      since: field(formData, "since"),
+      until: field(formData, "until"),
+    },
+    todayIn(connection.selected_ad_account_timezone),
+  );
+
   let status = "refreshed";
   try {
-    await syncInsights(
-      supabase,
-      user.id,
-      decrypt(connection.access_token_encrypted),
-      connection.selected_ad_account_id,
+    await syncRecent(
+      {
+        supabase,
+        userId: user.id,
+        token: decrypt(connection.access_token_encrypted),
+        accountId: connection.selected_ad_account_id,
+      },
+      connection.insights_synced_from,
     );
   } catch (err) {
     console.error("insights refresh failed", err instanceof Error ? err.message : err);
@@ -41,7 +59,7 @@ export async function refreshInsights(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
-  redirect(`/dashboard?range=${encodeURIComponent(range)}&status=${status}`);
+  redirect(`/dashboard?${rangeQuery(range)}&status=${status}`);
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,13 +89,11 @@ export type SummaryState =
   | { ok: false; error: string }
   | null;
 
-// "AI সারসংক্ষেপ" বোতাম: জমা থাকা ডাটা থেকে হিসাব করে AI-কে ব্যাখ্যা করতে দেয়
+// "AI সারসংক্ষেপ" বোতাম: ড্যাশবোর্ডে দেখানো একই তারিখের হিসাব AI-কে ব্যাখ্যা করতে দেয়
 export async function generateAiSummary(
   _prev: SummaryState,
   formData: FormData,
 ): Promise<SummaryState> {
-  const range = parseRange(formData.get("range"));
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -86,7 +102,9 @@ export async function generateAiSummary(
 
   const { data: connection } = await supabase
     .from("meta_connections")
-    .select("selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency")
+    .select(
+      "selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency, selected_ad_account_timezone, insights_synced_from",
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -95,8 +113,29 @@ export async function generateAiSummary(
     return { ok: false, error: "আগে সেটিংস থেকে একটি Ad Account বেছে নাও।" };
   }
 
+  const today = todayIn(connection.selected_ad_account_timezone);
+  const since = field(formData, "since");
+  const until = field(formData, "until");
+  if (
+    !since ||
+    !until ||
+    !isValidDate(since) ||
+    !isValidDate(until) ||
+    since > until ||
+    until > today ||
+    since < minAllowedDate(today)
+  ) {
+    return { ok: false, error: "তারিখ সঠিক নয়। পেজ রিফ্রেশ করে আবার চেষ্টা করো।" };
+  }
+
   try {
-    const report = await buildPeriodReport(supabase, user.id, accountId, range);
+    const report = await buildPeriodReport(
+      supabase,
+      user.id,
+      accountId,
+      { since, until },
+      { compare: field(formData, "compare") === "1", dataFrom: connection.insights_synced_from },
+    );
     const summary = await generateAndStoreSummary(
       supabase,
       user.id,
@@ -105,6 +144,7 @@ export async function generateAiSummary(
       {
         name: connection.selected_ad_account_name ?? accountId,
         currency: connection.selected_ad_account_currency,
+        today,
       },
       {
         current: findDataWarnings(report.current),
