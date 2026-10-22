@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   // state কুকি একবারই ব্যবহারযোগ্য: সফল বা ব্যর্থ, সব ক্ষেত্রেই মুছে ফেলা হয়।
   // connect রুটে যে path দিয়ে সেট হয়েছে, মোছার সময়ও একই path দিতে হবে।
   const dashboard = (result: string) => {
-    const response = NextResponse.redirect(`${origin}/dashboard?meta=${result}`);
+    const response = NextResponse.redirect(`${origin}/settings?meta=${result}`);
     response.cookies.delete({ name: "meta_oauth_state", path: "/api/meta" });
     return response;
   };

@@ -140,3 +140,55 @@ export async function getAdAccounts(token: string) {
 }
 
 export const AD_ACCOUNT_ID_PATTERN = /^act_\d{1,20}$/;
+
+export async function getAdAccount(token: string, accountId: string) {
+  return graphRequest<AdAccount>(`/${accountId}`, {
+    params: { fields: "id,name,currency,timezone_name,account_status" },
+    token,
+  });
+}
+
+export type MetaAction = { action_type: string; value: string };
+
+export type CampaignInsightRow = {
+  campaign_id: string;
+  campaign_name: string;
+  date_start: string; // YYYY-MM-DD, Ad Account-এর টাইমজোনে
+  spend?: string;
+  impressions?: string;
+  clicks?: string;
+  actions?: MetaAction[];
+  action_values?: MetaAction[];
+};
+
+// গত ৩০ দিনের (আজ বাদে) ক্যাম্পেইন-লেভেলের দৈনিক ডাটা
+const INSIGHTS_MAX_PAGES = 20;
+
+export async function getCampaignInsightsDaily(token: string, accountId: string) {
+  const rows: CampaignInsightRow[] = [];
+  let after: string | undefined;
+
+  for (let page = 0; page < INSIGHTS_MAX_PAGES; page++) {
+    const res = await graphRequest<{
+      data: CampaignInsightRow[];
+      paging?: { cursors?: { after?: string }; next?: string };
+    }>(`/${accountId}/insights`, {
+      params: {
+        level: "campaign",
+        time_increment: "1",
+        date_preset: "last_30d",
+        fields:
+          "campaign_id,campaign_name,spend,impressions,clicks,actions,action_values",
+        limit: "500",
+        ...(after ? { after } : {}),
+      },
+      token,
+    });
+
+    rows.push(...res.data);
+    after = res.paging?.cursors?.after;
+    if (!res.paging?.next || !after) break;
+  }
+
+  return rows;
+}
