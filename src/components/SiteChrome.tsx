@@ -50,7 +50,7 @@ export async function SiteHeader({ loggedIn = false }: { loggedIn?: boolean }) {
             </Link>
           )}
           <Link
-            href={loggedIn ? "/dashboard" : "/login"}
+            href={loggedIn ? "/dashboard" : "/signup"}
             className={buttonClass("primary", "rounded-xl")}
           >
             {loggedIn ? tr("Dashboard", "ড্যাশবোর্ড") : tr("Start free", "ফ্রি শুরু করো")}

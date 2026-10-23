@@ -43,6 +43,7 @@ export async function updateSession(request: NextRequest) {
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt" ||
     pathname.startsWith("/login") ||
+    pathname === "/signup" ||
     pathname.startsWith("/auth");
 
   if (!user && !isPublicPath) {
@@ -51,7 +52,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname.startsWith("/login")) {
+  if (user && (pathname.startsWith("/login") || pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

@@ -224,7 +224,7 @@ export default async function LandingPage() {
   } = await supabase.auth.getUser();
 
   // Logged-in visitors go straight to their dashboard
-  const primaryHref = user ? "/dashboard" : "/login";
+  const primaryHref = user ? "/dashboard" : "/signup";
   const primaryLabel = user ? tr("Open your dashboard", "ড্যাশবোর্ডে যাও") : tr("Connect your ad account", "Ad Account কানেক্ট করো");
 
   const morning = [
@@ -498,7 +498,7 @@ export default async function LandingPage() {
               )}
             </p>
           </div>
-          <PricingSection tr={tr} ctaHref={user ? "/settings#plan" : "/login"} />
+          <PricingSection tr={tr} ctaHref={user ? "/settings#plan" : "/signup"} />
         </section>
 
         {/* FAQ */}
