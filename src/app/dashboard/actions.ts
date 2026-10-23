@@ -7,10 +7,11 @@ import { decrypt } from "@/lib/crypto";
 import { syncRecent } from "@/lib/insights/sync";
 import { clearLiveCache } from "@/lib/insights/live";
 import { buildPeriodReport, findDataWarnings } from "@/lib/insights/report";
-import { isValidDate, minAllowedDate, rangeQuery, resolveRange, todayIn } from "@/lib/dates";
+import { isValidDate, rangeQuery, resolveRange, todayIn } from "@/lib/dates";
 import { AiError } from "@/lib/ai/providers";
 import { generateAndStoreSummary, type StoredSummary } from "@/lib/ai/summary";
 import { getLocale } from "@/lib/i18n-server";
+import { getUserPlan, planMinDate } from "@/lib/plans";
 import { makeTr } from "@/lib/i18n";
 
 const field = (formData: FormData, name: string) => {
@@ -137,7 +138,7 @@ export async function generateAiSummary(
     !isValidDate(until) ||
     since > until ||
     until > today ||
-    since < minAllowedDate(today)
+    since < planMinDate(await getUserPlan(supabase, user.id), today)
   ) {
     return { ok: false, error: tr("Those dates aren't valid. Refresh the page and try again.", "তারিখ সঠিক নয়। পেজ রিফ্রেশ করে আবার চেষ্টা করো।") };
   }

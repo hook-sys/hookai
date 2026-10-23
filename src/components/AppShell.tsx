@@ -4,8 +4,11 @@ import {
   LayoutDashboard,
   LogOut,
   Newspaper,
+  PenLine,
   Settings,
   ShieldCheck,
+  Users,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { signOut } from "@/app/login/actions";
@@ -15,9 +18,9 @@ import { getTr } from "@/lib/i18n-server";
 import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 
-type Section = "dashboard" | "settings" | "admin" | "admin-blog";
+type Section = "dashboard" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
-type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
+type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
@@ -34,6 +37,11 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     >
       <Icon className="size-4" aria-hidden />
       {item.label}
+      {item.soon && (
+        <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+          {item.soon}
+        </span>
+      )}
     </Link>
   );
 }
@@ -72,9 +80,12 @@ export default async function AppShell({
 
   const nav: NavItem[] = [
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
+    { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
+    { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
   ];
   const adminNav: NavItem[] = [
+    { id: "admin-users", href: "/admin/users", label: tr("Users & plans", "ইউজার ও প্ল্যান"), icon: Users },
     { id: "admin", href: "/admin/ai", label: tr("AI provider", "AI প্রোভাইডার"), icon: ShieldCheck },
     { id: "admin-blog", href: "/admin/blog", label: tr("Blog", "ব্লগ"), icon: Newspaper },
   ];

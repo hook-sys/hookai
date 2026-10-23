@@ -10,6 +10,8 @@ import { Badge, Card, CardHeader, Notice, PageHeader, buttonClass } from "@/comp
 import { disconnectMeta } from "./actions";
 import AdAccountPicker from "./AdAccountPicker";
 import DeleteAccount from "./DeleteAccount";
+import PlanCard from "./PlanCard";
+import { getUserPlan } from "@/lib/plans";
 
 export async function generateMetadata() {
   const tr = await getTr();
@@ -86,6 +88,8 @@ export default async function SettingsPage({ searchParams }: Props) {
       />
 
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
+
+      <PlanCard supabase={supabase} userId={user.id} plan={await getUserPlan(supabase, user.id)} tr={tr} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-6">

@@ -23,7 +23,6 @@ import {
   addDays,
   daysInRange,
   formatRange,
-  minAllowedDate,
   previousRange,
   rangeQuery,
   resolveRange,
@@ -32,6 +31,7 @@ import {
 import { getLatestSummary } from "@/lib/ai/summary";
 import { getActiveAlerts } from "@/lib/alerts/store";
 import AppShell from "@/components/AppShell";
+import { getUserPlan, planMinDate } from "@/lib/plans";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { Card, EmptyState, Notice, PageHeader, buttonClass } from "@/components/ui";
@@ -190,11 +190,13 @@ export default async function DashboardPage({ searchParams }: Props) {
   }
 
   const today = todayIn(timeZone);
-  const minDate = minAllowedDate(today);
+  const plan = await getUserPlan(supabase, user.id);
+  const minDate = planMinDate(plan, today);
   const range = resolveRange(
     { preset: params.preset, since: params.since, until: params.until || params.since },
     today,
     tr,
+    minDate,
   );
   const isMaximum = range.preset === "maximum";
 
@@ -218,9 +220,8 @@ export default async function DashboardPage({ searchParams }: Props) {
   }
 
   // "সর্বোচ্চ" মানে ডাটাবেসে থাকা সবচেয়ে পুরনো দিন থেকে আজ পর্যন্ত
-  const since = isMaximum
-    ? ((await earliestDataDate(supabase, user.id, accountId)) ?? today)
-    : range.since;
+  const earliest = isMaximum ? await earliestDataDate(supabase, user.id, accountId) : null;
+  const since = isMaximum ? (earliest && earliest > minDate ? earliest : minDate) : range.since;
   const until = range.until;
   // আজ অসম্পূর্ণ দিন, তাই আজকে-সহ ছোট সময়কে পুরো আগের দিনের সাথে তুলনা করলে ভুল ছবি আসে
   const compare = !isMaximum && !(until >= today && daysInRange(since, until) < 7);
@@ -384,6 +385,8 @@ export default async function DashboardPage({ searchParams }: Props) {
             primaryIndicator={live.primaryIndicator}
             averageCpr={live.primaryResults > 0 ? live.primarySpend / live.primaryResults : null}
             analysisHref={(id) => `/dashboard/campaigns/${id}?${dateQuery}`}
+            analysisLimit={plan.activeCampaigns}
+            planName={plan.name}
             tr={tr}
           />
         </>

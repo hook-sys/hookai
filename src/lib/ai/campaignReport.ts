@@ -4,6 +4,7 @@ import { daysInRange } from "@/lib/dates";
 import { getActiveAiConfig } from "./config";
 import { AiError, generateText } from "./providers";
 import { makeTr, type Locale } from "@/lib/i18n";
+import { assertQuota, getUserPlan, recordUsage } from "@/lib/plans";
 
 export type Priority = "high" | "medium" | "low";
 
@@ -277,6 +278,7 @@ export async function generateCampaignReport(
       tr("This campaign spent nothing in this period, so there's nothing to analyze.", "এই সময়ে ক্যাম্পেইনে খরচ হয়নি, তাই বিশ্লেষণ করার মতো ডাটা নেই।"),
     );
   }
+  await assertQuota(supabase, userId, await getUserPlan(supabase, userId), "campaign_report", tr);
 
   const cfg = await getActiveAiConfig(supabase);
   const text = await generateText(cfg, {
@@ -285,6 +287,7 @@ export async function generateCampaignReport(
     maxTokens: 10000,
   });
   const content = parseCampaignReport(text, locale);
+  await recordUsage(supabase, userId, "campaign_report");
 
   const { data, error } = await supabase
     .from("campaign_reports")

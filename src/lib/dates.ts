@@ -87,7 +87,7 @@ function isPreset(value: unknown): value is PresetId {
   return PRESETS.some((p) => p.id === value);
 }
 
-function presetDates(id: PresetId, today: string): { since: string; until: string } {
+function presetDates(id: PresetId, today: string, min: string): { since: string; until: string } {
   switch (id) {
     case "today":
       return { since: today, until: today };
@@ -108,7 +108,7 @@ function presetDates(id: PresetId, today: string): { since: string; until: strin
     }
     case "maximum":
       // শুরুর তারিখ পরে ডাটাবেসের সবচেয়ে পুরনো দিন দিয়ে বদলানো হয়
-      return { since: minAllowedDate(today), until: today };
+      return { since: min, until: today };
   }
 }
 
@@ -117,8 +117,9 @@ export function resolveRange(
   params: { preset?: string; since?: string; until?: string },
   today: string,
   tr: Tr = enTr,
+  // প্ল্যান অনুযায়ী সবচেয়ে পুরনো তারিখ; না দিলে Meta-র সীমা
+  min: string = minAllowedDate(today),
 ): DateRange {
-  const min = minAllowedDate(today);
 
   if (params.since && params.until && isValidDate(params.since) && isValidDate(params.until)) {
     let since = params.since < min ? min : params.since;
@@ -130,7 +131,8 @@ export function resolveRange(
   }
 
   const id: PresetId = isPreset(params.preset) ? params.preset : "last_7d";
-  return { preset: id, ...presetDates(id, today), label: presetLabel(id, tr) };
+  const dates = presetDates(id, today, min);
+  return { preset: id, since: dates.since < min ? min : dates.since, until: dates.until, label: presetLabel(id, tr) };
 }
 
 // তুলনার জন্য ঠিক আগের সমান দৈর্ঘ্যের সময়

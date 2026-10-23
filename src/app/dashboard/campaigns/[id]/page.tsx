@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarX } from "lucide-react";
+import { ArrowLeft, CalendarX, Lock } from "lucide-react";
 import { loadCampaignAnalysis, type DimensionAnalysis, type Segment } from "@/lib/insights/campaign";
 import type { LiveReport } from "@/lib/insights/live";
 import { getLatestReport, getTodaysReport } from "@/lib/ai/campaignReport";
-import { formatRange, minAllowedDate, rangeQuery } from "@/lib/dates";
+import { formatRange, rangeQuery } from "@/lib/dates";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/format";
 import AppShell from "@/components/AppShell";
 import type { Tr } from "@/lib/i18n";
-import { Badge, Card, EmptyState, PageHeader, cn } from "@/components/ui";
+import { Badge, Card, EmptyState, PageHeader, buttonClass, cn } from "@/components/ui";
 import DateRangePicker from "../../DateRangePicker";
 import { FunnelCard, KpiGrid, kpisFor, videoFunnel, websiteFunnel } from "../../views";
 import { loadCampaignContext } from "./load";
@@ -152,7 +152,7 @@ export default async function CampaignPage({ params, searchParams }: Props) {
       since={c.since}
       until={c.until}
       today={c.today}
-      minDate={minAllowedDate(c.today)}
+      minDate={c.minDate}
       keepParams={{}}
       basePath={basePath}
     />
@@ -167,6 +167,28 @@ export default async function CampaignPage({ params, searchParams }: Props) {
           icon={CalendarX}
           title={tr("Nothing spent in this period", "এই সময়ে কোনো খরচ হয়নি")}
           text={tr("Pick another range, such as the last 30 days or Maximum.", "অন্য তারিখ বেছে নাও, যেমন গত ৩০ দিন বা সর্বোচ্চ।")}
+        />
+      </AppShell>
+    );
+  }
+
+  if (c.overLimit) {
+    return (
+      <AppShell active="dashboard">
+        {back}
+        <PageHeader title={c.info.name} actions={picker} />
+        <EmptyState
+          icon={Lock}
+          title={tr("Outside your plan's campaign limit", "তোমার প্ল্যানের ক্যাম্পেইন সীমার বাইরে")}
+          text={tr(
+            `The ${c.plan.name} plan analyzes your top ${c.plan.activeCampaigns} campaigns by spend in the selected period. Upgrade to analyze more.`,
+            `${c.plan.name} প্ল্যানে বাছাই করা সময়ে খরচে সবচেয়ে বড় ${c.plan.activeCampaigns}টি ক্যাম্পেইন বিশ্লেষণ করা যায়। আরও লাগলে প্ল্যান বাড়াও।`,
+          )}
+          action={
+            <Link href="/settings#plan" className={buttonClass("primary")}>
+              {tr("See plans", "প্ল্যান দেখো")}
+            </Link>
+          }
         />
       </AppShell>
     );

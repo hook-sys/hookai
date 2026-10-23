@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Lock,
   ArrowDownRight,
   ArrowUpRight,
   Clapperboard,
@@ -516,6 +517,8 @@ export function CampaignTable({
   primaryIndicator,
   averageCpr,
   analysisHref,
+  analysisLimit,
+  planName,
   tr,
 }: {
   view: ViewId;
@@ -524,6 +527,9 @@ export function CampaignTable({
   primaryIndicator: string | null;
   averageCpr: number | null;
   analysisHref: (campaignId: string) => string;
+  // প্ল্যান অনুযায়ী খরচে সবচেয়ে বড় কয়টি ক্যাম্পেইন বিশ্লেষণ করা যাবে
+  analysisLimit: number;
+  planName: string;
   tr: Tr;
 }) {
   const cols = statColumns(view, tr);
@@ -563,7 +569,7 @@ export function CampaignTable({
                 </td>
               </tr>
             )}
-            {campaigns.map((c) => (
+            {campaigns.map((c, index) => (
               <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                 <td className="max-w-xs truncate px-5 py-3 font-medium text-zinc-900 dark:text-zinc-100" title={c.name}>
                   {c.name}
@@ -601,6 +607,19 @@ export function CampaignTable({
                   </td>
                 )}
                 <td className="px-3 py-2 pr-5 text-right">
+                  {index >= analysisLimit ? (
+                    <Link
+                      href="/settings#plan"
+                      title={tr(
+                        `The ${planName} plan analyzes your top ${analysisLimit} campaigns by spend`,
+                        `${planName} প্ল্যানে খরচে সবচেয়ে বড় ${analysisLimit}টি ক্যাম্পেইন বিশ্লেষণ করা যায়`,
+                      )}
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs whitespace-nowrap text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    >
+                      <Lock className="size-3.5" aria-hidden />
+                      {tr("Upgrade", "প্ল্যান বাড়াও")}
+                    </Link>
+                  ) : (
                   <Link
                     href={analysisHref(c.id)}
                     className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
@@ -608,6 +627,7 @@ export function CampaignTable({
                     <Sparkles className="size-3.5" aria-hidden />
                     {tr("Analyze", "বিশ্লেষণ")}
                   </Link>
+                  )}
                 </td>
               </tr>
             ))}

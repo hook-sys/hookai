@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Check, Minus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonClass, cn } from "@/components/ui";
 import { Backdrop, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import PricingSection from "@/components/PricingSection";
 import { getTr } from "@/lib/i18n-server";
 import type { Tr } from "@/lib/i18n";
 
@@ -254,7 +255,10 @@ export default async function LandingPage() {
   ];
 
   const never = [
-    tr("Change, pause or create anything in your ad account. We only read.", "তোমার Ad Account-এ কিছু বদলানো, বন্ধ করা বা তৈরি করা। আমরা শুধু পড়ি।"),
+    tr(
+      "Touch your ad account without your say-so. Today Hook only reads; when ad launching arrives, nothing goes live until you press Publish.",
+      "তোমার অনুমতি ছাড়া Ad Account-এ হাত দেওয়া। এখন Hook শুধু পড়ে; অ্যাড চালুর ফিচার এলেও তুমি Publish না চাপলে কিছুই চালু হবে না।",
+    ),
     tr("Make up a number. Every figure comes from Meta and is calculated in code; the AI only explains it.", "নিজে থেকে কোনো সংখ্যা বানানো। সব সংখ্যা Meta থেকে আসে, হিসাব কোডে হয়; AI শুধু ব্যাখ্যা করে।"),
     tr("Sell or share your data. Your Meta token is encrypted and you can disconnect in one click.", "তোমার ডাটা বিক্রি বা শেয়ার করা। Meta token এনক্রিপ্ট করা, আর এক ক্লিকে বিচ্ছিন্ন করা যায়।"),
     tr("Hide a broken pixel behind a pretty ROAS. If tracking looks wrong, we say so first.", "ভুল Pixel-কে সুন্দর ROAS দিয়ে ঢেকে রাখা। ট্র্যাকিং ভুল মনে হলে আগে সেটাই বলি।"),
@@ -332,7 +336,7 @@ export default async function LandingPage() {
               </a>
             </div>
             <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
-              {tr("Free while we're early · No card · Read-only access", "শুরুতে ফ্রি · কার্ড লাগবে না · শুধু পড়ার অনুমতি")}
+              {tr("Free plan · No card · Read-only access", "ফ্রি প্ল্যান · কার্ড লাগবে না · শুধু পড়ার অনুমতি")}
             </p>
           </div>
           <HeroVisual tr={tr} />
@@ -481,59 +485,20 @@ export default async function LandingPage() {
 
         {/* Pricing */}
         <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
-            <div>
-              <Eyebrow>{tr("Pricing", "দাম")}</Eyebrow>
-              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
-                {tr("Free while we're ", "শুরুর সময়টা ")}
-                <Accent>{tr("getting started.", "পুরো ফ্রি।")}</Accent>
-              </h2>
-              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "Use everything now. When Pro arrives you'll hear about it first, and nothing is charged unless you choose it.",
-                  "এখন সব ফ্রি ব্যবহার করো। Pro এলে সবার আগে জানবে, আর তুমি না চাইলে কোনো টাকা কাটা হবে না।",
-                )}
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Glass className="p-6 ring-1 ring-indigo-600/30 dark:ring-indigo-300/30">
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Free</p>
-                <p className="mt-1 text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white">৳0</p>
-                <ul className="mt-6 space-y-2.5 text-sm text-zinc-700 dark:text-zinc-200">
-                  {[
-                    tr("Dashboard with every view", "সব view সহ Dashboard"),
-                    tr("AI summary and campaign reports", "AI summary ও campaign report"),
-                    tr("Smart alerts", "Smart alert"),
-                    tr("Any date range", "যেকোনো তারিখ"),
-                  ].map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href={primaryHref} className={buttonClass("primary", "mt-7 w-full rounded-xl")}>
-                  {user ? tr("Open dashboard", "ড্যাশবোর্ডে যাও") : tr("Start free", "ফ্রি শুরু করো")}
-                </Link>
-              </Glass>
-              <Glass className="p-6">
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Pro</p>
-                <p className="mt-1 text-4xl font-semibold tracking-tight text-zinc-400 dark:text-zinc-500">{tr("Soon", "শীঘ্রই")}</p>
-                <ul className="mt-6 space-y-2.5 text-sm text-zinc-600 dark:text-zinc-400">
-                  {[
-                    tr("Several ad accounts side by side", "একাধিক Ad Account একসাথে"),
-                    tr("Email and WhatsApp alerts", "Email ও WhatsApp alert"),
-                    tr("Client reports for agencies", "Agency-র জন্য client report"),
-                  ].map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-zinc-400" aria-hidden />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </Glass>
-            </div>
+          <div className="max-w-2xl">
+            <Eyebrow>{tr("Pricing", "দাম")}</Eyebrow>
+            <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
+              {tr("Start free. ", "ফ্রি দিয়ে শুরু করো। ")}
+              <Accent>{tr("Pay when it pays off.", "লাভ দেখলে তবেই টাকা দাও।")}</Accent>
+            </h2>
+            <p className="mt-5 text-zinc-600 dark:text-zinc-300">
+              {tr(
+                "Every plan reads your ads the same way; bigger plans cover more accounts, more campaigns and more AI work. Items marked soon are on the way.",
+                "সব প্ল্যান একইভাবে তোমার বিজ্ঞাপন পড়ে; বড় প্ল্যানে বেশি অ্যাকাউন্ট, বেশি ক্যাম্পেইন আর বেশি AI কাজ। “শীঘ্রই” লেখা ফিচারগুলো আসছে।",
+              )}
+            </p>
           </div>
+          <PricingSection tr={tr} ctaHref={user ? "/settings#plan" : "/login"} />
         </section>
 
         {/* FAQ */}

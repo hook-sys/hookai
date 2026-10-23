@@ -4,6 +4,7 @@ import type { DataWarning, PeriodReport, PeriodStats } from "@/lib/insights/repo
 import { getActiveAiConfig } from "./config";
 import { AiError, generateText } from "./providers";
 import { makeTr, type Locale } from "@/lib/i18n";
+import { assertQuota, getUserPlan, recordUsage } from "@/lib/plans";
 
 export type Priority = "high" | "medium" | "low";
 
@@ -180,9 +181,8 @@ export function parseSummary(text: string, locale: Locale = "en"): AiSummary {
   return summary;
 }
 
-// একজন ব্যবহারকারী কত ঘন ঘন সারসংক্ষেপ বানাতে পারবে (AI খরচ নিয়ন্ত্রণ)
+// পরপর দুইবার চাপা আটকাতে; মোট সংখ্যার সীমা প্ল্যান থেকে আসে
 const COOLDOWN_MS = 60 * 1000;
-const DAILY_LIMIT = 30;
 
 export async function generateAndStoreSummary(
   supabase: SupabaseClient,
@@ -194,22 +194,15 @@ export async function generateAndStoreSummary(
   locale: Locale = "en",
 ): Promise<StoredSummary> {
   const tr = makeTr(locale);
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const plan = await getUserPlan(supabase, userId);
+  await assertQuota(supabase, userId, plan, "summary", tr);
+
   const { data: recent } = await supabase
     .from("ai_summaries")
     .select("created_at")
     .eq("user_id", userId)
-    .gte("created_at", dayAgo)
-    .order("created_at", { ascending: false });
-
-  if (recent && recent.length >= DAILY_LIMIT) {
-    throw new AiError(
-      tr(
-        `You've used today's limit of ${DAILY_LIMIT} summaries. Try again tomorrow.`,
-        `আজকের সীমা (${DAILY_LIMIT}টি সারসংক্ষেপ) শেষ। কাল আবার চেষ্টা করো।`,
-      ),
-    );
-  }
+    .order("created_at", { ascending: false })
+    .limit(1);
   if (recent?.[0] && Date.now() - new Date(recent[0].created_at).getTime() < COOLDOWN_MS) {
     throw new AiError(
       tr("A summary was just created. Try again in a minute.", "এইমাত্র একটি সারসংক্ষেপ তৈরি হয়েছে। এক মিনিট পরে আবার চেষ্টা করো।"),
@@ -222,13 +215,23 @@ export async function generateAndStoreSummary(
     );
   }
 
+  // প্ল্যানের সীমা পর্যন্ত বড় ক্যাম্পেইনগুলো (খরচ অনুযায়ী সাজানো) AI-তে যায়; মোট হিসাব পুরো অ্যাকাউন্টের
+  const limited: PeriodReport = {
+    ...report,
+    current: { ...report.current, campaigns: report.current.campaigns.slice(0, plan.activeCampaigns) },
+    previous: report.previous
+      ? { ...report.previous, campaigns: report.previous.campaigns.slice(0, plan.activeCampaigns) }
+      : null,
+  };
+
   const cfg = await getActiveAiConfig(supabase);
   const text = await generateText(cfg, {
     system: systemPrompt(locale),
-    prompt: buildPrompt(report, account, warnings),
+    prompt: buildPrompt(limited, account, warnings),
     maxTokens: 8000,
   });
   const parsed = parseSummary(text, locale);
+  await recordUsage(supabase, userId, "summary");
 
   // AI নির্দেশ না মানলেও এখন বন্ধ থাকা ক্যাম্পেইনের সুপারিশ ব্যবহারকারী দেখবে না
   const running = new Set(report.current.campaigns.map((c) => c.name.trim().toLowerCase()));

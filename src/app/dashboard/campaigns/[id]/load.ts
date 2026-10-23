@@ -4,8 +4,9 @@ import { decrypt } from "@/lib/crypto";
 import { getCampaignInfo } from "@/lib/meta/graph";
 import { cached, loadLiveReport } from "@/lib/insights/live";
 import { earliestDataDate } from "@/lib/insights/report";
-import { minAllowedDate, resolveRange, todayIn } from "@/lib/dates";
+import { resolveRange, todayIn } from "@/lib/dates";
 import { getLocale } from "@/lib/i18n-server";
+import { getUserPlan, planMinDate } from "@/lib/plans";
 import { makeTr } from "@/lib/i18n";
 
 const CAMPAIGN_ID_PATTERN = /^\d{5,25}$/;
@@ -50,19 +51,23 @@ export async function loadCampaignContext(
   if (!info) notFound();
   if (`act_${info.account_id}` !== accountId) redirect("/dashboard?status=campaign_other_account");
 
+  const plan = await getUserPlan(supabase, user.id);
+  const minDate = planMinDate(plan, today);
   const range = resolveRange(
     { preset: params.preset, since: params.since, until: params.until || params.since },
     today,
     tr,
+    minDate,
   );
-  const since =
-    range.preset === "maximum"
-      ? ((await earliestDataDate(supabase, user.id, accountId)) ?? minAllowedDate(today))
-      : range.since;
+  const earliest = range.preset === "maximum" ? await earliestDataDate(supabase, user.id, accountId) : null;
+  const since = range.preset === "maximum" ? (earliest && earliest > minDate ? earliest : minDate) : range.since;
   const until = range.until;
 
   const live = await loadLiveReport(ctx, { since, until }, today, currency);
-  const campaign = live.campaigns.find((c) => c.id === campaignId) ?? null;
+  // ক্যাম্পেইনগুলো খরচ অনুযায়ী সাজানো; প্ল্যানের সীমার বাইরের হলে বিশ্লেষণ বন্ধ
+  const rank = live.campaigns.findIndex((c) => c.id === campaignId);
+  const campaign = rank >= 0 ? live.campaigns[rank] : null;
+  const overLimit = rank >= plan.activeCampaigns;
 
-  return { supabase, user, ctx, accountId, currency, today, range, since, until, info, campaign, locale, tr };
+  return { supabase, user, ctx, accountId, currency, today, minDate, range, since, until, info, campaign, overLimit, plan, locale, tr };
 }
