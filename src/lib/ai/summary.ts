@@ -11,6 +11,8 @@ export type Priority = "high" | "medium" | "low";
 export type AiSummary = {
   // কোন ভাষায় লেখা (পুরনো সারসংক্ষেপে নেই, সেগুলো বাংলা)
   locale?: Locale;
+  // কোন Ad Account-এর (রিপোর্ট তালিকায় নাম দেখাতে)
+  account_name?: string;
   headline: string;
   overview: string;
   highlights: string[];
@@ -237,6 +239,7 @@ export async function generateAndStoreSummary(
   const running = new Set(report.current.campaigns.map((c) => c.name.trim().toLowerCase()));
   const content: AiSummary = {
     ...parsed,
+    account_name: account.name,
     recommendations: parsed.recommendations.filter(
       (r) => r.campaign === null || running.has(r.campaign.trim().toLowerCase()),
     ),

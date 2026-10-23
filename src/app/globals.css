@@ -59,6 +59,24 @@ body {
   @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
 }
 
+/* রিপোর্ট প্রিন্ট বা PDF: সাদা কাগজে কালো লেখা, ডার্ক মোড চালু থাকলেও */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .print-doc,
+  .print-doc * {
+    color: #18181b !important;
+    background: transparent !important;
+    border-color: #e4e4e7 !important;
+    box-shadow: none !important;
+  }
+}
+
 /* Bangla script needs more room between lines than Latin, and has no real italic */
 :lang(bn) :is(h1, h2, h3) {
   line-height: 1.35;

@@ -1,46 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  AlertTriangle,
-  Clapperboard,
-  Globe,
-  Lightbulb,
-  Loader2,
-  Sparkles,
-  Users,
-} from "lucide-react";
-import { Badge, Card, buttonClass } from "@/components/ui";
-import type { Priority, StoredCampaignReport } from "@/lib/ai/campaignReport";
+import Link from "next/link";
+import { Loader2, Sparkles } from "lucide-react";
+import { Card, buttonClass } from "@/components/ui";
+import type { StoredCampaignReport } from "@/lib/ai/campaignReport";
+import { CampaignReportContent } from "@/components/reports/ReportContent";
 import { formatRange } from "@/lib/dates";
 import { useTr } from "@/components/I18nProvider";
 import { generateCampaignReportAction, type ReportState } from "./actions";
-
-const PRIORITY_TONE: Record<Priority, "danger" | "warning" | "neutral"> = {
-  high: "danger",
-  medium: "warning",
-  low: "neutral",
-};
-
-function Section({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Users;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-        <Icon className="size-4 text-indigo-600 dark:text-indigo-400" aria-hidden />
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
 
 export default function ReportCard({
   campaignId,
@@ -56,11 +24,6 @@ export default function ReportCard({
   latest: StoredCampaignReport | null;
 }) {
   const tr = useTr();
-  const priorityLabel: Record<Priority, string> = {
-    high: tr("Urgent", "জরুরি"),
-    medium: tr("Important", "গুরুত্বপূর্ণ"),
-    low: tr("Can wait", "পরে করলেও চলে"),
-  };
   const [state, formAction, pending] = useActionState<ReportState, FormData>(
     generateCampaignReportAction,
     null,
@@ -151,75 +114,17 @@ export default function ReportCard({
               </p>
             )}
 
-            <div>
-              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{c.headline}</p>
-              {c.overview && (
-                <p className="mt-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{c.overview}</p>
-              )}
-            </div>
-
-            {c.best_audience.length > 0 && (
-              <Section icon={Users} title={tr("Where it works best", "কোথায় ভালো চলছে")}>
-                <ul className="grid gap-2 md:grid-cols-2">
-                  {c.best_audience.map((b, i) => (
-                    <li key={i} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-                      {b.dimension && <Badge tone="brand">{b.dimension}</Badge>}
-                      <p className="mt-1.5 text-zinc-700 dark:text-zinc-300">{b.finding}</p>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
-
-            {(c.video_analysis || c.website_analysis) && (
-              <div className="grid gap-6 md:grid-cols-2">
-                {c.video_analysis && (
-                  <Section icon={Clapperboard} title={tr("Where viewers leave the video", "ভিডিওতে কোথায় মানুষ চলে যাচ্ছে")}>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300">{c.video_analysis}</p>
-                  </Section>
-                )}
-                {c.website_analysis && (
-                  <Section icon={Globe} title={tr("Where visitors leave the website", "ওয়েবসাইটে কোন ধাপে মানুষ চলে যাচ্ছে")}>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300">{c.website_analysis}</p>
-                  </Section>
-                )}
-              </div>
-            )}
-
-            {c.problems.length > 0 && (
-              <Section icon={AlertTriangle} title={tr("Problems", "সমস্যা")}>
-                <ul className="flex flex-col gap-2">
-                  {c.problems.map((p, i) => (
-                    <li key={i} className="text-sm">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{p.title}</span>
-                      {p.evidence && <span className="text-zinc-600 dark:text-zinc-400"> · {p.evidence}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
-
-            {c.solutions.length > 0 && (
-              <Section icon={Lightbulb} title={tr("What to do now", "সমাধান: এখন কী করবে")}>
-                <ol className="flex flex-col gap-3">
-                  {c.solutions.map((s, i) => (
-                    <li key={i} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{s.action}</span>
-                        <Badge tone={PRIORITY_TONE[s.priority]}>{priorityLabel[s.priority]}</Badge>
-                      </div>
-                      {s.reason && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.reason}</p>}
-                    </li>
-                  ))}
-                </ol>
-              </Section>
-            )}
+            <CampaignReportContent content={c} />
 
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
               {tr("Created", "তৈরি")}:{" "}
               <span suppressHydrationWarning>{new Date(report.created_at).toLocaleString("en-GB")}</span> ·{" "}
               {report.model} ·{" "}
-              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}
+              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}{" "}
+              ·{" "}
+              <Link href={`/reports/campaign/${report.id}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                {tr("Open, save or export", "খোলো, সংরক্ষণ বা এক্সপোর্ট করো")}
+              </Link>
             </p>
           </div>
         )}

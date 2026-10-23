@@ -22,6 +22,7 @@ export type Plan = {
   activeCampaigns: number; // প্রতি Ad Account-এ বিশ্লেষণ করা যায় এমন ক্যাম্পেইন
   historyDays: number;
   teamMembers: number;
+  exportReports: boolean; // রিপোর্ট PDF ও CSV হিসেবে নামানো
   quotas: Record<Exclude<UsageKind, "funnel">, Quota> & { funnel: Quota | null };
 };
 
@@ -35,6 +36,7 @@ export const PLANS: Record<PlanId, Plan> = {
     activeCampaigns: 3,
     historyDays: 30,
     teamMembers: 1,
+    exportReports: false,
     quotas: {
       summary: { count: 1, per: "week" },
       campaign_report: { count: 3, per: "month" },
@@ -51,6 +53,7 @@ export const PLANS: Record<PlanId, Plan> = {
     activeCampaigns: 10,
     historyDays: 90,
     teamMembers: 1,
+    exportReports: true,
     quotas: {
       summary: { count: 1, per: "day" },
       campaign_report: { count: 30, per: "month" },
@@ -67,6 +70,7 @@ export const PLANS: Record<PlanId, Plan> = {
     activeCampaigns: 25,
     historyDays: 365,
     teamMembers: 3,
+    exportReports: true,
     quotas: {
       summary: { count: 5, per: "day" },
       campaign_report: { count: 150, per: "month" },
@@ -83,6 +87,7 @@ export const PLANS: Record<PlanId, Plan> = {
     activeCampaigns: 50,
     historyDays: 1095,
     teamMembers: 10,
+    exportReports: true,
     quotas: {
       summary: { count: 20, per: "day" },
       campaign_report: { count: 600, per: "month" },

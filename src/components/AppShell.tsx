@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
+  FileText,
   LayoutDashboard,
   LogOut,
   Newspaper,
@@ -18,7 +19,7 @@ import { getTr } from "@/lib/i18n-server";
 import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 
-type Section = "dashboard" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "dashboard" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -80,6 +81,7 @@ export default async function AppShell({
 
   const nav: NavItem[] = [
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
+    { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
@@ -97,7 +99,7 @@ export default async function AppShell({
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-200 bg-white px-4 py-5 lg:flex dark:border-zinc-800 dark:bg-zinc-900">
+      <aside className="hidden w-64 shrink-0 flex-col print:!hidden border-r border-zinc-200 bg-white px-4 py-5 lg:flex dark:border-zinc-800 dark:bg-zinc-900">
         <div className="px-2">
           <Logo />
         </div>
@@ -117,7 +119,7 @@ export default async function AppShell({
         </div>
       </aside>
 
-      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-900/90">
+      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur print:hidden lg:hidden dark:border-zinc-800 dark:bg-zinc-900/90">
         <div className="flex items-center justify-between px-4 py-3">
           <Logo />
           <div className="flex items-center gap-1">
@@ -132,9 +134,9 @@ export default async function AppShell({
         </nav>
       </header>
 
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:p-0">
         {/* বড় স্ক্রিনে ভাষা বদলের বোতাম উপরের ডান কোণে */}
-        <div className="mx-auto mb-2 hidden max-w-6xl justify-end lg:flex">
+        <div className="mx-auto mb-2 hidden max-w-6xl justify-end lg:flex print:!hidden">
           <LanguageSwitch />
         </div>
         <div className="mx-auto max-w-6xl">{children}</div>

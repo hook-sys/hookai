@@ -1,50 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Lightbulb,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
-import { Badge, Card, buttonClass } from "@/components/ui";
-import type { Priority, StoredSummary } from "@/lib/ai/summary";
+import Link from "next/link";
+import { Loader2, Sparkles } from "lucide-react";
+import { Card, buttonClass } from "@/components/ui";
+import type { StoredSummary } from "@/lib/ai/summary";
+import { SummaryContent } from "@/components/reports/ReportContent";
 import { useTr } from "@/components/I18nProvider";
 import { generateAiSummary, type SummaryState } from "./actions";
-
-const PRIORITY_TONE: Record<Priority, "danger" | "warning" | "neutral"> = {
-  high: "danger",
-  medium: "warning",
-  low: "neutral",
-};
-
-function List({
-  title,
-  items,
-  icon: Icon,
-  iconClass,
-}: {
-  title: string;
-  items: string[];
-  icon: typeof CheckCircle2;
-  iconClass: string;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-      <ul className="flex flex-col gap-2">
-        {items.map((item, i) => (
-          <li key={i} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-            <Icon className={`mt-0.5 size-4 shrink-0 ${iconClass}`} aria-hidden />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 export default function AiSummaryCard({
   initial,
@@ -60,11 +23,6 @@ export default function AiSummaryCard({
   compare: boolean;
 }) {
   const tr = useTr();
-  const priorityLabel: Record<Priority, string> = {
-    high: tr("Urgent", "জরুরি"),
-    medium: tr("Important", "গুরুত্বপূর্ণ"),
-    low: tr("Can wait", "পরে করলেও চলে"),
-  };
   const [state, formAction, pending] = useActionState<SummaryState, FormData>(
     generateAiSummary,
     null,
@@ -147,74 +105,16 @@ export default function AiSummaryCard({
 
         {!pending && content && (
           <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                {content.headline}
-              </p>
-              {content.overview && (
-                <p className="mt-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                  {content.overview}
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <List
-                title={tr("Working well", "ভালো চলছে")}
-                items={content.highlights}
-                icon={CheckCircle2}
-                iconClass="text-emerald-600 dark:text-emerald-400"
-              />
-              <List
-                title={tr("Needs attention", "নজর দেওয়া দরকার")}
-                items={content.concerns}
-                icon={AlertTriangle}
-                iconClass="text-amber-600 dark:text-amber-400"
-              />
-            </div>
-
-            {content.recommendations.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                  {tr("What to do now", "এখন কী করবে")}
-                </h3>
-                <ol className="flex flex-col gap-3">
-                  {content.recommendations.map((r, i) => (
-                    <li
-                      key={i}
-                      className="flex gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800"
-                    >
-                      <Lightbulb
-                        className="mt-0.5 size-4 shrink-0 text-indigo-600 dark:text-indigo-400"
-                        aria-hidden
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            {r.action}
-                          </span>
-                          <Badge tone={PRIORITY_TONE[r.priority]}>{priorityLabel[r.priority]}</Badge>
-                        </div>
-                        {r.campaign && (
-                          <p className="mt-0.5 text-xs text-zinc-500">{tr("Campaign", "ক্যাম্পেইন")}: {r.campaign}</p>
-                        )}
-                        {r.reason && (
-                          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{r.reason}</p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
+            <SummaryContent content={content} />
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
               {tr("Created", "তৈরি")}:{" "}
-              <span suppressHydrationWarning>
-                {new Date(summary!.created_at).toLocaleString("en-GB")}
-              </span>{" "}
-              · {summary!.model} ·{" "}
-              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}
+              <span suppressHydrationWarning>{new Date(summary!.created_at).toLocaleString("en-GB")}</span> ·{" "}
+              {summary!.model} ·{" "}
+              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}{" "}
+              ·{" "}
+              <Link href={`/reports/summary/${summary!.id}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                {tr("Open, save or export", "খোলো, সংরক্ষণ বা এক্সপোর্ট করো")}
+              </Link>
             </p>
           </div>
         )}
