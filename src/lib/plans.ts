@@ -23,6 +23,7 @@ export type Plan = {
   historyDays: number;
   teamMembers: number;
   exportReports: boolean; // রিপোর্ট PDF ও CSV হিসেবে নামানো
+  courierSync: boolean; // কুরিয়ার থেকে নিজে থেকে ডেলিভারির অবস্থা আনা
   ordersPerMonth: number; // প্রতি মাসে যোগ করা যায় এমন অর্ডার (হাতে, CSV বা সংযোগ থেকে)
   quotas: Record<Exclude<UsageKind, "funnel">, Quota> & { funnel: Quota | null };
 };
@@ -39,6 +40,7 @@ export const PLANS: Record<PlanId, Plan> = {
     teamMembers: 1,
     exportReports: false,
     ordersPerMonth: 50,
+    courierSync: false,
     quotas: {
       summary: { count: 1, per: "week" },
       campaign_report: { count: 3, per: "month" },
@@ -57,6 +59,7 @@ export const PLANS: Record<PlanId, Plan> = {
     teamMembers: 1,
     exportReports: true,
     ordersPerMonth: 2000,
+    courierSync: false,
     quotas: {
       summary: { count: 1, per: "day" },
       campaign_report: { count: 30, per: "month" },
@@ -75,6 +78,7 @@ export const PLANS: Record<PlanId, Plan> = {
     teamMembers: 3,
     exportReports: true,
     ordersPerMonth: 10000,
+    courierSync: true,
     quotas: {
       summary: { count: 5, per: "day" },
       campaign_report: { count: 150, per: "month" },
@@ -93,6 +97,7 @@ export const PLANS: Record<PlanId, Plan> = {
     teamMembers: 10,
     exportReports: true,
     ordersPerMonth: 50000,
+    courierSync: true,
     quotas: {
       summary: { count: 20, per: "day" },
       campaign_report: { count: 600, per: "month" },

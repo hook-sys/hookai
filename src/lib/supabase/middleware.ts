@@ -44,7 +44,9 @@ export async function updateSession(request: NextRequest) {
     pathname === "/robots.txt" ||
     pathname.startsWith("/login") ||
     pathname === "/signup" ||
-    pathname.startsWith("/auth");
+    pathname.startsWith("/auth") ||
+    // কুরিয়ারের webhook লগইন ছাড়া আসে; নিজের token দিয়ে যাচাই হয়
+    pathname.startsWith("/api/webhooks/");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

@@ -6,6 +6,7 @@ import { useTr } from "@/components/I18nProvider";
 import { buttonClass, inputClass } from "@/components/ui";
 import { COURIERS, COURIER_NAMES, CSV_TEMPLATE, ORDER_STATUSES, statusLabel, type KnownCampaign, type OrderStatus } from "@/lib/orders";
 import { addOrder, importOrders, updateOrderStatus, type OrderFormState } from "./actions";
+import { connectSteadfast } from "./courier-actions";
 
 function Result({ state }: { state: OrderFormState }) {
   if (!state) return null;
@@ -129,6 +130,28 @@ export function ImportOrdersForm() {
   );
 }
 
+export function SteadfastConnectForm({ update = false }: { update?: boolean }) {
+  const tr = useTr();
+  const [state, formAction, pending] = useActionState<OrderFormState, FormData>(connectSteadfast, null);
+  return (
+    <form action={formAction} className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="API key">
+          <input name="api_key" required autoComplete="off" spellCheck={false} className={inputClass} />
+        </Field>
+        <Field label="Secret key">
+          <input name="secret_key" type="password" required autoComplete="off" className={inputClass} />
+        </Field>
+      </div>
+      <Result state={state} />
+      <button type="submit" disabled={pending} className={buttonClass(update ? "secondary" : "primary", "self-start")}>
+        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {update ? tr("Update keys", "Key আপডেট করো") : tr("Connect Steadfast", "Steadfast কানেক্ট করো")}
+      </button>
+    </form>
+  );
+}
+
 // অবস্থা বদলালেই সেভ হয়
 export function StatusSelect({ id, status, label }: { id: string; status: OrderStatus; label: string }) {
   const tr = useTr();
@@ -152,14 +175,20 @@ export function StatusSelect({ id, status, label }: { id: string; status: OrderS
   );
 }
 
-export function CopyText({ text }: { text: string }) {
+export function CopyText({ text, secret = false }: { text: string; secret?: boolean }) {
   const tr = useTr();
   const [copied, setCopied] = useState(false);
+  const [shown, setShown] = useState(!secret);
   return (
     <div className="flex items-stretch gap-2">
       <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-zinc-100 px-3 py-2 font-mono text-xs whitespace-nowrap text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-        {text}
+        {shown ? text : "•".repeat(24)}
       </code>
+      {secret && (
+        <button type="button" onClick={() => setShown((v) => !v)} className={buttonClass("ghost", "shrink-0")}>
+          {shown ? tr("Hide", "লুকাও") : tr("Show", "দেখাও")}
+        </button>
+      )}
       <button
         type="button"
         onClick={async () => {
