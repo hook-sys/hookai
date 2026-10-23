@@ -23,6 +23,7 @@ export type Plan = {
   historyDays: number;
   teamMembers: number;
   exportReports: boolean; // রিপোর্ট PDF ও CSV হিসেবে নামানো
+  ordersPerMonth: number; // প্রতি মাসে যোগ করা যায় এমন অর্ডার (হাতে, CSV বা সংযোগ থেকে)
   quotas: Record<Exclude<UsageKind, "funnel">, Quota> & { funnel: Quota | null };
 };
 
@@ -37,6 +38,7 @@ export const PLANS: Record<PlanId, Plan> = {
     historyDays: 30,
     teamMembers: 1,
     exportReports: false,
+    ordersPerMonth: 50,
     quotas: {
       summary: { count: 1, per: "week" },
       campaign_report: { count: 3, per: "month" },
@@ -54,6 +56,7 @@ export const PLANS: Record<PlanId, Plan> = {
     historyDays: 90,
     teamMembers: 1,
     exportReports: true,
+    ordersPerMonth: 2000,
     quotas: {
       summary: { count: 1, per: "day" },
       campaign_report: { count: 30, per: "month" },
@@ -71,6 +74,7 @@ export const PLANS: Record<PlanId, Plan> = {
     historyDays: 365,
     teamMembers: 3,
     exportReports: true,
+    ordersPerMonth: 10000,
     quotas: {
       summary: { count: 5, per: "day" },
       campaign_report: { count: 150, per: "month" },
@@ -88,6 +92,7 @@ export const PLANS: Record<PlanId, Plan> = {
     historyDays: 1095,
     teamMembers: 10,
     exportReports: true,
+    ordersPerMonth: 50000,
     quotas: {
       summary: { count: 20, per: "day" },
       campaign_report: { count: 600, per: "month" },
