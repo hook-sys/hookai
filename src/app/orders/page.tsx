@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { ensureCoverage } from "@/lib/insights/sync";
 import { listConnections } from "@/lib/couriers";
+import { listShops } from "@/lib/shops";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { addDays, formatRange, resolveRange, todayIn } from "@/lib/dates";
@@ -25,6 +26,7 @@ import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass, c
 import DateRangePicker from "@/app/dashboard/DateRangePicker";
 import { AddOrderForm, CopyText, ImportOrdersForm, StatusSelect } from "./OrderForms";
 import CourierSection from "./CourierSection";
+import ShopSection from "./ShopSection";
 import { deleteOrder } from "./actions";
 
 export async function generateMetadata() {
@@ -42,6 +44,9 @@ type Props = {
     updated?: string;
     rejected?: string;
     which?: string;
+    shop?: string;
+    added?: string;
+    limited?: string;
   }>;
 };
 
@@ -131,10 +136,11 @@ export default async function OrdersPage({ searchParams }: Props) {
     }
   }
 
-  const [orders, campaigns, connections] = await Promise.all([
+  const [orders, campaigns, connections, shops] = await Promise.all([
     loadOrders(supabase, user.id, accountId, { since, until }),
     knownCampaigns(supabase, user.id, accountId),
     listConnections(supabase, user.id),
+    listShops(supabase, user.id),
   ]);
   const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, tr);
 
@@ -292,6 +298,15 @@ export default async function OrdersPage({ searchParams }: Props) {
           </div>
         </Card>
       </div>
+
+      <ShopSection
+        shops={shops}
+        allowed={plan.courierSync}
+        planName={plan.name}
+        params={params}
+        back={`/orders?${baseQuery}`}
+        accountLabel={(id) => (id === accountId ? (connection.selected_ad_account_name ?? id) : id)}
+      />
 
       <CourierSection
         connections={connections}
