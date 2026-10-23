@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import { Badge, Card, CardHeader, Notice, PageHeader, buttonClass } from "@/components/ui";
 import { disconnectMeta } from "./actions";
 import AdAccountPicker from "./AdAccountPicker";
+import DeleteAccount from "./DeleteAccount";
 
 export const metadata = { title: "সেটিংস" };
 
@@ -127,9 +128,18 @@ export default async function SettingsPage({ searchParams }: Props) {
 
           <Card>
             <CardHeader icon={UserCircle2} title="তোমার অ্যাকাউন্ট" />
-            <p className="px-5 py-4 text-sm text-zinc-600 dark:text-zinc-400">
-              লগইন করা আছে: <span className="font-medium text-zinc-900 dark:text-zinc-100">{user.email}</span>
-            </p>
+            <div className="flex flex-col gap-4 px-5 py-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                লগইন করা আছে: <span className="font-medium text-zinc-900 dark:text-zinc-100">{user.email}</span>
+              </p>
+              <div className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                <DeleteAccount email={user.email ?? ""} />
+                <p className="mt-1 text-xs text-zinc-400">
+                  কী কী মোছা হয়, বিস্তারিত দেখো{" "}
+                  <Link href="/data-deletion" className="underline">ডাটা মুছে ফেলার নিয়ম</Link>-এ।
+                </p>
+              </div>
+            </div>
           </Card>
         </div>
 

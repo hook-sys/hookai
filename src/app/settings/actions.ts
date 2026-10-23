@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import {
@@ -66,6 +67,57 @@ export async function selectAdAccount(formData: FormData) {
     .eq("user_id", user.id);
 
   revalidateAppPages();
+}
+
+export type DeleteAccountState = { error: string } | null;
+
+// পুরো অ্যাকাউন্ট মুছে ফেলে। নিশ্চিত করতে ব্যবহারকারীকে নিজের ইমেইল লিখতে হয়।
+export async function deleteAccount(
+  _prev: DeleteAccountState,
+  formData: FormData,
+): Promise<DeleteAccountState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const typed = String(formData.get("confirm_email") ?? "").trim().toLowerCase();
+  if (!user.email || typed !== user.email.toLowerCase()) {
+    return { error: "নিশ্চিত করতে তোমার অ্যাকাউন্টের ইমেইল হুবহু লেখো।" };
+  }
+
+  // অ্যাডমিন হলে কিছু করার আগেই থামাও, নইলে Meta অনুমতি বাতিল হয়ে যেত অথচ অ্যাকাউন্ট থেকে যেত
+  const { data: isAdmin } = await supabase.rpc("is_admin");
+  if (isAdmin) {
+    return { error: "সুপার অ্যাডমিন অ্যাকাউন্ট অ্যাপ থেকে মোছা যায় না।" };
+  }
+
+  // আগে Meta-তে অনুমতি বাতিল, যাতে টোকেন আর কাজ না করে
+  const { data: connection } = await supabase
+    .from("meta_connections")
+    .select("access_token_encrypted")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (connection) {
+    try {
+      await revokePermissions(decrypt(connection.access_token_encrypted));
+    } catch (err) {
+      console.error("meta revoke failed", err instanceof Error ? err.message : err);
+    }
+  }
+
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) {
+    return {
+      error: error.message.includes("admin")
+        ? "সুপার অ্যাডমিন অ্যাকাউন্ট অ্যাপ থেকে মোছা যায় না।"
+        : "অ্যাকাউন্ট মোছা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।",
+    };
+  }
+
+  await supabase.auth.signOut();
+  redirect("/data-deletion?done=1");
 }
 
 // Meta-তে অনুমতি বাতিল করে, তারপর সংরক্ষিত সংযোগ (টোকেনসহ) ও বিজ্ঞাপনের ডাটা মুছে দেয়

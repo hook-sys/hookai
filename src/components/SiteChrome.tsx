@@ -50,6 +50,9 @@ export function SiteFooter() {
           <Link href="/#pricing" className="hover:text-zinc-900 dark:hover:text-zinc-100">Pricing</Link>
           <Link href="/#faq" className="hover:text-zinc-900 dark:hover:text-zinc-100">FAQ</Link>
           <Link href="/login" className="hover:text-zinc-900 dark:hover:text-zinc-100">Login</Link>
+          <Link href="/privacy" className="hover:text-zinc-900 dark:hover:text-zinc-100">Privacy</Link>
+          <Link href="/terms" className="hover:text-zinc-900 dark:hover:text-zinc-100">Terms</Link>
+          <Link href="/data-deletion" className="hover:text-zinc-900 dark:hover:text-zinc-100">ডাটা মুছে ফেলা</Link>
         </nav>
         <p>© {new Date().getFullYear()} Hook AI</p>
       </div>

@@ -140,6 +140,15 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {mode === "signup" && (
+            <p className="mt-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+              অ্যাকাউন্ট তৈরি করলে তুমি আমাদের{" "}
+              <Link href="/terms" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Terms</Link> ও{" "}
+              <Link href="/privacy" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Privacy Policy</Link>{" "}
+              মেনে নিচ্ছ।
+            </p>
+          )}
+
           <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
             {mode === "signin" ? "নতুন?" : "আগে থেকেই অ্যাকাউন্ট আছে?"}{" "}
             <button

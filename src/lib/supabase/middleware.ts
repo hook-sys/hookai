@@ -32,9 +32,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  // ল্যান্ডিং পেজ, ব্লগ, লগইন ও সার্চ ইঞ্জিনের ফাইল লগইন ছাড়াই দেখা যায়
+  // ল্যান্ডিং পেজ, ব্লগ, আইনি পেজ, লগইন ও সার্চ ইঞ্জিনের ফাইল লগইন ছাড়াই দেখা যায়
   const isPublicPath =
     pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/data-deletion" ||
     pathname === "/blog" ||
     pathname.startsWith("/blog/") ||
     pathname === "/sitemap.xml" ||
