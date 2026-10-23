@@ -90,53 +90,52 @@ body {
   font-style: normal;
 }
 
-/* Frosted glass panel used on the public pages */
+/* Public pages: a clean card on warm paper. Solid surfaces and hairline borders read as
+   crafted; heavy blur and colour blobs read as template. */
 @utility glass {
-  background-color: rgb(255 255 255 / 0.55);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  border: 1px solid rgb(255 255 255 / 0.7);
+  background-color: #fff;
+  border: 1px solid rgb(24 24 27 / 0.08);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.8),
-    0 1px 2px rgb(23 35 64 / 0.06),
-    0 24px 60px -28px rgb(23 35 64 / 0.35);
+    0 1px 0 rgb(24 24 27 / 0.03),
+    0 12px 32px -18px rgb(15 23 42 / 0.18);
 
   @media (prefers-color-scheme: dark) {
-    background-color: rgb(255 255 255 / 0.05);
-    border-color: rgb(255 255 255 / 0.1);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.07),
-      0 24px 60px -28px rgb(0 0 0 / 0.7);
+    background-color: #12151d;
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow: 0 12px 32px -18px rgb(0 0 0 / 0.6);
   }
 }
 
-/* Soft colour fields behind the glass, plus a little grain so it doesn't look flat */
+/* Page background for public pages: warm paper with a faint grid near the top */
 .aurora {
   background:
-    radial-gradient(38% 32% at 12% 8%, rgb(111 143 216 / 0.55), transparent 70%),
-    radial-gradient(30% 28% at 88% 12%, rgb(255 122 77 / 0.35), transparent 70%),
-    radial-gradient(40% 36% at 70% 70%, rgb(156 180 230 / 0.45), transparent 70%),
-    radial-gradient(30% 30% at 8% 80%, rgb(255 190 150 / 0.3), transparent 70%),
-    #f5f3ee;
+    linear-gradient(to bottom, transparent, #f6f5f1 520px),
+    linear-gradient(to right, rgb(24 24 27 / 0.04) 1px, transparent 1px) 0 0 / 56px 56px,
+    linear-gradient(to bottom, rgb(24 24 27 / 0.04) 1px, transparent 1px) 0 0 / 56px 56px,
+    #f6f5f1;
 
   @media (prefers-color-scheme: dark) {
     background:
-      radial-gradient(38% 32% at 12% 8%, rgb(49 87 176 / 0.45), transparent 70%),
-      radial-gradient(30% 28% at 88% 12%, rgb(255 90 44 / 0.18), transparent 70%),
-      radial-gradient(40% 36% at 70% 70%, rgb(42 74 150 / 0.35), transparent 70%),
-      radial-gradient(30% 30% at 8% 80%, rgb(255 122 77 / 0.12), transparent 70%),
-      #0a0f1d;
+      linear-gradient(to bottom, transparent, #0b0d12 520px),
+      linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px) 0 0 / 56px 56px,
+      linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px) 0 0 / 56px 56px,
+      #0b0d12;
   }
 }
 
 .grain::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.18;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  content: none;
+}
+
+/* Dark "ink" sections on the landing page (same in light and dark mode) */
+.ink {
+  background-color: #0a0d14;
+  background-image:
+    radial-gradient(60% 50% at 50% 0%, rgb(49 87 176 / 0.35), transparent 70%),
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: auto, 64px 64px, 64px 64px;
+  color: #f4f4f5;
 }
 
 ::selection {

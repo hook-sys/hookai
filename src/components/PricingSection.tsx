@@ -58,17 +58,22 @@ export default function PricingSection({ tr, ctaHref }: { tr: Tr; ctaHref: strin
         return (
           <div
             key={id}
-            className={cn("glass flex flex-col rounded-3xl p-6", featured && "ring-2 ring-indigo-600/60 dark:ring-indigo-300/50")}
+            className={cn(
+              "flex flex-col rounded-2xl p-6",
+              featured
+                ? "ink shadow-[0_30px_80px_-30px_rgba(49,87,176,0.6)] lg:-my-3 lg:py-9"
+                : "glass",
+            )}
           >
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">{p.name}</p>
+              <p className={cn("text-sm font-medium", featured ? "text-zinc-300" : "text-zinc-600 dark:text-zinc-300")}>{p.name}</p>
               {featured && (
-                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white">
+                <span className="rounded-full bg-[#FF7A4D] px-2 py-0.5 text-[11px] font-semibold text-zinc-950">
                   {tr("Most popular", "সবচেয়ে জনপ্রিয়")}
                 </span>
               )}
             </div>
-            <p className="mt-2 text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+            <p className={cn("mt-2 text-4xl font-semibold tracking-tight", featured ? "text-white" : "text-zinc-950 dark:text-white")}>
               ৳{n(p.priceBdt)}
               {p.priceBdt > 0 && <span className="text-base font-normal text-zinc-500">{tr("/mo", "/মাস")}</span>}
             </p>
@@ -77,11 +82,17 @@ export default function PricingSection({ tr, ctaHref }: { tr: Tr; ctaHref: strin
             </p>
             <ul className="mt-6 flex flex-1 flex-col gap-2.5 text-sm">
               {lines(id).map((l) => (
-                <li key={l.text} className={cn("flex gap-2", l.soon ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-200")}>
+                <li
+                  key={l.text}
+                  className={cn(
+                    "flex gap-2",
+                    featured ? (l.soon ? "text-zinc-400" : "text-zinc-100") : l.soon ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-700 dark:text-zinc-200",
+                  )}
+                >
                   {l.soon ? (
                     <Clock className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden />
                   ) : (
-                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                    <Check className={cn("mt-0.5 size-4 shrink-0", featured ? "text-emerald-400" : "text-emerald-600 dark:text-emerald-400")} aria-hidden />
                   )}
                   <span>
                     {l.text}
@@ -90,7 +101,14 @@ export default function PricingSection({ tr, ctaHref }: { tr: Tr; ctaHref: strin
                 </li>
               ))}
             </ul>
-            <Link href={ctaHref} className={buttonClass(featured ? "primary" : "secondary", "mt-7 w-full rounded-xl")}>
+            <Link
+              href={ctaHref}
+              className={
+                featured
+                  ? "mt-7 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-zinc-100"
+                  : buttonClass("secondary", "mt-7 w-full rounded-xl")
+              }
+            >
               {id === "free" ? tr("Start free", "ফ্রি শুরু করো") : tr(`Choose ${p.name}`, `${p.name} নাও`)}
             </Link>
           </div>

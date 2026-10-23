@@ -1,220 +1,51 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Minus } from "lucide-react";
+import { ArrowRight, Check, Eye, KeyRound, Lock, ShieldCheck, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { buttonClass, cn } from "@/components/ui";
-import { Backdrop, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { cn } from "@/components/ui";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import PricingSection from "@/components/PricingSection";
+import ProductTour from "@/components/landing/ProductTour";
+import { BrowserFrame, DashboardMock } from "@/components/landing/Mocks";
 import { getTr } from "@/lib/i18n-server";
-import type { Tr } from "@/lib/i18n";
 
-// The public landing page. Frosted glass over soft colour, product snippets instead of
-// stock illustrations, and copy written the way an advertiser would say it.
+// The public landing page. One promise, the real product on screen, honest proof,
+// and the same call to action at every natural stopping point.
 
-function Glass({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("glass rounded-3xl", className)}>{children}</div>;
+function Label({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
+  return (
+    <p className={cn("text-sm font-semibold", dark ? "text-[#8fa8e6]" : "text-[#3157B0] dark:text-[#8fa8e6]")}>{children}</p>
+  );
 }
 
-function Eyebrow({ children }: { children: ReactNode }) {
+function H2({ children, dark = false, className }: { children: ReactNode; dark?: boolean; className?: string }) {
   return (
-    <p className="flex items-center gap-2 text-xs font-medium tracking-[0.14em] text-zinc-500 uppercase dark:text-zinc-400">
-      <span className="h-px w-6 bg-zinc-400/60" aria-hidden />
+    <h2
+      className={cn(
+        "mt-3 text-3xl leading-[1.12] font-semibold tracking-[-0.03em] sm:text-[2.6rem]",
+        dark ? "text-white" : "text-zinc-950 dark:text-white",
+        className,
+      )}
+    >
       {children}
-    </p>
+    </h2>
   );
 }
 
-function Accent({ children }: { children: ReactNode }) {
-  return <em className="font-serif font-normal text-indigo-700 italic dark:text-indigo-300">{children}</em>;
-}
-
-// ---------- Hero visual: real-looking pieces of the product ----------
-
-function HeroVisual({ tr }: { tr: Tr }) {
-  const spark = [12, 18, 15, 22, 19, 27, 24, 31, 29, 36, 33, 41];
-  const max = Math.max(...spark);
-  const points = spark.map((v, i) => `${(i / (spark.length - 1)) * 100},${40 - (v / max) * 36}`).join(" ");
-  const hours = [3, 2, 1, 1, 0, 0, 1, 2, 4, 5, 6, 5, 6, 7, 6, 5, 6, 8, 9, 12, 14, 13, 9, 5];
-
+function PrimaryCta({ href, children, onDark = false }: { href: string; children: ReactNode; onDark?: boolean }) {
   return (
-    <div className="relative grid gap-4 lg:block lg:h-[540px]">
-      {/* Main KPI panel */}
-      <Glass className="p-5 lg:absolute lg:top-6 lg:right-0 lg:w-[88%]">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-            {tr("Winter Collection · Sales", "Winter Collection · Sales")}
-          </p>
-          <span className="rounded-full bg-zinc-900/5 px-2.5 py-1 text-[11px] text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
-            {tr("Last 7 days", "গত ৭ দিন")}
-          </span>
-        </div>
-        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          {[
-            { k: tr("Spent", "খরচ"), v: "$1,284" },
-            { k: tr("Purchases", "Purchase"), v: "151" },
-            { k: tr("Cost / purchase", "প্রতি Purchase"), v: "$8.51", d: "↓ 12%" },
-            { k: "ROAS", v: "3.4x", d: "↑ 0.6" },
-          ].map((m) => (
-            <div key={m.k}>
-              <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{m.k}</dt>
-              <dd className="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-white">{m.v}</dd>
-              <dd className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{m.d ?? " "}</dd>
-            </div>
-          ))}
-        </dl>
-        <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="mt-5 h-20 w-full" aria-hidden>
-          <defs>
-            <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="#3157b0" stopOpacity="0.28" />
-              <stop offset="1" stopColor="#3157b0" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <polygon points={`0,42 ${points} 100,42`} fill="url(#sparkFill)" />
-          <polyline points={points} fill="none" stroke="#3157b0" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-        </svg>
-      </Glass>
-
-      {/* Alert toast */}
-      <Glass className="p-4 lg:absolute lg:top-[290px] lg:left-0 lg:w-[62%]">
-        <div className="flex items-start gap-3">
-          <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-orange shadow-[0_0_0_4px_rgb(255_90_44/0.15)]" aria-hidden />
-          <div className="min-w-0">
-            <p className="flex items-center justify-between gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-              <span>{tr("Alert", "অ্যালার্ট")}</span>
-              <span>9:02 AM</span>
-            </p>
-            <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-white">
-              {tr("Retargeting is spending, nothing is selling", "Retargeting-এ খরচ হচ্ছে, বিক্রি নেই")}
-            </p>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-              {tr(
-                "$46 in 3 days and zero purchases. It used to bring one every $19.",
-                "৩ দিনে $46 খরচ, একটিও Purchase নেই। আগে প্রতি $19-এ একটি আসত।",
-              )}
-            </p>
-          </div>
-        </div>
-      </Glass>
-
-      {/* Best hours */}
-      <Glass className="p-4 lg:absolute lg:top-[300px] lg:right-0 lg:w-[34%]">
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("When people buy", "কখন মানুষ কেনে")}</p>
-        <div className="mt-3 flex h-16 items-end gap-[3px]" aria-hidden>
-          {hours.map((h, i) => (
-            <span
-              key={i}
-              className={cn("flex-1 rounded-[2px]", i >= 19 && i <= 21 ? "bg-brand-orange" : "bg-indigo-400/50 dark:bg-indigo-300/40")}
-              style={{ height: `${Math.max(6, (h / 14) * 100)}%` }}
-            />
-          ))}
-        </div>
-        <p className="mt-2 text-xs font-medium text-zinc-800 dark:text-zinc-200">{tr("Peak: 7–10 PM", "সবচেয়ে বেশি: রাত ৭–১০টা")}</p>
-      </Glass>
-
-      {/* The advice */}
-      <Glass className="p-4 lg:absolute lg:top-[430px] lg:left-[14%] lg:w-[70%]">
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("This week's move", "এই সপ্তাহে যা করবে")}</p>
-        <p className="mt-1 text-sm text-zinc-800 dark:text-zinc-100">
-          {tr("Shift $20/day from 35–44 to 18–24. They buy at ", "35–44 থেকে দিনে $20 সরিয়ে 18–24-এ দাও। ওরা কিনছে ")}
-          <strong className="font-semibold">$6.10</strong>
-          {tr(" instead of ", ", অন্যদিকে ")}
-          <strong className="font-semibold">$11.80</strong>
-          {tr(".", "-এ।")}
-        </p>
-      </Glass>
-    </div>
+    <Link
+      href={href}
+      className={cn(
+        "group inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold transition-colors",
+        onDark ? "bg-white text-zinc-950 hover:bg-zinc-100" : "bg-[#3157B0] text-white hover:bg-[#2a4a96]",
+      )}
+    >
+      {children}
+      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+    </Link>
   );
 }
-
-// ---------- Small product snippets for the feature grid ----------
-
-function AgeBars({ tr }: { tr: Tr }) {
-  const rows = [
-    { a: "18–24", v: 6.1, w: 38 },
-    { a: "25–34", v: 7.9, w: 50 },
-    { a: "35–44", v: 11.8, w: 75 },
-    { a: "45+", v: 15.7, w: 100 },
-  ];
-  return (
-    <div className="mt-5 space-y-2.5">
-      {rows.map((r, i) => (
-        <div key={r.a} className="grid grid-cols-[3rem_1fr_3.5rem] items-center gap-3 text-xs">
-          <span className="text-zinc-500 dark:text-zinc-400">{r.a}</span>
-          <span className="h-2 rounded-full bg-zinc-900/5 dark:bg-white/10">
-            <span
-              className={cn("block h-full rounded-full", i === 0 ? "bg-emerald-500" : "bg-indigo-400/70")}
-              style={{ width: `${r.w}%` }}
-            />
-          </span>
-          <span className="text-right tabular-nums text-zinc-700 dark:text-zinc-300">${r.v.toFixed(2)}</span>
-        </div>
-      ))}
-      <p className="pt-1 text-[11px] text-zinc-500">{tr("Cost per purchase by age", "বয়স অনুযায়ী প্রতি Purchase খরচ")}</p>
-    </div>
-  );
-}
-
-function RetentionCurve({ tr }: { tr: Tr }) {
-  return (
-    <div className="mt-5">
-      <svg viewBox="0 0 200 70" className="h-24 w-full" aria-hidden>
-        <path d="M0 6 C 20 8, 30 30, 50 34 S 90 44, 120 48 S 170 56, 200 58" fill="none" stroke="#3157b0" strokeWidth="2" />
-        <line x1="44" x2="44" y1="0" y2="70" stroke="#ff5a2c" strokeDasharray="3 3" />
-        <circle cx="44" cy="31" r="3.5" fill="#ff5a2c" />
-      </svg>
-      <p className="text-[11px] text-zinc-500">
-        {tr("62% leave before second 3. Your hook needs work.", "৬২% দর্শক ৩ সেকেন্ডের আগেই চলে যায়। শুরুটা বদলাতে হবে।")}
-      </p>
-    </div>
-  );
-}
-
-function Funnel({ tr }: { tr: Tr }) {
-  const steps = [
-    { s: tr("Landing page views", "ল্যান্ডিং পেজ ভিউ"), n: "4,120", w: 100 },
-    { s: tr("Add to cart", "Add to cart"), n: "612", w: 46 },
-    { s: tr("Checkout", "Checkout"), n: "203", w: 24 },
-    { s: tr("Purchase", "Purchase"), n: "151", w: 18 },
-  ];
-  return (
-    <div className="mt-5 space-y-1.5">
-      {steps.map((st, i) => (
-        <div key={st.s} className="flex items-center gap-3 text-xs">
-          <span
-            className={cn("h-6 rounded-md", i === 1 ? "bg-brand-orange/80" : "bg-indigo-500/25 dark:bg-indigo-300/25")}
-            style={{ width: `${st.w}%` }}
-          />
-          <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
-            {st.s} · <span className="tabular-nums">{st.n}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DateChips({ tr }: { tr: Tr }) {
-  const chips = [tr("Today", "আজ"), tr("Yesterday", "গতকাল"), tr("Last 7 days", "গত ৭ দিন"), tr("This month", "এই মাস"), tr("Maximum", "সর্বোচ্চ")];
-  return (
-    <div className="mt-5 flex flex-wrap gap-1.5">
-      {chips.map((c, i) => (
-        <span
-          key={c}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs",
-            i === 2
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-              : "bg-zinc-900/5 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-          )}
-        >
-          {c}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ---------- Page ----------
 
 export default async function LandingPage() {
   const tr = await getTr();
@@ -224,44 +55,64 @@ export default async function LandingPage() {
   } = await supabase.auth.getUser();
 
   // Logged-in visitors go straight to their dashboard
-  const primaryHref = user ? "/dashboard" : "/signup";
-  const primaryLabel = user ? tr("Open your dashboard", "ড্যাশবোর্ডে যাও") : tr("Connect your ad account", "Ad Account কানেক্ট করো");
+  const ctaHref = user ? "/dashboard" : "/signup";
+  const ctaLabel = user ? tr("Open your dashboard", "ড্যাশবোর্ডে যাও") : tr("Start free with your ad account", "তোমার Ad Account দিয়ে ফ্রি শুরু করো");
 
-  const morning = [
+  const proof = [
+    { v: tr("To the cent", "হুবহু"), k: tr("Numbers match Ads Manager, in your time zone", "Ads Manager-এর সাথে মেলে, তোমার timezone-এ") },
+    { v: "7", k: tr("Breakdowns: age, gender, region, placement, device, hour, weekday", "ব্রেকডাউন: বয়স, লিঙ্গ, এলাকা, প্লেসমেন্ট, ডিভাইস, ঘণ্টা, বার") },
+    { v: tr("2 min", "২ মিনিট"), k: tr("From sign-up to your first report", "অ্যাকাউন্ট খোলা থেকে প্রথম রিপোর্ট") },
+    { v: "EN · বাং", k: tr("Every screen and report in either language", "প্রতিটি পর্দা আর রিপোর্ট দুই ভাষায়") },
+  ];
+
+  const compare = [
     {
-      time: "9:02",
-      title: tr("An alert you'd have missed", "যে সমস্যা চোখ এড়িয়ে যেত"),
-      text: tr(
-        "Your retargeting campaign has spent for three days without a sale. Hook notices before you open Ads Manager.",
-        "Retargeting campaign তিন দিন ধরে খরচ করছে, বিক্রি নেই। Ads Manager খোলার আগেই Hook জানিয়ে দেয়।",
-      ),
+      before: tr("40+ columns and you still don't know what to do", "৪০টার বেশি কলাম, তবু বোঝা যায় না কী করতে হবে"),
+      after: tr("Seven numbers and a plain-language next step", "সাতটা সংখ্যা আর সহজ ভাষায় পরের পদক্ষেপ"),
     },
     {
-      time: "9:05",
-      title: tr("The why, not just the what", "শুধু কী হয়েছে না, কেন হয়েছে"),
-      text: tr(
-        "Open the campaign report: frequency hit 4.8, the same people have seen the ad too often, and CTR halved.",
-        "Campaign report খোলো: Frequency 4.8 হয়ে গেছে, একই মানুষ বারবার দেখছে, CTR অর্ধেক হয়ে গেছে।",
-      ),
+      before: tr("You find wasted spend days later, if at all", "টাকা নষ্ট হচ্ছে, টের পাও কয়েক দিন পরে, নয়তো কখনোই না"),
+      after: tr("An alert the morning it starts", "যেদিন শুরু, সেদিন সকালেই অ্যালার্ট"),
     },
     {
-      time: "9:10",
-      title: tr("One clear change", "একটা স্পষ্ট সিদ্ধান্ত"),
-      text: tr(
-        "Pause it, widen the audience, swap the creative. You're done before your tea gets cold.",
-        "বন্ধ করো, audience বড় করো, creative বদলাও। চা ঠান্ডা হওয়ার আগেই কাজ শেষ।",
-      ),
+      before: tr("Breakdowns hidden three menus deep", "ব্রেকডাউন তিনটা মেনুর ভেতরে লুকানো"),
+      after: tr("Best and worst audience picked out for each campaign", "প্রতিটি ক্যাম্পেইনের সেরা আর দুর্বল অডিয়েন্স আলাদা করে দেখানো"),
+    },
+    {
+      before: tr("A broken pixel quietly inflates your ROAS", "ভুল Pixel চুপচাপ ROAS বাড়িয়ে দেখায়"),
+      after: tr("Tracking problems flagged before you trust the number", "সংখ্যা বিশ্বাস করার আগেই ট্র্যাকিং সমস্যা ধরিয়ে দেয়"),
     },
   ];
 
-  const never = [
-    tr(
-      "Touch your ad account without your say-so. Today Hook only reads; when ad launching arrives, nothing goes live until you press Publish.",
-      "তোমার অনুমতি ছাড়া Ad Account-এ হাত দেওয়া। এখন Hook শুধু পড়ে; অ্যাড চালুর ফিচার এলেও তুমি Publish না চাপলে কিছুই চালু হবে না।",
-    ),
-    tr("Make up a number. Every figure comes from Meta and is calculated in code; the AI only explains it.", "নিজে থেকে কোনো সংখ্যা বানানো। সব সংখ্যা Meta থেকে আসে, হিসাব কোডে হয়; AI শুধু ব্যাখ্যা করে।"),
-    tr("Sell or share your data. Your Meta token is encrypted and you can disconnect in one click.", "তোমার ডাটা বিক্রি বা শেয়ার করা। Meta token এনক্রিপ্ট করা, আর এক ক্লিকে বিচ্ছিন্ন করা যায়।"),
-    tr("Hide a broken pixel behind a pretty ROAS. If tracking looks wrong, we say so first.", "ভুল Pixel-কে সুন্দর ROAS দিয়ে ঢেকে রাখা। ট্র্যাকিং ভুল মনে হলে আগে সেটাই বলি।"),
+  const steps = [
+    { n: "01", t: tr("Create your account", "অ্যাকাউন্ট খোলো"), d: tr("Email and password. No card.", "ইমেইল আর পাসওয়ার্ড। কার্ড লাগবে না।"), time: tr("30 sec", "৩০ সেকেন্ড") },
+    { n: "02", t: tr("Connect Facebook", "Facebook কানেক্ট করো"), d: tr("Approve read-only access and pick an ad account.", "শুধু পড়ার অনুমতি দাও, একটা Ad Account বেছে নাও।"), time: tr("1 min", "১ মিনিট") },
+    { n: "03", t: tr("Read your first report", "প্রথম রিপোর্ট পড়ো"), d: tr("Dashboard, alerts and AI advice are ready right away.", "ড্যাশবোর্ড, অ্যালার্ট আর AI পরামর্শ সাথে সাথে তৈরি।"), time: tr("Instant", "সাথে সাথে") },
+  ];
+
+  const audiences = [
+    {
+      t: tr("Shop owners", "দোকান ও পেজের মালিক"),
+      d: tr("You boost posts and run sales campaigns yourself. Hook tells you which ones pay for themselves.", "নিজেই পোস্ট বুস্ট করো আর সেলস ক্যাম্পেইন চালাও। Hook বলে কোনগুলো আসলে লাভ আনছে।"),
+      plan: "Free · Solo",
+    },
+    {
+      t: tr("Freelance marketers", "ফ্রিল্যান্স মার্কেটার"),
+      d: tr("You run ads for a few clients. One place to check every account and a report you can send.", "কয়েকজন ক্লায়েন্টের বিজ্ঞাপন চালাও। সব অ্যাকাউন্ট এক জায়গায়, আর পাঠানোর মতো রিপোর্ট।"),
+      plan: "Pro Marketer",
+    },
+    {
+      t: tr("Agencies", "এজেন্সি"),
+      d: tr("Dozens of accounts, a team, and clients who want answers. Hook does the first read for you.", "অনেক অ্যাকাউন্ট, টিম, আর উত্তর চাওয়া ক্লায়েন্ট। প্রথম বিশ্লেষণটা Hook করে দেয়।"),
+      plan: "Agency",
+    },
+  ];
+
+  const trust = [
+    { i: Eye, t: tr("Read-only", "শুধু পড়ে"), d: tr("Hook can't change, pause or create ads.", "Hook বিজ্ঞাপন বদলাতে, বন্ধ করতে বা বানাতে পারে না।") },
+    { i: KeyRound, t: tr("Encrypted token", "এনক্রিপ্টেড token"), d: tr("Your Meta token is stored with AES-256.", "Meta token AES-256 দিয়ে এনক্রিপ্ট করা।") },
+    { i: Lock, t: tr("Only yours", "শুধু তোমার"), d: tr("Each account sees only its own data.", "প্রতিটি অ্যাকাউন্ট শুধু নিজের ডাটা দেখে।") },
+    { i: Trash2, t: tr("Delete anytime", "যখন খুশি মুছে ফেলো"), d: tr("Disconnect or delete everything in one click.", "এক ক্লিকে বিচ্ছিন্ন বা সব মুছে ফেলো।") },
   ];
 
   const faq = [
@@ -280,6 +131,13 @@ export default async function LandingPage() {
       ),
     },
     {
+      q: tr("Does the AI make up numbers?", "AI কি নিজে থেকে সংখ্যা বানায়?"),
+      a: tr(
+        "No. Every figure is calculated in code from Meta's data. The AI only explains what the numbers mean and suggests what to do, and every suggestion shows the numbers behind it.",
+        "না। প্রতিটি সংখ্যা Meta-র ডাটা থেকে কোডে হিসাব করা। AI শুধু সংখ্যার মানে বোঝায় আর পরামর্শ দেয়, প্রতিটি পরামর্শের সাথে কারণ হিসেবে সংখ্যাও থাকে।",
+      ),
+    },
+    {
       q: tr("Which campaign types work?", "কোন ধরনের campaign চলে?"),
       a: tr(
         "Sales, leads, messages, traffic, engagement and video views. Each campaign's result is counted by its own objective.",
@@ -294,256 +152,240 @@ export default async function LandingPage() {
       ),
     },
     {
-      q: tr("I manage several ad accounts.", "আমার অনেকগুলো Ad Account আছে।"),
+      q: tr("Do I need a card to start?", "শুরু করতে কি কার্ড লাগবে?"),
       a: tr(
-        "Pick any of them from Settings and switch whenever you like. Search works by name or ID.",
-        "Settings থেকে যেকোনোটা বেছে নাও, যখন খুশি বদলাও। নাম বা ID দিয়ে খোঁজা যায়।",
+        "No. The Free plan needs only an email. Upgrade later if you want more accounts, campaigns or AI reports.",
+        "না। Free প্ল্যানে শুধু ইমেইল লাগে। বেশি অ্যাকাউন্ট, ক্যাম্পেইন বা AI রিপোর্ট লাগলে পরে প্ল্যান বাড়াও।",
       ),
     },
   ];
 
   return (
-    <div className="relative isolate min-h-screen overflow-x-clip">
-      <Backdrop />
-      <SiteHeader loggedIn={Boolean(user)} />
+    <div className={cn("min-h-screen bg-[#f6f5f1] dark:bg-[#0b0d12]", !user && "pb-20 sm:pb-0")}>
+      <SiteHeader loggedIn={Boolean(user)} tone="ink" />
 
       <main>
         {/* Hero */}
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
-          <div>
-            <Eyebrow>{tr("For people who run their own Meta ads", "যারা নিজের Meta বিজ্ঞাপন নিজে চালায়")}</Eyebrow>
-            <h1 className="hero-title mt-6 text-[2.6rem] leading-[1.05] font-semibold tracking-tight text-zinc-950 sm:text-6xl dark:text-white">
-              {tr("Find the money your ads are ", "তোমার বিজ্ঞাপনের যে টাকা ")}
-              <Accent>{tr("quietly wasting.", "চুপচাপ নষ্ট হচ্ছে,")}</Accent>
-              {tr("", " খুঁজে বের করো।")}
+        <section className="ink overflow-hidden">
+          <div className="mx-auto max-w-6xl px-4 pt-16 pb-0 text-center sm:px-6 sm:pt-24">
+            <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
+              <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden />
+              {tr("For anyone who runs their own Facebook & Instagram ads", "যারা নিজের Facebook ও Instagram বিজ্ঞাপন নিজে চালায়")}
+            </p>
+            <h1 className="hero-title mx-auto mt-6 max-w-4xl text-[2.6rem] leading-[1.04] font-semibold tracking-[-0.04em] text-white sm:text-6xl lg:text-[4.4rem]">
+              {tr("Stop guessing which ads ", "কোন বিজ্ঞাপন টাকা আনছে, ")}
+              <span className="text-[#FF7A4D]">{tr("make you money.", "আর আন্দাজ নয়।")}</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-300">
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
               {tr(
-                "Hook reads every campaign in your Meta ad account and tells you, in plain words, who's buying, when they buy, and what to change this week.",
-                "Hook তোমার Meta Ad Account-এর প্রতিটি campaign পড়ে সহজ কথায় বলে দেয় কে কিনছে, কখন কিনছে, আর এই সপ্তাহে কী বদলাতে হবে।",
+                "Hook reads your Meta ad account and tells you, in plain words, what's working, what's leaking money, and exactly what to change next.",
+                "Hook তোমার Meta Ad Account পড়ে সহজ কথায় বলে দেয় কী কাজ করছে, কোথায় টাকা নষ্ট হচ্ছে, আর এরপর ঠিক কী বদলাতে হবে।",
               )}
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link href={primaryHref} className={buttonClass("primary", "rounded-xl px-5 py-3 text-base")}>
-                {primaryLabel}
-                <ArrowRight className="size-4" aria-hidden />
-              </Link>
-              <a
-                href="#how"
-                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-3 text-base font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-              >
-                {tr("See a morning with Hook", "Hook-এর সাথে একটা সকাল দেখো")}
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <PrimaryCta href={ctaHref} onDark>
+                {ctaLabel}
+              </PrimaryCta>
+              <a href="#tour" className="rounded-xl px-5 py-3.5 text-base font-medium text-zinc-300 hover:text-white">
+                {tr("See the product", "প্রোডাক্ট দেখো")}
               </a>
             </div>
-            <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
-              {tr("Free plan · No card · Read-only access", "ফ্রি প্ল্যান · কার্ড লাগবে না · শুধু পড়ার অনুমতি")}
-            </p>
-          </div>
-          <HeroVisual tr={tr} />
-        </section>
-
-        {/* Plain facts strip */}
-        <section aria-label={tr("At a glance", "এক নজরে")} className="px-4 sm:px-6">
-          <Glass className="mx-auto grid max-w-6xl gap-px overflow-hidden rounded-2xl p-0 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [tr("Read-only", "শুধু পড়ে"), tr("Never edits your ads", "বিজ্ঞাপনে হাত দেয় না")],
-              [tr("Matches Ads Manager", "Ads Manager-এর সাথে মেলে"), tr("Same numbers, same time zone", "একই সংখ্যা, একই timezone")],
-              [tr("Any currency", "যেকোনো মুদ্রা"), tr("USD, BDT, INR and the rest", "USD, BDT, INR সবই")],
-              [tr("English or বাংলা", "English বা বাংলা"), tr("Switch any time", "যখন খুশি বদলাও")],
-            ].map(([t, d]) => (
-              <div key={t} className="px-5 py-4">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">{t}</p>
-                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{d}</p>
-              </div>
-            ))}
-          </Glass>
-        </section>
-
-        {/* A morning with Hook */}
-        <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6">
-          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <Eyebrow>{tr("How it works", "কীভাবে কাজ করে")}</Eyebrow>
-              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
-                {tr("A Monday morning, ", "সোমবার সকাল, ")}
-                <Accent>{tr("eight minutes long.", "আট মিনিটে শেষ।")}</Accent>
-              </h2>
-              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "Connect once with Facebook. After that Hook keeps an eye on every campaign and only speaks up when something actually changed.",
-                  "Facebook দিয়ে একবার কানেক্ট করো। এরপর Hook প্রতিটি campaign খেয়াল রাখে, আর সত্যিই কিছু বদলালে তবেই জানায়।",
-                )}
-              </p>
-            </div>
-            <ol className="relative space-y-4 before:absolute before:top-4 before:bottom-4 before:left-[2.1rem] before:w-px before:bg-zinc-900/10 dark:before:bg-white/10">
-              {morning.map((m) => (
-                <li key={m.time} className="relative flex gap-5">
-                  <span className="glass relative z-10 flex h-9 w-[4.2rem] shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-                    {m.time}
-                  </span>
-                  <Glass className="flex-1 rounded-2xl p-5">
-                    <h3 className="font-semibold text-zinc-900 dark:text-white">{m.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{m.text}</p>
-                  </Glass>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* Features: an uneven grid of real snippets */}
-        <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
-          <Eyebrow>{tr("What you get", "যা পাবে")}</Eyebrow>
-          <h2 className="mt-5 max-w-2xl text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
-            {tr("Everything Ads Manager knows, ", "Ads Manager যা জানে সব, ")}
-            <Accent>{tr("minus the forty columns.", "চল্লিশটা কলাম ছাড়া।")}</Accent>
-          </h2>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-6">
-            <Glass className="p-6 md:col-span-4">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Who is actually buying", "আসলে কে কিনছে")}</h3>
-              <p className="mt-1.5 max-w-md text-sm text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "Age, gender, region, placement, device and hour of day, each with its own cost per result, so you can see where the budget earns and where it leaks.",
-                  "বয়স, লিঙ্গ, এলাকা, placement, device আর দিনের ঘণ্টা, প্রতিটির আলাদা cost per result। কোথায় টাকা কাজ করছে আর কোথায় নষ্ট হচ্ছে, পরিষ্কার দেখা যায়।",
-                )}
-              </p>
-              <AgeBars tr={tr} />
-            </Glass>
-            <Glass className="p-6 md:col-span-2">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Where viewers drop off", "দর্শক কোথায় চলে যায়")}</h3>
-              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                {tr("Hook rate, hold rate and 25–100% views for every video.", "প্রতিটি ভিডিওর Hook rate, Hold rate আর ২৫–১০০% ভিউ।")}
-              </p>
-              <RetentionCurve tr={tr} />
-            </Glass>
-            <Glass className="p-6 md:col-span-3">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Which step loses people", "কোন ধাপে মানুষ হারায়")}</h3>
-              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "From landing page to purchase, and a warning when your pixel stops counting a step.",
-                  "ল্যান্ডিং পেজ থেকে Purchase পর্যন্ত, আর Pixel কোনো ধাপ গোনা বন্ধ করলে সতর্কতা।",
-                )}
-              </p>
-              <Funnel tr={tr} />
-            </Glass>
-            <Glass className="flex flex-col p-6 md:col-span-3">
-              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Any date range, like Ads Manager", "Ads Manager-এর মতো যেকোনো তারিখ")}</h3>
-              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "Today, yesterday, a custom range or everything since the account started, compared with the period before.",
-                  "আজ, গতকাল, নিজের পছন্দের তারিখ বা অ্যাকাউন্টের শুরু থেকে সব, আগের সময়ের সাথে তুলনাসহ।",
-                )}
-              </p>
-              <DateChips tr={tr} />
-              <div className="mt-auto pt-6">
-                <p className="rounded-2xl bg-zinc-900/[0.04] p-4 text-sm text-zinc-700 dark:bg-white/5 dark:text-zinc-200">
-                  <span className="mb-1 block text-[11px] text-zinc-500">{tr("Campaign report, in plain words", "Campaign report, সহজ কথায়")}</span>
-                  {tr(
-                    "“Women 25–34 on Instagram Reels bring 41% of sales for 22% of spend. Give them their own ad set.”",
-                    "“Instagram Reels-এ 25–34 বয়সী নারীরা ২২% খরচে ৪১% বিক্রি আনছে। ওদের জন্য আলাদা ad set বানাও।”",
-                  )}
-                </p>
-              </div>
-            </Glass>
-          </div>
-        </section>
-
-        {/* Honesty */}
-        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-          <Glass className="grid gap-10 p-8 sm:p-12 lg:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <Eyebrow>{tr("Trust", "বিশ্বাস")}</Eyebrow>
-              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
-                {tr("Things Hook will ", "যা Hook ")}
-                <Accent>{tr("never", "কখনো")}</Accent>
-                {tr(" do.", " করবে না।")}
-              </h2>
-              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
-                {tr(
-                  "Connecting an ad account is a real decision. Here's exactly what you're agreeing to, and what you're not.",
-                  "Ad Account কানেক্ট করা একটা বড় সিদ্ধান্ত। ঠিক কী দিচ্ছ আর কী দিচ্ছ না, পরিষ্কার করে বলছি।",
-                )}
-              </p>
-              <Link href="/privacy" className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300">
-                {tr("Read the privacy policy", "Privacy policy পড়ো")}
-                <ArrowUpRight className="size-4" aria-hidden />
-              </Link>
-            </div>
-            <ul className="divide-y divide-zinc-900/10 dark:divide-white/10">
-              {never.map((n) => (
-                <li key={n} className="flex gap-4 py-4 first:pt-0 last:pb-0">
-                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-900/5 dark:bg-white/10">
-                    <Minus className="size-3.5 text-zinc-600 dark:text-zinc-300" aria-hidden />
-                  </span>
-                  <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-200">{n}</p>
+            <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-400">
+              {[tr("Free plan", "ফ্রি প্ল্যান"), tr("No card needed", "কার্ড লাগবে না"), tr("Read-only access", "শুধু পড়ার অনুমতি")].map((t) => (
+                <li key={t} className="flex items-center gap-1.5">
+                  <Check className="size-4 text-emerald-400" aria-hidden />
+                  {t}
                 </li>
               ))}
             </ul>
-          </Glass>
+
+            <div className="relative mx-auto mt-14 max-w-5xl">
+              <BrowserFrame className="rounded-b-none border-b-0">
+                <DashboardMock />
+              </BrowserFrame>
+            </div>
+          </div>
+        </section>
+
+        {/* Honest proof */}
+        <section aria-label={tr("At a glance", "এক নজরে")} className="border-b border-zinc-900/5 bg-white dark:border-white/5 dark:bg-[#0f1219]">
+          <dl className="mx-auto grid max-w-6xl grid-cols-2 divide-zinc-900/5 px-4 sm:px-6 lg:grid-cols-4 lg:divide-x dark:divide-white/5">
+            {proof.map((p) => (
+              <div key={p.k} className="px-2 py-8 lg:px-8">
+                <dt className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">{p.v}</dt>
+                <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{p.k}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* Before / after */}
+        <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <div className="max-w-2xl">
+            <Label>{tr("Why Hook", "কেন Hook")}</Label>
+            <H2>{tr("Ads Manager tells you what happened. Hook tells you what to do.", "Ads Manager বলে কী হয়েছে। Hook বলে এখন কী করতে হবে।")}</H2>
+          </div>
+          <div className="mt-12 overflow-hidden rounded-2xl border border-zinc-900/10 bg-white dark:border-white/10 dark:bg-[#12151d]">
+            <div className="grid grid-cols-2 border-b border-zinc-900/10 text-sm font-semibold dark:border-white/10">
+              <p className="px-5 py-3 text-zinc-500">{tr("Ads Manager alone", "শুধু Ads Manager")}</p>
+              <p className="border-l border-zinc-900/10 px-5 py-3 text-[#3157B0] dark:border-white/10 dark:text-[#8fa8e6]">{tr("With Hook", "Hook-এর সাথে")}</p>
+            </div>
+            {compare.map((c) => (
+              <div key={c.after} className="grid grid-cols-2 border-b border-zinc-900/5 last:border-b-0 dark:border-white/5">
+                <p className="flex gap-2.5 px-5 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                  <X className="mt-0.5 size-4 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
+                  {c.before}
+                </p>
+                <p className="flex gap-2.5 border-l border-zinc-900/10 px-5 py-4 text-sm font-medium text-zinc-900 dark:border-white/10 dark:text-zinc-100">
+                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+                  {c.after}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Product tour */}
+        <section id="tour" className="scroll-mt-20 border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mb-10 max-w-2xl">
+              <Label>{tr("The product", "প্রোডাক্ট")}</Label>
+              <H2>{tr("Everything you need to decide, nothing you don't.", "সিদ্ধান্ত নিতে যা দরকার সব, বাড়তি কিছু নয়।")}</H2>
+            </div>
+            <ProductTour />
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
+          <div className="max-w-2xl">
+            <Label>{tr("How it works", "কীভাবে কাজ করে")}</Label>
+            <H2>{tr("From sign-up to your first answer in about two minutes.", "অ্যাকাউন্ট খোলা থেকে প্রথম উত্তর, মোটামুটি দুই মিনিটে।")}</H2>
+          </div>
+          <ol className="mt-12 grid gap-4 md:grid-cols-3">
+            {steps.map((s) => (
+              <li key={s.n} className="rounded-2xl border border-zinc-900/10 bg-white p-6 dark:border-white/10 dark:bg-[#12151d]">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-zinc-400">{s.n}</span>
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-600 dark:bg-white/10 dark:text-zinc-300">{s.time}</span>
+                </div>
+                <h3 className="mt-6 text-lg font-semibold text-zinc-950 dark:text-white">{s.t}</h3>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{s.d}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-10">
+            <PrimaryCta href={ctaHref}>{ctaLabel}</PrimaryCta>
+          </div>
+        </section>
+
+        {/* Who it's for */}
+        <section className="border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-2xl">
+              <Label>{tr("Who it's for", "কাদের জন্য")}</Label>
+              <H2>{tr("Built for the people who actually press Publish.", "যারা নিজের হাতে Publish চাপে, তাদের জন্য।")}</H2>
+            </div>
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
+              {audiences.map((a) => (
+                <div key={a.t} className="flex flex-col rounded-2xl border border-zinc-900/10 p-6 dark:border-white/10">
+                  <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">{a.t}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{a.d}</p>
+                  <p className="mt-6 text-xs font-medium text-[#3157B0] dark:text-[#8fa8e6]">{tr("Best plan", "উপযুক্ত প্ল্যান")}: {a.plan}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* Pricing */}
-        <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
+        <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
           <div className="max-w-2xl">
-            <Eyebrow>{tr("Pricing", "দাম")}</Eyebrow>
-            <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
-              {tr("Start free. ", "ফ্রি দিয়ে শুরু করো। ")}
-              <Accent>{tr("Pay when it pays off.", "লাভ দেখলে তবেই টাকা দাও।")}</Accent>
-            </h2>
-            <p className="mt-5 text-zinc-600 dark:text-zinc-300">
+            <Label>{tr("Pricing", "দাম")}</Label>
+            <H2>{tr("Start free. Upgrade when it pays for itself.", "ফ্রি দিয়ে শুরু করো। লাভ দেখলে তবেই প্ল্যান বাড়াও।")}</H2>
+            <p className="mt-4 text-zinc-600 dark:text-zinc-400">
               {tr(
-                "Every plan reads your ads the same way; bigger plans cover more accounts, more campaigns and more AI work. Items marked soon are on the way.",
-                "সব প্ল্যান একইভাবে তোমার বিজ্ঞাপন পড়ে; বড় প্ল্যানে বেশি অ্যাকাউন্ট, বেশি ক্যাম্পেইন আর বেশি AI কাজ। “শীঘ্রই” লেখা ফিচারগুলো আসছে।",
+                "Every plan reads your ads the same way. Bigger plans cover more accounts, more campaigns and more AI work.",
+                "সব প্ল্যান একইভাবে তোমার বিজ্ঞাপন পড়ে। বড় প্ল্যানে বেশি অ্যাকাউন্ট, বেশি ক্যাম্পেইন আর বেশি AI কাজ।",
               )}
             </p>
           </div>
           <PricingSection tr={tr} ctaHref={user ? "/settings#plan" : "/signup"} />
         </section>
 
+        {/* Trust */}
+        <section className="border-y border-zinc-900/5 bg-white dark:border-white/5 dark:bg-[#0f1219]">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <ShieldCheck className="size-8 text-[#3157B0] dark:text-[#8fa8e6]" aria-hidden />
+              <H2 className="sm:text-3xl">{tr("Your ad account stays yours.", "তোমার Ad Account তোমারই থাকে।")}</H2>
+              <Link href="/privacy" className="mt-4 inline-block text-sm font-medium text-[#3157B0] hover:underline dark:text-[#8fa8e6]">
+                {tr("Read the privacy policy →", "Privacy policy পড়ো →")}
+              </Link>
+            </div>
+            <ul className="grid gap-6 sm:grid-cols-2">
+              {trust.map(({ i: Icon, t, d }) => (
+                <li key={t}>
+                  <Icon className="size-5 text-zinc-900 dark:text-zinc-100" aria-hidden />
+                  <p className="mt-3 font-semibold text-zinc-950 dark:text-white">{t}</p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{d}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         {/* FAQ */}
-        <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-24 sm:px-6">
-          <Eyebrow>FAQ</Eyebrow>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white">
-            {tr("Questions people ask us", "মানুষ যা জিজ্ঞেস করে")}
-          </h2>
-          <div className="mt-10 space-y-3">
+        <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-24 sm:px-6">
+          <Label>FAQ</Label>
+          <H2>{tr("Questions before you connect", "কানেক্ট করার আগে যা জানতে চাও")}</H2>
+          <div className="mt-10 divide-y divide-zinc-900/10 border-y border-zinc-900/10 dark:divide-white/10 dark:border-white/10">
             {faq.map(({ q, a }) => (
-              <details key={q} className="glass group rounded-2xl px-5 py-4">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-zinc-900 dark:text-white [&::-webkit-details-marker]:hidden">
+              <details key={q} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-zinc-950 dark:text-white [&::-webkit-details-marker]:hidden">
                   {q}
-                  <span className="text-xl leading-none text-zinc-400 transition-transform group-open:rotate-45" aria-hidden>
+                  <span className="text-2xl leading-none text-zinc-400 transition-transform group-open:rotate-45" aria-hidden>
                     +
                   </span>
                 </summary>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{a}</p>
+                <p className="mt-3 pr-8 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{a}</p>
               </details>
             ))}
           </div>
         </section>
 
         {/* Closing */}
-        <section className="px-4 pb-24 sm:px-6">
-          <Glass className="mx-auto max-w-6xl px-6 py-16 text-center sm:px-12">
-            <h2 className="mx-auto max-w-2xl text-4xl leading-tight font-semibold tracking-tight text-zinc-950 sm:text-5xl dark:text-white">
-              {tr("Your next ad dollar ", "তোমার পরের বিজ্ঞাপনের টাকা ")}
-              <Accent>{tr("deserves a better home.", "আরও ভালো জায়গায় যাক।")}</Accent>
+        <section className="ink">
+          <div className="mx-auto max-w-4xl px-4 py-24 text-center sm:px-6">
+            <h2 className="text-3xl leading-tight font-semibold tracking-[-0.03em] text-white sm:text-5xl">
+              {tr("Your next taka of ad spend should know where it's going.", "তোমার বিজ্ঞাপনের পরের টাকাটা কোথায় যাচ্ছে, জেনে খরচ করো।")}
             </h2>
-            <p className="mx-auto mt-5 max-w-lg text-zinc-600 dark:text-zinc-300">
-              {tr(
-                "Connect in two minutes. Your first report is ready right after.",
-                "দুই মিনিটে কানেক্ট করো। প্রথম রিপোর্ট তৈরি হয়ে যাবে সাথে সাথেই।",
-              )}
+            <p className="mx-auto mt-5 max-w-xl text-zinc-400">
+              {tr("Connect in two minutes. Free plan, no card, read-only.", "দুই মিনিটে কানেক্ট। ফ্রি প্ল্যান, কার্ড লাগবে না, শুধু পড়ার অনুমতি।")}
             </p>
-            <Link href={primaryHref} className={buttonClass("primary", "mt-9 rounded-xl px-6 py-3 text-base")}>
-              {primaryLabel}
-              <ArrowRight className="size-4" aria-hidden />
-            </Link>
-          </Glass>
+            <div className="mt-9">
+              <PrimaryCta href={ctaHref} onDark>
+                {ctaLabel}
+              </PrimaryCta>
+            </div>
+          </div>
         </section>
       </main>
 
       <SiteFooter />
+
+      {/* Mobile: the call to action is always one tap away */}
+      {!user && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-900/10 bg-white/95 p-3 backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#0b0d12]/95">
+          <Link
+            href="/signup"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3157B0] py-3 text-base font-semibold text-white"
+          >
+            {tr("Start free", "ফ্রি শুরু করো")}
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
