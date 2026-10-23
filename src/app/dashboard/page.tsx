@@ -32,6 +32,8 @@ import {
 import { getLatestSummary } from "@/lib/ai/summary";
 import { getActiveAlerts } from "@/lib/alerts/store";
 import AppShell from "@/components/AppShell";
+import { getLocale } from "@/lib/i18n-server";
+import { makeTr } from "@/lib/i18n";
 import { Card, EmptyState, Notice, PageHeader, buttonClass } from "@/components/ui";
 import { refreshInsights } from "./actions";
 import AiSummaryCard from "./AiSummaryCard";
@@ -50,22 +52,13 @@ import {
   type ViewId,
 } from "./views";
 
-export const metadata = { title: "ড্যাশবোর্ড" };
+export async function generateMetadata() {
+  return { title: makeTr(await getLocale())("Dashboard", "ড্যাশবোর্ড") };
+}
 
 // AI সারসংক্ষেপ বা পুরনো ডাটা আনতে কখনো এক মিনিটের বেশি লাগতে পারে
 export const maxDuration = 120;
 
-const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger" }> = {
-  refreshed: { text: "ডাটা রিফ্রেশ হয়েছে।", tone: "success" },
-  refresh_error: {
-    text: "Meta থেকে ডাটা আনা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।",
-    tone: "danger",
-  },
-  campaign_other_account: {
-    text: "ওই ক্যাম্পেইনটি অন্য Ad Account-এর। সেটি দেখতে সেটিংস থেকে সেই Ad Account বেছে নাও।",
-    tone: "danger",
-  },
-};
 
 type Props = {
   searchParams: Promise<{
@@ -79,6 +72,22 @@ type Props = {
 };
 
 export default async function DashboardPage({ searchParams }: Props) {
+  const locale = await getLocale();
+  const tr = makeTr(locale);
+  const STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "danger" }> = {
+    refreshed: { text: tr("Data refreshed.", "ডাটা রিফ্রেশ হয়েছে।"), tone: "success" },
+    refresh_error: {
+      text: tr("Couldn't fetch data from Meta. Please try again shortly.", "Meta থেকে ডাটা আনা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।"),
+      tone: "danger",
+    },
+    campaign_other_account: {
+      text: tr(
+        "That campaign belongs to a different ad account. Pick that ad account in Settings to see it.",
+        "ওই ক্যাম্পেইনটি অন্য Ad Account-এর। সেটি দেখতে সেটিংস থেকে সেই Ad Account বেছে নাও।",
+      ),
+      tone: "danger",
+    },
+  };
   const params = await searchParams;
   const view = parseView(params.view);
 
@@ -107,27 +116,30 @@ export default async function DashboardPage({ searchParams }: Props) {
     const empty = !connection
       ? {
           icon: Link2Off,
-          title: "Meta অ্যাকাউন্ট কানেক্ট করা নেই",
-          text: "বিজ্ঞাপনের হিসাব দেখতে প্রথমে তোমার Meta অ্যাকাউন্ট কানেক্ট করো।",
-          cta: "কানেক্ট করতে সেটিংসে যাও",
+          title: tr("No Meta account connected", "Meta অ্যাকাউন্ট কানেক্ট করা নেই"),
+          text: tr("Connect your Meta account to see your ad numbers.", "বিজ্ঞাপনের হিসাব দেখতে প্রথমে তোমার Meta অ্যাকাউন্ট কানেক্ট করো।"),
+          cta: tr("Go to Settings to connect", "কানেক্ট করতে সেটিংসে যাও"),
         }
       : expired
         ? {
             icon: TimerOff,
-            title: "Meta সংযোগের মেয়াদ শেষ",
-            text: "নিরাপত্তার জন্য Meta সংযোগ কিছুদিন পর পর নবায়ন করতে হয়। সেটিংস থেকে আবার কানেক্ট করো।",
-            cta: "আবার কানেক্ট করো",
+            title: tr("Meta connection expired", "Meta সংযোগের মেয়াদ শেষ"),
+            text: tr(
+              "For security the Meta connection has to be renewed every so often. Reconnect from Settings.",
+              "নিরাপত্তার জন্য Meta সংযোগ কিছুদিন পর পর নবায়ন করতে হয়। সেটিংস থেকে আবার কানেক্ট করো।",
+            ),
+            cta: tr("Reconnect", "আবার কানেক্ট করো"),
           }
         : {
             icon: ListChecks,
-            title: "Ad Account বেছে নাও",
-            text: "কোন Ad Account-এর হিসাব দেখবে সেটি সেটিংস থেকে বেছে নাও।",
-            cta: "Ad Account বেছে নাও",
+            title: tr("Pick an ad account", "Ad Account বেছে নাও"),
+            text: tr("Choose which ad account to show in Settings.", "কোন Ad Account-এর হিসাব দেখবে সেটি সেটিংস থেকে বেছে নাও।"),
+            cta: tr("Pick an ad account", "Ad Account বেছে নাও"),
           };
 
     return (
       <AppShell active="dashboard">
-        <PageHeader title="ড্যাশবোর্ড" />
+        <PageHeader title={tr("Dashboard", "ড্যাশবোর্ড")} />
         <EmptyState
           icon={empty.icon}
           title={empty.title}
@@ -173,7 +185,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       todayFresh = true;
     } catch (err) {
       console.error("auto sync failed", err instanceof Error ? err.message : err);
-      syncError = "Meta থেকে নতুন ডাটা আনা যায়নি। সংরক্ষিত ডাটা দেখানো হচ্ছে।";
+      syncError = tr("Couldn't fetch new data from Meta. Showing saved data.", "Meta থেকে নতুন ডাটা আনা যায়নি। সংরক্ষিত ডাটা দেখানো হচ্ছে।");
     }
   }
 
@@ -182,6 +194,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   const range = resolveRange(
     { preset: params.preset, since: params.since, until: params.until || params.since },
     today,
+    tr,
   );
   const isMaximum = range.preset === "maximum";
 
@@ -200,7 +213,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       }
     } catch (err) {
       console.error("range sync failed", err instanceof Error ? err.message : err);
-      syncError = "এই তারিখের সব ডাটা Meta থেকে আনা যায়নি। যা আছে তা দেখানো হচ্ছে।";
+      syncError = tr("Couldn't fetch all data for these dates from Meta. Showing what's available.", "এই তারিখের সব ডাটা Meta থেকে আনা যায়নি। যা আছে তা দেখানো হচ্ছে।");
     }
   }
 
@@ -225,22 +238,25 @@ export default async function DashboardPage({ searchParams }: Props) {
       compare ? loadLiveReport(ctx, prevRange, today, currency) : Promise.resolve(null),
     ]);
     if (view === "insights") {
-      breakdownRows = await loadBreakdown(ctx, { since, until }, today, breakdown, live.primaryIndicator);
+      breakdownRows = await loadBreakdown(ctx, { since, until }, today, breakdown, live.primaryIndicator, tr);
     }
   } catch (err) {
     console.error("live insights failed", err instanceof Error ? err.message : err);
-    liveError = "Meta থেকে এই তারিখের বিস্তারিত হিসাব আনা যায়নি। কিছুক্ষণ পরে রিফ্রেশ করো।";
+    liveError = tr("Couldn't load the detailed numbers for these dates from Meta. Refresh in a moment.", "Meta থেকে এই তারিখের বিস্তারিত হিসাব আনা যায়নি। কিছুক্ষণ পরে রিফ্রেশ করো।");
   }
 
   const [report, latestSummary, alerts] = await Promise.all([
     buildPeriodReport(supabase, user.id, accountId, { since, until }, { compare, dataFrom: syncedFrom }),
-    getLatestSummary(supabase, user.id, accountId, { since, until }),
+    getLatestSummary(supabase, user.id, accountId, { since, until }, locale),
     getActiveAlerts(supabase, user.id, accountId, timeZone),
   ]);
-  const warnings = findDataWarnings(report.current);
+  const warnings = findDataWarnings(report.current, tr);
 
   const status = params.status ? STATUS_MESSAGES[params.status] : undefined;
-  const changeLabel = report.days === 1 ? "আগের দিনের তুলনায়" : `আগের ${report.days} দিনের তুলনায়`;
+  const changeLabel =
+    report.days === 1
+      ? tr("vs previous day", "আগের দিনের তুলনায়")
+      : tr(`vs previous ${report.days} days`, `আগের ${report.days} দিনের তুলনায়`);
   const includesToday = until >= today;
 
   // তারিখ ঠিক রেখে ভিউ বা ব্রেকডাউন বদলানোর লিংক
@@ -264,7 +280,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       ))}
       <button type="submit" className={buttonClass("secondary")}>
         <RefreshCw className="size-4" aria-hidden />
-        রিফ্রেশ
+        {tr("Refresh", "রিফ্রেশ")}
       </button>
     </form>
   );
@@ -276,8 +292,8 @@ export default async function DashboardPage({ searchParams }: Props) {
         description={
           <>
             <span className="font-mono text-xs">{accountId}</span> · {range.label}:{" "}
-            {formatRange(since, until)} ({report.days} দিন)
-            {includesToday && " · আজকের ডাটা এখনো চলমান"}
+            {formatRange(since, until)} ({tr(`${report.days} ${report.days === 1 ? "day" : "days"}`, `${report.days} দিন`)})
+            {includesToday && tr(" · today is still in progress", " · আজকের ডাটা এখনো চলমান")}
           </>
         }
         actions={
@@ -300,7 +316,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       {syncError && <Notice tone="warning">{syncError}</Notice>}
       {!syncError && status && <Notice tone={status.tone}>{status.text}</Notice>}
 
-      <AlertsCard alerts={alerts} />
+      <AlertsCard alerts={alerts} currency={currency} tr={tr} />
 
       <AiSummaryCard
         key={`${since}-${until}`}
@@ -315,47 +331,49 @@ export default async function DashboardPage({ searchParams }: Props) {
         <Card className="mb-6 border-amber-200 dark:border-amber-900">
           <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="size-4" aria-hidden />
-            ডাটায় সমস্যা আছে, কিছু সংখ্যা ভুল হতে পারে
+            {tr("Data problems found: some numbers may be wrong", "ডাটায় সমস্যা আছে, কিছু সংখ্যা ভুল হতে পারে")}
           </div>
           <ul className="flex flex-col gap-4 px-5 py-4">
             {warnings.map((w) => (
               <li key={w.title} className="text-sm">
                 <p className="font-medium text-zinc-900 dark:text-zinc-100">{w.title}</p>
                 <p className="mt-0.5 text-zinc-600 dark:text-zinc-400">{w.detail}</p>
-                <p className="mt-1 text-xs text-zinc-500">ক্যাম্পেইন: {w.campaigns.join(", ")}</p>
+                <p className="mt-1 text-xs text-zinc-500">{tr("Campaigns", "ক্যাম্পেইন")}: {w.campaigns.join(", ")}</p>
               </li>
             ))}
           </ul>
         </Card>
       )}
 
-      <ViewTabs view={view} hrefFor={(v) => href(v, v === "insights" ? breakdown : undefined)} />
+      <ViewTabs view={view} hrefFor={(v) => href(v, v === "insights" ? breakdown : undefined)} tr={tr} />
 
       {liveError && <Notice tone="warning">{liveError}</Notice>}
 
       {live && (
         <>
           <KpiGrid
-            defs={kpisFor(view)}
+            defs={kpisFor(view, tr)}
             report={live}
             previous={livePrev}
             currency={currency}
             changeLabel={changeLabel}
+            tr={tr}
           />
 
           {view === "video" && (
-            <FunnelCard title="ভিডিও কতটা দেখা হচ্ছে" steps={videoFunnel(live.account)} />
+            <FunnelCard title={tr("How much of your videos people watch", "ভিডিও কতটা দেখা হচ্ছে")} steps={videoFunnel(live.account, tr)} tr={tr} />
           )}
           {view === "website" && (
-            <FunnelCard title="ওয়েবসাইটে কেনাকাটার ধাপ" steps={websiteFunnel(live.account)} />
+            <FunnelCard title={tr("Steps to purchase on your website", "ওয়েবসাইটে কেনাকাটার ধাপ")} steps={websiteFunnel(live.account, tr)} tr={tr} />
           )}
           {view === "insights" && (
             <BreakdownSection
               breakdown={breakdown}
               rows={breakdownRows}
-              resultLabel={indicatorLabel(live.primaryIndicator)}
+              resultLabel={indicatorLabel(live.primaryIndicator, tr)}
               currency={currency}
               hrefFor={(bd) => href("insights", bd)}
+              tr={tr}
             />
           )}
 
@@ -366,13 +384,17 @@ export default async function DashboardPage({ searchParams }: Props) {
             primaryIndicator={live.primaryIndicator}
             averageCpr={live.primaryResults > 0 ? live.primarySpend / live.primaryResults : null}
             analysisHref={(id) => `/dashboard/campaigns/${id}?${dateQuery}`}
+            tr={tr}
           />
         </>
       )}
 
       <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
-        শেষ আপডেট: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} · Reach,
-        Frequency, Result ও ব্রেকডাউন সরাসরি Meta থেকে (আজ/গতকাল ১৫ মিনিট, পুরনো তারিখ ৬ ঘণ্টা পর পর নতুন)
+        {tr("Last updated", "শেষ আপডেট")}: {syncedAt ? new Date(syncedAt).toLocaleString("en-GB") : "—"} ·{" "}
+        {tr(
+          "Reach, frequency, results and breakdowns come straight from Meta (refreshed every 15 minutes for today/yesterday, every 6 hours for older dates)",
+          "Reach, Frequency, Result ও ব্রেকডাউন সরাসরি Meta থেকে (আজ/গতকাল ১৫ মিনিট, পুরনো তারিখ ৬ ঘণ্টা পর পর নতুন)",
+        )}
       </p>
     </AppShell>
   );

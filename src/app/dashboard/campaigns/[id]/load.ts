@@ -5,6 +5,8 @@ import { getCampaignInfo } from "@/lib/meta/graph";
 import { cached, loadLiveReport } from "@/lib/insights/live";
 import { earliestDataDate } from "@/lib/insights/report";
 import { minAllowedDate, resolveRange, todayIn } from "@/lib/dates";
+import { getLocale } from "@/lib/i18n-server";
+import { makeTr } from "@/lib/i18n";
 
 const CAMPAIGN_ID_PATTERN = /^\d{5,25}$/;
 
@@ -14,6 +16,8 @@ export async function loadCampaignContext(
   params: { preset?: string; since?: string; until?: string },
 ) {
   if (!CAMPAIGN_ID_PATTERN.test(campaignId)) notFound();
+  const locale = await getLocale();
+  const tr = makeTr(locale);
 
   const supabase = await createClient();
   const {
@@ -49,6 +53,7 @@ export async function loadCampaignContext(
   const range = resolveRange(
     { preset: params.preset, since: params.since, until: params.until || params.since },
     today,
+    tr,
   );
   const since =
     range.preset === "maximum"
@@ -59,5 +64,5 @@ export async function loadCampaignContext(
   const live = await loadLiveReport(ctx, { since, until }, today, currency);
   const campaign = live.campaigns.find((c) => c.id === campaignId) ?? null;
 
-  return { supabase, user, ctx, accountId, currency, today, range, since, until, info, campaign };
+  return { supabase, user, ctx, accountId, currency, today, range, since, until, info, campaign, locale, tr };
 }

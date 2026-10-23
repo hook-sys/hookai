@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
+import { getTr } from "@/lib/i18n-server";
 import {
   AD_ACCOUNT_ID_PATTERN,
   getAdAccounts,
@@ -82,15 +83,21 @@ export async function deleteAccount(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const tr = await getTr();
+  const adminError = tr(
+    "A super admin account can't be deleted from the app.",
+    "সুপার অ্যাডমিন অ্যাকাউন্ট অ্যাপ থেকে মোছা যায় না।",
+  );
+
   const typed = String(formData.get("confirm_email") ?? "").trim().toLowerCase();
   if (!user.email || typed !== user.email.toLowerCase()) {
-    return { error: "নিশ্চিত করতে তোমার অ্যাকাউন্টের ইমেইল হুবহু লেখো।" };
+    return { error: tr("Type your account email exactly to confirm.", "নিশ্চিত করতে তোমার অ্যাকাউন্টের ইমেইল হুবহু লেখো।") };
   }
 
   // অ্যাডমিন হলে কিছু করার আগেই থামাও, নইলে Meta অনুমতি বাতিল হয়ে যেত অথচ অ্যাকাউন্ট থেকে যেত
   const { data: isAdmin } = await supabase.rpc("is_admin");
   if (isAdmin) {
-    return { error: "সুপার অ্যাডমিন অ্যাকাউন্ট অ্যাপ থেকে মোছা যায় না।" };
+    return { error: adminError };
   }
 
   // আগে Meta-তে অনুমতি বাতিল, যাতে টোকেন আর কাজ না করে
@@ -111,8 +118,8 @@ export async function deleteAccount(
   if (error) {
     return {
       error: error.message.includes("admin")
-        ? "সুপার অ্যাডমিন অ্যাকাউন্ট অ্যাপ থেকে মোছা যায় না।"
-        : "অ্যাকাউন্ট মোছা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।",
+        ? adminError
+        : tr("Couldn't delete the account. Please try again shortly.", "অ্যাকাউন্ট মোছা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।"),
     };
   }
 

@@ -12,6 +12,7 @@ import {
 } from "@/lib/meta/rangeInsights";
 import { pickAction, pickPurchaseValue, pickPurchases } from "@/lib/metrics";
 import { addDays } from "@/lib/dates";
+import { enTr, type Tr } from "@/lib/i18n";
 
 // ---------- ক্যাশ ----------
 
@@ -249,9 +250,12 @@ const PLACEMENT_LABELS: Record<string, string> = {
   messenger_inbox: "Inbox",
 };
 
-const GENDER_LABELS: Record<string, string> = { male: "পুরুষ", female: "নারী", unknown: "অজানা" };
-
-export function breakdownLabel(r: RawRangeRow, id: BreakdownId) {
+export function breakdownLabel(r: RawRangeRow, id: BreakdownId, tr: Tr = enTr) {
+  const GENDER_LABELS: Record<string, string> = {
+    male: tr("Men", "পুরুষ"),
+    female: tr("Women", "নারী"),
+    unknown: tr("Unknown", "অজানা"),
+  };
   const s = (k: string) => String(r[k] ?? "");
   switch (id) {
     case "placement": {
@@ -264,7 +268,7 @@ export function breakdownLabel(r: RawRangeRow, id: BreakdownId) {
     case "age_gender":
       return `${s("age")} · ${GENDER_LABELS[s("gender")] ?? s("gender")}`;
     default:
-      return s(BREAKDOWNS[id].value) || "অজানা";
+      return s(BREAKDOWNS[id].value) || tr("Unknown", "অজানা");
   }
 }
 
@@ -275,6 +279,7 @@ export async function loadBreakdown(
   today: string,
   breakdown: BreakdownId,
   primaryIndicator: string | null,
+  tr: Tr = enTr,
 ): Promise<BreakdownRow[]> {
   const rows = await cached(ctx, `breakdown:${breakdown}`, range.since, range.until, today, () =>
     fetchBreakdown(ctx.token, ctx.accountId, range.since, range.until, breakdown),
@@ -295,7 +300,7 @@ export async function loadBreakdown(
           .split(",")
           .map((k) => String(r[k] ?? ""))
           .join("|"),
-        label: breakdownLabel(r, breakdown),
+        label: breakdownLabel(r, breakdown, tr),
         results: available ? pickAction(r.actions, [actionType!]) : null,
       };
     })
@@ -304,27 +309,28 @@ export async function loadBreakdown(
 }
 
 // Meta-র Result ধরনের সহজ নাম
-const INDICATOR_LABELS: Record<string, string> = {
-  "actions:offsite_conversion.fb_pixel_purchase": "Purchase (ওয়েবসাইট)",
-  "actions:omni_purchase": "Purchase",
-  "actions:purchase": "Purchase",
-  "actions:onsite_web_purchase": "Purchase",
-  "actions:onsite_conversion.messaging_conversation_started_7d": "মেসেজ কনভারসেশন",
-  "actions:lead": "Lead",
-  "actions:onsite_conversion.lead_grouped": "Lead (ফর্ম)",
-  "actions:offsite_conversion.fb_pixel_lead": "Lead (ওয়েবসাইট)",
-  "actions:link_click": "লিংক ক্লিক",
-  "actions:landing_page_view": "Landing page view",
-  "actions:post_engagement": "Post engagement",
-  "actions:page_engagement": "Page engagement",
-  "actions:like": "Page like",
-  "actions:video_view": "৩ সেকেন্ড ভিডিও প্লে",
-  "video_thruplay_watched_actions": "ThruPlay",
-  reach: "Reach",
-  impressions: "Impression",
+const INDICATOR_LABELS: Record<string, [string, string]> = {
+  "actions:offsite_conversion.fb_pixel_purchase": ["Purchase (website)", "Purchase (ওয়েবসাইট)"],
+  "actions:omni_purchase": ["Purchase", "Purchase"],
+  "actions:purchase": ["Purchase", "Purchase"],
+  "actions:onsite_web_purchase": ["Purchase", "Purchase"],
+  "actions:onsite_conversion.messaging_conversation_started_7d": ["Messaging conversation", "মেসেজ কনভারসেশন"],
+  "actions:lead": ["Lead", "Lead"],
+  "actions:onsite_conversion.lead_grouped": ["Lead (form)", "Lead (ফর্ম)"],
+  "actions:offsite_conversion.fb_pixel_lead": ["Lead (website)", "Lead (ওয়েবসাইট)"],
+  "actions:link_click": ["Link click", "লিংক ক্লিক"],
+  "actions:landing_page_view": ["Landing page view", "Landing page view"],
+  "actions:post_engagement": ["Post engagement", "Post engagement"],
+  "actions:page_engagement": ["Page engagement", "Page engagement"],
+  "actions:like": ["Page like", "Page like"],
+  "actions:video_view": ["3-second video play", "৩ সেকেন্ড ভিডিও প্লে"],
+  "video_thruplay_watched_actions": ["ThruPlay", "ThruPlay"],
+  reach: ["Reach", "Reach"],
+  impressions: ["Impression", "Impression"],
 };
 
-export function indicatorLabel(indicator: string | null) {
+export function indicatorLabel(indicator: string | null, tr: Tr = enTr) {
   if (!indicator) return "Result";
-  return INDICATOR_LABELS[indicator] ?? indicator.replace(/^actions:/, "").replaceAll("_", " ");
+  const known = INDICATOR_LABELS[indicator];
+  return known ? tr(known[0], known[1]) : indicator.replace(/^actions:/, "").replaceAll("_", " ");
 }

@@ -71,13 +71,13 @@ export async function fetchAccountRange(
 }
 
 export const BREAKDOWNS = {
-  placement: { label: "প্লেসমেন্ট", value: "publisher_platform,platform_position" },
-  region: { label: "এলাকা (বিভাগ)", value: "region" },
-  country: { label: "দেশ", value: "country" },
-  age: { label: "বয়স", value: "age" },
-  gender: { label: "লিঙ্গ", value: "gender" },
-  age_gender: { label: "বয়স ও লিঙ্গ", value: "age,gender" },
-  device: { label: "ডিভাইস", value: "device_platform" },
+  placement: { en: "Placement", bn: "প্লেসমেন্ট", value: "publisher_platform,platform_position" },
+  region: { en: "Region", bn: "এলাকা (বিভাগ)", value: "region" },
+  country: { en: "Country", bn: "দেশ", value: "country" },
+  age: { en: "Age", bn: "বয়স", value: "age" },
+  gender: { en: "Gender", bn: "লিঙ্গ", value: "gender" },
+  age_gender: { en: "Age & gender", bn: "বয়স ও লিঙ্গ", value: "age,gender" },
+  device: { en: "Device", bn: "ডিভাইস", value: "device_platform" },
 } as const;
 
 export type BreakdownId = keyof typeof BREAKDOWNS;

@@ -2,29 +2,13 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { BarChart3, BellRing, Sparkles, type LucideIcon } from "lucide-react";
-import { Logo, LogoMark, buttonClass, inputClass } from "@/components/ui";
+import { Logo, buttonClass, inputClass } from "@/components/ui";
+import { useTr } from "@/components/I18nProvider";
+import LanguageSwitch from "@/components/LanguageSwitch";
 import { signIn, signUp, type AuthState } from "./actions";
 
-const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
-  {
-    icon: BarChart3,
-    title: "এক নজরে সব হিসাব",
-    text: "খরচ, Purchase, CPA, ROAS প্রতিটি ক্যাম্পেইনের জন্য আলাদা করে।",
-  },
-  {
-    icon: BellRing,
-    title: "সময়মতো অ্যালার্ট",
-    text: "খরচ হঠাৎ বাড়লে বা Ad ক্লান্ত হয়ে গেলে সাথে সাথে জানবে।",
-  },
-  {
-    icon: Sparkles,
-    title: "AI সুপারিশ",
-    text: "কোন Ad চালু রাখবে, কোনটা বন্ধ করবে, সহজ বাংলায় পরামর্শ।",
-  },
-];
-
 export default function LoginPage() {
+  const tr = useTr();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   const action = mode === "signin" ? signIn : signUp;
@@ -33,64 +17,54 @@ export default function LoginPage() {
     null,
   );
 
+  const points = [
+    tr("Read-only access. Hook never edits your ads.", "শুধু পড়ার অনুমতি। Hook তোমার বিজ্ঞাপনে হাত দেয় না।"),
+    tr("Numbers that match Ads Manager, in your time zone.", "Ads Manager-এর সাথে মেলা সংখ্যা, তোমার timezone-এ।"),
+    tr("Alerts and advice in plain words.", "অ্যালার্ট আর পরামর্শ, সহজ কথায়।"),
+  ];
+
   return (
-    <main className="grid min-h-screen lg:grid-cols-2">
-      <section className="relative hidden overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-12 text-white lg:flex lg:flex-col">
-        <Link href="/" className="flex w-fit items-center gap-2.5">
-          <LogoMark className="size-9 rounded-[10px] ring-2 ring-white/30" />
-          <span className="text-sm font-bold tracking-wide">
-            HOOK <span className="text-[#FF9A75]">AI</span>
-          </span>
+    <div className="relative isolate min-h-screen">
+      <div aria-hidden className="aurora grain pointer-events-none fixed inset-0 -z-10" />
+
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+        <Link href="/" aria-label={tr("Hook AI home", "Hook AI হোম")}>
+          <Logo />
         </Link>
+        <LanguageSwitch />
+      </header>
 
-        <div className="my-auto max-w-md">
-          <h1 className="text-4xl font-semibold leading-tight">
-            তোমার Meta বিজ্ঞাপন, এখন AI-এর চোখে
+      <main className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-6 pb-16 sm:px-6 lg:min-h-[calc(100vh-6rem)] lg:grid-cols-[1fr_440px] lg:pt-0">
+        <section className="hidden lg:block">
+          <h1 className="max-w-lg text-5xl leading-[1.08] font-semibold tracking-tight text-zinc-950 dark:text-white">
+            {tr("Your ad account, ", "তোমার Ad Account, ")}
+            <em className="font-serif font-normal text-indigo-700 italic dark:text-indigo-300">
+              {tr("finally explained.", "অবশেষে সহজ ভাষায়।")}
+            </em>
           </h1>
-          <p className="mt-4 text-indigo-100">
-            Ad Account কানেক্ট করো, বাকি হিসাব আর বিশ্লেষণ আমরা করে দেব।
-          </p>
-
-          <ul className="mt-10 flex flex-col gap-6">
-            {FEATURES.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="flex gap-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <span>
-                  <span className="block font-medium">{title}</span>
-                  <span className="block text-sm text-indigo-100">{text}</span>
-                </span>
+          <ul className="mt-10 max-w-md space-y-4">
+            {points.map((p) => (
+              <li key={p} className="flex gap-3 text-zinc-700 dark:text-zinc-300">
+                <span className="mt-2.5 h-px w-5 shrink-0 bg-zinc-400" aria-hidden />
+                {p}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
 
-        {/* পেছনের হালকা আলো */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-32 -bottom-32 size-96 rounded-full bg-violet-400/30 blur-3xl"
-        />
-      </section>
-
-      <section className="flex items-center justify-center px-4 py-12 sm:px-8">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden">
-            <Logo />
-          </div>
-
+        <section className="glass rounded-3xl p-6 sm:p-8">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            {mode === "signin" ? "আবার স্বাগতম" : "নতুন অ্যাকাউন্ট"}
+            {mode === "signin" ? tr("Welcome back", "আবার স্বাগতম") : tr("Create your account", "নতুন অ্যাকাউন্ট")}
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {mode === "signin"
-              ? "লগইন করে তোমার বিজ্ঞাপনের হিসাব দেখো"
-              : "কয়েক সেকেন্ডে অ্যাকাউন্ট তৈরি করো"}
+              ? tr("Log in to see how your ads are doing.", "লগইন করে তোমার বিজ্ঞাপনের হিসাব দেখো")
+              : tr("Takes less than a minute.", "কয়েক সেকেন্ডে অ্যাকাউন্ট তৈরি করো")}
           </p>
 
           <form action={formAction} className="mt-8 flex flex-col gap-4">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">ইমেইল</span>
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Email", "ইমেইল")}</span>
               <input
                 name="email"
                 type="email"
@@ -102,14 +76,14 @@ export default function LoginPage() {
             </label>
 
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">পাসওয়ার্ড</span>
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Password", "পাসওয়ার্ড")}</span>
               <input
                 name="password"
                 type="password"
                 required
                 minLength={8}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                placeholder="কমপক্ষে ৮ অক্ষর"
+                placeholder={tr("At least 8 characters", "কমপক্ষে ৮ অক্ষর")}
                 className={inputClass}
               />
             </label>
@@ -131,36 +105,37 @@ export default function LoginPage() {
               </p>
             )}
 
-            <button type="submit" disabled={pending} className={buttonClass("primary", "mt-2 w-full py-2.5")}>
+            <button type="submit" disabled={pending} className={buttonClass("primary", "mt-2 w-full rounded-xl py-2.5")}>
               {pending
-                ? "অপেক্ষা করো..."
+                ? tr("Please wait…", "অপেক্ষা করো...")
                 : mode === "signin"
-                  ? "লগইন"
-                  : "অ্যাকাউন্ট তৈরি করো"}
+                  ? tr("Log in", "লগইন")
+                  : tr("Create account", "অ্যাকাউন্ট তৈরি করো")}
             </button>
           </form>
 
           {mode === "signup" && (
             <p className="mt-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
-              অ্যাকাউন্ট তৈরি করলে তুমি আমাদের{" "}
-              <Link href="/terms" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Terms</Link> ও{" "}
-              <Link href="/privacy" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Privacy Policy</Link>{" "}
-              মেনে নিচ্ছ।
+              {tr("By creating an account you agree to our ", "অ্যাকাউন্ট তৈরি করলে তুমি আমাদের ")}
+              <Link href="/terms" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Terms</Link>
+              {tr(" and ", " ও ")}
+              <Link href="/privacy" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">Privacy Policy</Link>
+              {tr(".", " মেনে নিচ্ছ।")}
             </p>
           )}
 
           <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            {mode === "signin" ? "নতুন?" : "আগে থেকেই অ্যাকাউন্ট আছে?"}{" "}
+            {mode === "signin" ? tr("New here?", "নতুন?") : tr("Already have an account?", "আগে থেকেই অ্যাকাউন্ট আছে?")}{" "}
             <button
               type="button"
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
               className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
             >
-              {mode === "signin" ? "অ্যাকাউন্ট তৈরি করো" : "লগইন করো"}
+              {mode === "signin" ? tr("Create an account", "অ্যাকাউন্ট তৈরি করো") : tr("Log in", "লগইন করো")}
             </button>
           </p>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
   );
 }

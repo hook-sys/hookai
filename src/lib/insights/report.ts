@@ -8,6 +8,7 @@ import {
 } from "@/lib/metrics";
 
 import { daysInRange, previousRange } from "@/lib/dates";
+import { enTr, type Tr } from "@/lib/i18n";
 
 // ড্যাশবোর্ড ও AI দুটোই এখান থেকে একই হিসাব নেয়, যাতে দুই জায়গায় সংখ্যা আলাদা না হয়
 
@@ -177,7 +178,7 @@ export type DataWarning = { title: string; detail: string; campaigns: string[] }
 const SUSPICIOUS_ROAS = 20;
 
 // ডাটার মান যাচাই কোডেই হয়, AI-এর উপর নির্ভর না করে
-export function findDataWarnings(period: PeriodStats): DataWarning[] {
+export function findDataWarnings(period: PeriodStats, tr: Tr = enTr): DataWarning[] {
   const warnings: DataWarning[] = [];
 
   const noValue = period.campaigns.filter(
@@ -185,9 +186,11 @@ export function findDataWarnings(period: PeriodStats): DataWarning[] {
   );
   if (noValue.length > 0) {
     warnings.push({
-      title: "Purchase আছে, কিন্তু মূল্য ০",
-      detail:
+      title: tr("Purchases recorded, but their value is 0", "Purchase আছে, কিন্তু মূল্য ০"),
+      detail: tr(
+        "These campaigns count purchases but receive no purchase value, so ROAS shows 0. Check that your Pixel or Conversions API sends a value with the Purchase event.",
         "এই ক্যাম্পেইনগুলোতে Purchase গোনা হচ্ছে কিন্তু টাকার অঙ্ক আসছে না, তাই ROAS ০ দেখায়। Pixel বা Conversions API-তে Purchase ইভেন্টের value পাঠানো হচ্ছে কিনা দেখো।",
+      ),
       campaigns: noValue.map((c) => c.name),
     });
   }
@@ -197,9 +200,14 @@ export function findDataWarnings(period: PeriodStats): DataWarning[] {
   );
   if (tooHigh.length > 0) {
     warnings.push({
-      title: `ROAS অস্বাভাবিক বেশি (${SUSPICIOUS_ROAS}x-এর উপরে)`,
-      detail:
+      title: tr(
+        `ROAS is unrealistically high (above ${SUSPICIOUS_ROAS}x)`,
+        `ROAS অস্বাভাবিক বেশি (${SUSPICIOUS_ROAS}x-এর উপরে)`,
+      ),
+      detail: tr(
+        "The purchase value is probably being sent in the wrong currency (for example taka amounts labelled as USD). Check the Purchase event's currency and value in Events Manager.",
         "সম্ভবত Purchase-এর টাকার অঙ্ক ভুল মুদ্রায় যাচ্ছে (যেমন টাকার অঙ্ক USD হিসেবে)। Events Manager-এ Purchase ইভেন্টের currency ও value মিলিয়ে দেখো।",
+      ),
       campaigns: tooHigh.map((c) => c.name),
     });
   }

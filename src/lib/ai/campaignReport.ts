@@ -3,10 +3,12 @@ import type { CampaignAnalysis, Segment } from "@/lib/insights/campaign";
 import { daysInRange } from "@/lib/dates";
 import { getActiveAiConfig } from "./config";
 import { AiError, generateText } from "./providers";
+import { makeTr, type Locale } from "@/lib/i18n";
 
 export type Priority = "high" | "medium" | "low";
 
 export type CampaignReport = {
+  locale?: Locale;
   headline: string;
   overview: string;
   best_audience: { dimension: string; finding: string }[];
@@ -138,23 +140,30 @@ function buildData(a: CampaignAnalysis, currency: string | null, range: { since:
   };
 }
 
-const SYSTEM_PROMPT = `You are a senior Meta (Facebook/Instagram) ads analyst writing a campaign deep-dive for a small business owner in Bangladesh.
+const LANGUAGE_RULES: Record<Locale, string> = {
+  bn: `- Refer to the period as "গত {period.days} দিনে" or by its dates. Never say "এই মাসে" or "এই সপ্তাহে".
+- Example solutions: "২৫-৩৪ বয়সে বাজেট বাড়াও", "রাত ১১টা থেকে সকাল ৭টা বিজ্ঞাপন কমাও", "প্রথম ৩ সেকেন্ড আরও আকর্ষণীয় করো", "Initiate checkout ইভেন্ট ঠিক করো".`,
+  en: `- Refer to the period as "over the last {period.days} days" or by its dates. Never say "this month" or "this week".
+- Write every text field in plain, friendly English, addressing the reader as "you". Keep metric names (Result, Cost per Result, CTR, ROAS, ThruPlay, Hook rate, Hold rate) and segment names as given.
+- Example solutions: "Raise the budget for ages 25-34", "Cut delivery between 11 PM and 7 AM", "Make the first 3 seconds more gripping", "Fix the Initiate checkout event".`,
+};
+
+const systemPrompt = (locale: Locale) => `You are a senior Meta (Facebook/Instagram) ads analyst writing a campaign deep-dive for a small business owner in Bangladesh.
 
 You receive one campaign's data as JSON. All numbers are calculated by code; "best" and "worst" per dimension are already chosen by code.
 Rules:
 - Use ONLY numbers present in the data. Never invent or recalculate figures.
 - "headline": one specific sentence with the single most important takeaway and a number, not a title.
-- Refer to the period as "গত {period.days} দিনে" or by its dates. Never say "এই মাসে" or "এই সপ্তাহে".
+${LANGUAGE_RULES[locale]}
 - If purchase_value_reliable is false, never mention ROAS or purchase value; add fixing the purchase value/currency in the Pixel as a problem and solution.
 - Mention frequency as a problem ONLY if totals.frequency_is_high is true.
 - website.funnel.undertracked_stages lists events that are tracked LESS than the next stage (e.g. checkout lower than purchase). Say exactly those events are not firing correctly; do not blame the later stage. A drop INTO an undertracked stage is caused by the tracking problem, not by visitors leaving: never treat it as a real drop-off or suggest page changes for it.
 - Never show JSON field names (like purchase_value_reliable, frequency_is_high) in the text; explain in plain words.
-- Write every text field in simple Bengali (Bangla), addressing the reader as "তুমি". Keep metric names (Result, Cost per Result, CTR, ROAS, ThruPlay, Hook rate, Hold rate) and segment names as given.
 - best_audience: one item per dimension that has a clear finding (age, gender, location, placement, device, time of day, day of week). Say where results are best and cheapest, with numbers. If results_available is false for a dimension, say Meta does not report results there and use spend and CTR only. For day of week, if each weekday has only 1 day of data, say the pattern is not yet reliable.
 - video_analysis: where viewers drop off most (use video.funnel.biggest_drop_at and the percentages), what hook rate and hold rate mean here. null if video is null.
 - website_analysis: at which stage visitors drop off most (website.funnel.biggest_drop_at), with the percentage kept. Then mention undertracked_stages if any. null if website is null.
 - problems: concrete issues with evidence numbers (expensive segments, wasted spend, drop-offs, tracking gaps, high frequency).
-- solutions: concrete actions for THIS campaign with a reason citing numbers, e.g. "২৫-৩৪ বয়সে বাজেট বাড়াও", "রাত ১১টা থেকে সকাল ৭টা বিজ্ঞাপন কমাও", "প্রথম ৩ সেকেন্ড আরও আকর্ষণীয় করো", "Initiate checkout ইভেন্ট ঠিক করো". "high" only for wasted money now or broken tracking.
+- solutions: concrete actions for THIS campaign with a reason citing numbers. "high" only for wasted money now or broken tracking.
 - Be concise: overview 2-3 sentences; at most 7 best_audience, 5 problems, 6 solutions.
 
 Respond with ONLY one JSON object, no markdown:
@@ -169,17 +178,19 @@ const list = <T>(v: unknown, map: (x: Record<string, unknown>) => T | null, max:
         .slice(0, max)
     : [];
 
-export function parseCampaignReport(text: string): CampaignReport {
+export function parseCampaignReport(text: string, locale: Locale = "en"): CampaignReport {
+  const tr = makeTr(locale);
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(text.slice(start, end + 1));
   } catch {
-    throw new AiError("AI-এর উত্তর বোঝা যায়নি। আবার চেষ্টা করো।");
+    throw new AiError(tr("Couldn't understand the AI's answer. Please try again.", "AI-এর উত্তর বোঝা যায়নি। আবার চেষ্টা করো।"));
   }
 
   const report: CampaignReport = {
+    locale,
     headline: str(raw.headline),
     overview: str(raw.overview),
     best_audience: list(
@@ -210,7 +221,7 @@ export function parseCampaignReport(text: string): CampaignReport {
     ),
   };
   if (!report.headline && !report.overview) {
-    throw new AiError("AI খালি উত্তর দিয়েছে। আবার চেষ্টা করো।");
+    throw new AiError(tr("The AI returned an empty answer. Please try again.", "AI খালি উত্তর দিয়েছে। আবার চেষ্টা করো।"));
   }
   return report;
 }
@@ -243,8 +254,6 @@ export async function getLatestReport(supabase: SupabaseClient, userId: string, 
   return (data as StoredCampaignReport | null) ?? null;
 }
 
-const ALREADY_TODAY = "আজ এই ক্যাম্পেইনের রিপোর্ট নেওয়া হয়ে গেছে। কাল আবার নিতে পারবে।";
-
 export async function generateCampaignReport(
   supabase: SupabaseClient,
   userId: string,
@@ -253,21 +262,29 @@ export async function generateCampaignReport(
   currency: string | null,
   range: { since: string; until: string },
   today: string,
+  locale: Locale = "en",
 ): Promise<StoredCampaignReport> {
+  const tr = makeTr(locale);
+  const alreadyToday = tr(
+    "You've already taken today's report for this campaign. You can take another tomorrow.",
+    "আজ এই ক্যাম্পেইনের রিপোর্ট নেওয়া হয়ে গেছে। কাল আবার নিতে পারবে।",
+  );
   if (await getTodaysReport(supabase, userId, analysis.campaign.id, today)) {
-    throw new AiError(ALREADY_TODAY);
+    throw new AiError(alreadyToday);
   }
   if (analysis.campaign.spend <= 0) {
-    throw new AiError("এই সময়ে ক্যাম্পেইনে খরচ হয়নি, তাই বিশ্লেষণ করার মতো ডাটা নেই।");
+    throw new AiError(
+      tr("This campaign spent nothing in this period, so there's nothing to analyze.", "এই সময়ে ক্যাম্পেইনে খরচ হয়নি, তাই বিশ্লেষণ করার মতো ডাটা নেই।"),
+    );
   }
 
   const cfg = await getActiveAiConfig(supabase);
   const text = await generateText(cfg, {
-    system: SYSTEM_PROMPT,
+    system: systemPrompt(locale),
     prompt: `Analyze this campaign and respond with the JSON object only.\n\n${JSON.stringify(buildData(analysis, currency, range))}`,
     maxTokens: 10000,
   });
-  const content = parseCampaignReport(text);
+  const content = parseCampaignReport(text, locale);
 
   const { data, error } = await supabase
     .from("campaign_reports")
@@ -287,7 +304,7 @@ export async function generateCampaignReport(
     .single();
 
   // একই সময়ে দুইবার চাপলে ডাটাবেসের unique নিয়ম দ্বিতীয়টি আটকে দেয়
-  if (error?.code === "23505") throw new AiError(ALREADY_TODAY);
-  if (error || !data) throw new AiError("রিপোর্ট সংরক্ষণ করা যায়নি।");
+  if (error?.code === "23505") throw new AiError(alreadyToday);
+  if (error || !data) throw new AiError(tr("Couldn't save the report.", "রিপোর্ট সংরক্ষণ করা যায়নি।"));
   return data as StoredCampaignReport;
 }

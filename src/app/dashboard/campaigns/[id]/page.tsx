@@ -6,18 +6,19 @@ import { getLatestReport, getTodaysReport } from "@/lib/ai/campaignReport";
 import { formatRange, minAllowedDate, rangeQuery } from "@/lib/dates";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/format";
 import AppShell from "@/components/AppShell";
+import type { Tr } from "@/lib/i18n";
 import { Badge, Card, EmptyState, PageHeader, cn } from "@/components/ui";
 import DateRangePicker from "../../DateRangePicker";
 import { FunnelCard, KpiGrid, kpisFor, videoFunnel, websiteFunnel } from "../../views";
 import { loadCampaignContext } from "./load";
 import ReportCard from "./ReportCard";
 
-export const metadata = { title: "ক্যাম্পেইন বিশ্লেষণ" };
+export const metadata = { title: "Campaign analysis" };
 
 // AI রিপোর্টে কখনো এক মিনিটের বেশি লাগে
 export const maxDuration = 120;
 
-function SegmentCard({ dim, currency }: { dim: DimensionAnalysis; currency: string | null }) {
+function SegmentCard({ dim, currency, tr }: { dim: DimensionAnalysis; currency: string | null; tr: Tr }) {
   const tone = (s: Segment) =>
     s === dim.best ? "success" : s === dim.worst ? "danger" : ("neutral" as const);
 
@@ -25,14 +26,14 @@ function SegmentCard({ dim, currency }: { dim: DimensionAnalysis; currency: stri
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{dim.label}</h3>
-        {dim.best && <Badge tone="success">সেরা: {dim.best.label}</Badge>}
+        {dim.best && <Badge tone="success">{tr("Best", "সেরা")}: {dim.best.label}</Badge>}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
           <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
             <tr>
               <th scope="col" className="px-4 py-2">{dim.label}</th>
-              <th scope="col" className="px-2 py-2 text-right">খরচের ভাগ</th>
+              <th scope="col" className="px-2 py-2 text-right">{tr("Share of spend", "খরচের ভাগ")}</th>
               <th scope="col" className="px-2 py-2 text-right">Result</th>
               <th scope="col" className="px-2 py-2 text-right">Cost/Result</th>
               <th scope="col" className="px-4 py-2 text-right">CTR</th>
@@ -55,7 +56,7 @@ function SegmentCard({ dim, currency }: { dim: DimensionAnalysis; currency: stri
       </div>
       {!dim.resultsAvailable && (
         <p className="border-t border-zinc-100 px-4 py-2 text-xs text-amber-700 dark:border-zinc-800 dark:text-amber-300">
-          Meta এই ভাগে Result দেখায় না; খরচ ও CTR দেখো।
+          {tr("Meta doesn't report results for this split; use spend and CTR.", "Meta এই ভাগে Result দেখায় না; খরচ ও CTR দেখো।")}
         </p>
       )}
     </Card>
@@ -63,7 +64,7 @@ function SegmentCard({ dim, currency }: { dim: DimensionAnalysis; currency: stri
 }
 
 // ২৪ ঘণ্টার কোন সময়ে Result বেশি আসে (Result না থাকলে খরচ)
-function HourChart({ dim, currency }: { dim: DimensionAnalysis; currency: string | null }) {
+function HourChart({ dim, currency, tr }: { dim: DimensionAnalysis; currency: string | null; tr: Tr }) {
   const useResults = dim.resultsAvailable;
   const hours = Array.from({ length: 24 }, (_, h) => {
     const key = String(h).padStart(2, "0");
@@ -76,15 +77,17 @@ function HourChart({ dim, currency }: { dim: DimensionAnalysis; currency: string
     <Card className="p-5 lg:col-span-2">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          দিনের কোন সময়ে {useResults ? "Result আসে" : "খরচ হয়"}
+          {useResults
+            ? tr("When results come in", "দিনের কোন সময়ে Result আসে")
+            : tr("When money is spent", "দিনের কোন সময়ে খরচ হয়")}
         </h3>
         {dim.best && (
           <Badge tone="success">
-            সবচেয়ে কম খরচে: {dim.best.label} ({formatMoney(dim.best.cpr, currency)})
+            {tr("Cheapest", "সবচেয়ে কম খরচে")}: {dim.best.label} ({formatMoney(dim.best.cpr, currency)})
           </Badge>
         )}
       </div>
-      <div className="flex h-40 items-end gap-1" role="img" aria-label="ঘণ্টা অনুযায়ী চার্ট">
+      <div className="flex h-40 items-end gap-1" role="img" aria-label={tr("Chart by hour", "ঘণ্টা অনুযায়ী চার্ট")}>
         {hours.map((s, h) => (
           <div key={h} className="flex h-full flex-1 flex-col items-center justify-end">
             <div
@@ -95,21 +98,26 @@ function HourChart({ dim, currency }: { dim: DimensionAnalysis; currency: string
               style={{ height: `${(value(s) / max) * 100}%`, minHeight: value(s) > 0 ? 2 : 0 }}
               title={
                 s
-                  ? `${s.label}: ${formatNumber(s.results)} Result, খরচ ${formatMoney(s.spend, currency)}`
-                  : `${h}:00 — কোনো ডাটা নেই`
+                  ? tr(
+                      `${s.label}: ${formatNumber(s.results)} results, ${formatMoney(s.spend, currency)} spent`,
+                      `${s.label}: ${formatNumber(s.results)} Result, খরচ ${formatMoney(s.spend, currency)}`,
+                    )
+                  : tr(`${h}:00 — no data`, `${h}:00 — কোনো ডাটা নেই`)
               }
             />
           </div>
         ))}
       </div>
       <div className="mt-1 flex justify-between text-[10px] text-zinc-400">
-        <span>রাত ১২টা</span>
-        <span>সকাল ৬টা</span>
-        <span>দুপুর ১২টা</span>
-        <span>সন্ধ্যা ৬টা</span>
-        <span>রাত ১১টা</span>
+        <span>{tr("12 AM", "রাত ১২টা")}</span>
+        <span>{tr("6 AM", "সকাল ৬টা")}</span>
+        <span>{tr("12 PM", "দুপুর ১২টা")}</span>
+        <span>{tr("6 PM", "সন্ধ্যা ৬টা")}</span>
+        <span>{tr("11 PM", "রাত ১১টা")}</span>
       </div>
-      <p className="mt-2 text-xs text-zinc-400">সময় Ad Account-এর টাইমজোনে। সবুজ দণ্ড = সবচেয়ে কম খরচে Result।</p>
+      <p className="mt-2 text-xs text-zinc-400">
+        {tr("Times are in the ad account's time zone. Green bar = cheapest results.", "সময় Ad Account-এর টাইমজোনে। সবুজ দণ্ড = সবচেয়ে কম খরচে Result।")}
+      </p>
     </Card>
   );
 }
@@ -122,6 +130,7 @@ type Props = {
 export default async function CampaignPage({ params, searchParams }: Props) {
   const { id } = await params;
   const c = await loadCampaignContext(id, await searchParams);
+  const tr = c.tr;
   const dateQuery = rangeQuery(c.range);
   const basePath = `/dashboard/campaigns/${id}`;
 
@@ -131,7 +140,7 @@ export default async function CampaignPage({ params, searchParams }: Props) {
       className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
     >
       <ArrowLeft className="size-4" aria-hidden />
-      ড্যাশবোর্ডে ফিরে যাও
+      {tr("Back to dashboard", "ড্যাশবোর্ডে ফিরে যাও")}
     </Link>
   );
 
@@ -156,8 +165,8 @@ export default async function CampaignPage({ params, searchParams }: Props) {
         <PageHeader title={c.info.name} actions={picker} />
         <EmptyState
           icon={CalendarX}
-          title="এই সময়ে কোনো খরচ হয়নি"
-          text="অন্য তারিখ বেছে নাও, যেমন গত ৩০ দিন বা সর্বোচ্চ।"
+          title={tr("Nothing spent in this period", "এই সময়ে কোনো খরচ হয়নি")}
+          text={tr("Pick another range, such as the last 30 days or Maximum.", "অন্য তারিখ বেছে নাও, যেমন গত ৩০ দিন বা সর্বোচ্চ।")}
         />
       </AppShell>
     );
@@ -165,7 +174,7 @@ export default async function CampaignPage({ params, searchParams }: Props) {
 
   const campaign = c.campaign;
   const [analysis, todays, latest] = await Promise.all([
-    loadCampaignAnalysis(c.ctx, campaign, { since: c.since, until: c.until }, c.today),
+    loadCampaignAnalysis(c.ctx, campaign, { since: c.since, until: c.until }, c.today, tr),
     getTodaysReport(c.supabase, c.user.id, id, c.today),
     getLatestReport(c.supabase, c.user.id, id),
   ]);
@@ -194,7 +203,7 @@ export default async function CampaignPage({ params, searchParams }: Props) {
         title={campaign.name}
         description={
           <>
-            ক্যাম্পেইন বিশ্লেষণ · {c.range.label}: {formatRange(c.since, c.until)} · Result:{" "}
+            {tr("Campaign analysis", "ক্যাম্পেইন বিশ্লেষণ")} · {c.range.label}: {formatRange(c.since, c.until)} · Result:{" "}
             {analysis.resultLabel}
           </>
         }
@@ -203,23 +212,30 @@ export default async function CampaignPage({ params, searchParams }: Props) {
 
       <ReportCard campaignId={id} since={c.since} until={c.until} todays={todays} latest={latest} />
 
-      <KpiGrid defs={kpisFor("regular")} report={asReport} previous={null} currency={c.currency} changeLabel="" />
+      <KpiGrid defs={kpisFor("regular", tr)} report={asReport} previous={null} currency={c.currency} changeLabel="" tr={tr} />
 
       <h2 className="mt-8 mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-        কে, কোথায়, কখন: অডিয়েন্স বিশ্লেষণ
+        {tr("Who, where and when: audience breakdown", "কে, কোথায়, কখন: অডিয়েন্স বিশ্লেষণ")}
       </h2>
       <div className="grid gap-4 lg:grid-cols-2">
-        {hour && <HourChart dim={hour} currency={c.currency} />}
+        {hour && <HourChart dim={hour} currency={c.currency} tr={tr} />}
         {others.map((d) => (
-          <SegmentCard key={d.id} dim={d} currency={c.currency} />
+          <SegmentCard key={d.id} dim={d} currency={c.currency} tr={tr} />
         ))}
       </div>
       <p className="mt-2 text-xs text-zinc-400">
-        সবুজ = সবচেয়ে কম খরচে Result, লাল = সবচেয়ে বেশি খরচ বা খরচ হয়েও Result নেই (মোট খরচের ৫%-এর বেশি এমন অংশের মধ্যে)।
+        {tr(
+          "Green = cheapest results, red = most expensive or spending with no results (among splits with more than 5% of spend).",
+          "সবুজ = সবচেয়ে কম খরচে Result, লাল = সবচেয়ে বেশি খরচ বা খরচ হয়েও Result নেই (মোট খরচের ৫%-এর বেশি এমন অংশের মধ্যে)।",
+        )}
       </p>
 
-      {hasVideo && <FunnelCard title="ভিডিওতে কোথায় মানুষ চলে যাচ্ছে" steps={videoFunnel(campaign)} />}
-      {hasWebsite && <FunnelCard title="ওয়েবসাইটে কোন ধাপে মানুষ চলে যাচ্ছে" steps={websiteFunnel(campaign)} />}
+      {hasVideo && (
+        <FunnelCard title={tr("Where viewers leave the video", "ভিডিওতে কোথায় মানুষ চলে যাচ্ছে")} steps={videoFunnel(campaign, tr)} tr={tr} />
+      )}
+      {hasWebsite && (
+        <FunnelCard title={tr("Where visitors leave the website", "ওয়েবসাইটে কোন ধাপে মানুষ চলে যাচ্ছে")} steps={websiteFunnel(campaign, tr)} tr={tr} />
+      )}
     </AppShell>
   );
 }

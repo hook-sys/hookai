@@ -1,403 +1,580 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BarChart3,
-  BellRing,
-  CheckCircle2,
-  Clock,
-  Eye,
-  Link2,
-  Lock,
-  PieChart,
-  ShieldCheck,
-  Sparkles,
-  Target,
-  TrendingDown,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { LogoMark, buttonClass, cn } from "@/components/ui";
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { buttonClass, cn } from "@/components/ui";
+import { Backdrop, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { getTr } from "@/lib/i18n-server";
+import type { Tr } from "@/lib/i18n";
 
-// লগইনের আগের পেজ। ভাষা বাংলা, বিজ্ঞাপনের শব্দগুলো (ROAS, Pixel ইত্যাদি) ইংরেজিতে, মানুষ যেভাবে বলে।
+// The public landing page. Frosted glass over soft colour, product snippets instead of
+// stock illustrations, and copy written the way an advertiser would say it.
 
-const PROBLEMS: { icon: LucideIcon; problem: string; solution: string }[] = [
-  {
-    icon: Target,
-    problem: "কোন বয়স, এলাকা বা সময়ে বিক্রি হচ্ছে, জানো না",
-    solution: "প্রতিটি campaign-এর age, gender, placement আর ঘণ্টা ধরে বিশ্লেষণ, সেরা অংশ আলাদা করে দেখায়",
-  },
-  {
-    icon: TrendingDown,
-    problem: "Pixel ভুল ট্র্যাক করছে, কিন্তু বোঝা যায় না",
-    solution: "Checkout, Purchase value বা currency-র ভুল নিজে থেকে ধরে সতর্ক করে",
-  },
-  {
-    icon: BarChart3,
-    problem: "Ads Manager-এর এত কলাম, কোনটা দেখব বুঝি না",
-    solution: "দরকারি KPI এক জায়গায়, আর AI সহজ বাংলায় বলে দেয় এখন কী করতে হবে",
-  },
-];
+function Glass({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn("glass rounded-3xl", className)}>{children}</div>;
+}
 
-const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
-  {
-    icon: BarChart3,
-    title: "এক নজরে Dashboard",
-    text: "Result, Cost per Result, Reach, Frequency, ROAS। আজ, গতকাল, গত ৭ দিন বা যেকোনো তারিখ, Ads Manager-এর সাথে হুবহু মেলে।",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Campaign Report",
-    text: "কে কিনছে, কখন কিনছে, video-র কোথায় দর্শক চলে যাচ্ছে, website-এর কোন ধাপে মানুষ হারাচ্ছে, আর সমাধান কী।",
-  },
-  {
-    icon: BellRing,
-    title: "Smart Alert",
-    text: "খরচ হচ্ছে কিন্তু sale নেই, CPA হঠাৎ বেড়েছে, CTR কমে গেছে, এমন সমস্যা হলেই জানিয়ে দেয়।",
-  },
-  {
-    icon: PieChart,
-    title: "Breakdown Insight",
-    text: "Placement, region, age, gender, device অনুযায়ী খরচ আর ফলাফল, কোথায় টাকা নষ্ট হচ্ছে স্পষ্ট দেখায়।",
-  },
-  {
-    icon: Eye,
-    title: "Video Analysis",
-    text: "Hook rate, Hold rate, ThruPlay আর ২৫% থেকে ১০০% পর্যন্ত কতজন দেখেছে, creative কোথায় দুর্বল বোঝা যায়।",
-  },
-  {
-    icon: Clock,
-    title: "সঠিক সময়ের হিসাব",
-    text: "তোমার Ad Account-এর timezone ধরে দিন গোনা হয়, তাই আজকের সংখ্যা Meta-র সাথে মেলে।",
-  },
-];
-
-const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: Users, title: "Account খোলো", text: "ইমেইল দিয়ে এক মিনিটে sign up।" },
-  { icon: Link2, title: "Meta connect করো", text: "Facebook দিয়ে login করে Ad Account বেছে নাও।" },
-  { icon: Sparkles, title: "AI report নাও", text: "Dashboard আর AI বিশ্লেষণ সাথে সাথে তৈরি।" },
-];
-
-const FAQ: { q: string; a: string }[] = [
-  {
-    q: "আমার Ad Account কি নিরাপদ?",
-    a: "হ্যাঁ। আমরা শুধু তোমার বিজ্ঞাপনের ডাটা পড়ি, কোনো campaign বা budget বদলাই না। Meta-র access token এনক্রিপ্ট করে রাখা হয় এবং যেকোনো সময় এক ক্লিকে সংযোগ বিচ্ছিন্ন করতে পারো।",
-  },
-  {
-    q: "কোন ধরনের campaign সাপোর্ট করে?",
-    a: "Sales, Leads, Messages, Traffic, Engagement, Video views সব। প্রতিটি campaign-এর objective অনুযায়ী Result গোনা হয়, Ads Manager যেভাবে দেখায়।",
-  },
-  {
-    q: "Report কি বাংলায় পাব?",
-    a: "হ্যাঁ। AI-এর বিশ্লেষণ আর পরামর্শ সহজ বাংলায় আসে। ROAS, CPA-র মতো শব্দগুলো ইংরেজিতে থাকে, যেভাবে আমরা সাধারণত বলি।",
-  },
-  {
-    q: "সংখ্যাগুলো কি Ads Manager-এর সাথে মিলবে?",
-    a: "হ্যাঁ। Reach, Frequency, Result সরাসরি Meta থেকে আনা হয়। হিসাব কোড করে, AI শুধু ব্যাখ্যা করে, তাই AI কোনো সংখ্যা বানায় না।",
-  },
-  {
-    q: "একাধিক Ad Account থাকলে?",
-    a: "Settings থেকে যেকোনো Ad Account বেছে নিতে পারো। সব account খুঁজে পাওয়া যায় নাম বা ID দিয়ে।",
-  },
-];
-
-function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
+function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto mb-12 max-w-2xl text-center">
-      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{eyebrow}</p>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
-        {title}
-      </h2>
-      {text && <p className="mt-4 text-zinc-600 dark:text-zinc-400">{text}</p>}
-    </div>
+    <p className="flex items-center gap-2 text-xs font-medium tracking-[0.14em] text-zinc-500 uppercase dark:text-zinc-400">
+      <span className="h-px w-6 bg-zinc-400/60" aria-hidden />
+      {children}
+    </p>
   );
 }
 
-// ড্যাশবোর্ডের মতো দেখতে ছোট নমুনা (আসল স্ক্রিনশট ছাড়াই, তাই সবসময় হালনাগাদ)
-function ProductPreview() {
-  const kpis = [
-    { label: "Result", value: "151", sub: "Purchase", tone: "text-emerald-600" },
-    { label: "Cost per Result", value: "$0.96", sub: "↓ 29%", tone: "text-emerald-600" },
-    { label: "Reach", value: "50,138", sub: "Frequency 2.36", tone: "text-zinc-400" },
-    { label: "CTR (link)", value: "2.04%", sub: "↑ 12%", tone: "text-emerald-600" },
-  ];
-  const bars = [18, 30, 12, 8, 0, 0, 14, 26, 18, 30, 40, 22, 22, 30, 48, 56, 44, 20, 30, 30, 50, 52, 26, 36];
+function Accent({ children }: { children: ReactNode }) {
+  return <em className="font-serif font-normal text-indigo-700 italic dark:text-indigo-300">{children}</em>;
+}
+
+// ---------- Hero visual: real-looking pieces of the product ----------
+
+function HeroVisual({ tr }: { tr: Tr }) {
+  const spark = [12, 18, 15, 22, 19, 27, 24, 31, 29, 36, 33, 41];
+  const max = Math.max(...spark);
+  const points = spark.map((v, i) => `${(i / (spark.length - 1)) * 100},${40 - (v / max) * 36}`).join(" ");
+  const hours = [3, 2, 1, 1, 0, 0, 1, 2, 4, 5, 6, 5, 6, 7, 6, 5, 6, 8, 9, 12, 14, 13, 9, 5];
 
   return (
-    <div className="relative">
-      <div className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 to-violet-500/20 blur-2xl" />
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center gap-1.5 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-          <span className="size-2.5 rounded-full bg-red-400" />
-          <span className="size-2.5 rounded-full bg-amber-400" />
-          <span className="size-2.5 rounded-full bg-emerald-400" />
-          <span className="ml-3 text-xs text-zinc-400">Hook AI · Dashboard</span>
+    <div className="relative grid gap-4 lg:block lg:h-[540px]">
+      {/* Main KPI panel */}
+      <Glass className="p-5 lg:absolute lg:top-6 lg:right-0 lg:w-[88%]">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            {tr("Winter Collection · Sales", "Winter Collection · Sales")}
+          </p>
+          <span className="rounded-full bg-zinc-900/5 px-2.5 py-1 text-[11px] text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
+            {tr("Last 7 days", "গত ৭ দিন")}
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-3 p-4">
-          {kpis.map((k) => (
-            <div key={k.label} className="rounded-xl border border-zinc-100 p-3 dark:border-zinc-800">
-              <p className="text-[11px] text-zinc-500">{k.label}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">{k.value}</p>
-              <p className={cn("text-[11px]", k.tone)}>{k.sub}</p>
+        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+          {[
+            { k: tr("Spent", "খরচ"), v: "$1,284" },
+            { k: tr("Purchases", "Purchase"), v: "151" },
+            { k: tr("Cost / purchase", "প্রতি Purchase"), v: "$8.51", d: "↓ 12%" },
+            { k: "ROAS", v: "3.4x", d: "↑ 0.6" },
+          ].map((m) => (
+            <div key={m.k}>
+              <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{m.k}</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-white">{m.v}</dd>
+              <dd className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{m.d ?? " "}</dd>
             </div>
           ))}
-        </div>
-        <div className="px-4 pb-3">
-          <p className="mb-2 text-[11px] text-zinc-500">দিনের কোন সময়ে sale আসে</p>
-          <div className="flex h-16 items-end gap-0.5">
-            {bars.map((h, i) => (
-              <span
-                key={i}
-                className={cn("flex-1 rounded-t-sm", i === 15 ? "bg-emerald-500" : "bg-indigo-400")}
-                style={{ height: `${(h / 56) * 100}%` }}
-              />
-            ))}
+        </dl>
+        <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="mt-5 h-20 w-full" aria-hidden>
+          <defs>
+            <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor="#3157b0" stopOpacity="0.28" />
+              <stop offset="1" stopColor="#3157b0" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon points={`0,42 ${points} 100,42`} fill="url(#sparkFill)" />
+          <polyline points={points} fill="none" stroke="#3157b0" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+        </svg>
+      </Glass>
+
+      {/* Alert toast */}
+      <Glass className="p-4 lg:absolute lg:top-[290px] lg:left-0 lg:w-[62%]">
+        <div className="flex items-start gap-3">
+          <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-orange shadow-[0_0_0_4px_rgb(255_90_44/0.15)]" aria-hidden />
+          <div className="min-w-0">
+            <p className="flex items-center justify-between gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span>{tr("Alert", "অ্যালার্ট")}</span>
+              <span>9:02 AM</span>
+            </p>
+            <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-white">
+              {tr("Retargeting is spending, nothing is selling", "Retargeting-এ খরচ হচ্ছে, বিক্রি নেই")}
+            </p>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              {tr(
+                "$46 in 3 days and zero purchases. It used to bring one every $19.",
+                "৩ দিনে $46 খরচ, একটিও Purchase নেই। আগে প্রতি $19-এ একটি আসত।",
+              )}
+            </p>
           </div>
         </div>
-        <div className="m-4 mt-2 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 p-3 dark:from-indigo-950/60 dark:to-violet-950/60">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-            <Sparkles className="size-3.5" aria-hidden /> AI পরামর্শ
-          </p>
-          <p className="mt-1 text-xs text-zinc-700 dark:text-zinc-300">
-            18-24 বয়সে প্রতি Purchase মাত্র $0.69। এই বয়সে budget বাড়াও, রাত ১২-১টায় বিজ্ঞাপন কমাও।
-          </p>
+      </Glass>
+
+      {/* Best hours */}
+      <Glass className="p-4 lg:absolute lg:top-[300px] lg:right-0 lg:w-[34%]">
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("When people buy", "কখন মানুষ কেনে")}</p>
+        <div className="mt-3 flex h-16 items-end gap-[3px]" aria-hidden>
+          {hours.map((h, i) => (
+            <span
+              key={i}
+              className={cn("flex-1 rounded-[2px]", i >= 19 && i <= 21 ? "bg-brand-orange" : "bg-indigo-400/50 dark:bg-indigo-300/40")}
+              style={{ height: `${Math.max(6, (h / 14) * 100)}%` }}
+            />
+          ))}
         </div>
-      </div>
+        <p className="mt-2 text-xs font-medium text-zinc-800 dark:text-zinc-200">{tr("Peak: 7–10 PM", "সবচেয়ে বেশি: রাত ৭–১০টা")}</p>
+      </Glass>
+
+      {/* The advice */}
+      <Glass className="p-4 lg:absolute lg:top-[430px] lg:left-[14%] lg:w-[70%]">
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("This week's move", "এই সপ্তাহে যা করবে")}</p>
+        <p className="mt-1 text-sm text-zinc-800 dark:text-zinc-100">
+          {tr("Shift $20/day from 35–44 to 18–24. They buy at ", "35–44 থেকে দিনে $20 সরিয়ে 18–24-এ দাও। ওরা কিনছে ")}
+          <strong className="font-semibold">$6.10</strong>
+          {tr(" instead of ", ", অন্যদিকে ")}
+          <strong className="font-semibold">$11.80</strong>
+          {tr(".", "-এ।")}
+        </p>
+      </Glass>
     </div>
   );
 }
 
+// ---------- Small product snippets for the feature grid ----------
+
+function AgeBars({ tr }: { tr: Tr }) {
+  const rows = [
+    { a: "18–24", v: 6.1, w: 38 },
+    { a: "25–34", v: 7.9, w: 50 },
+    { a: "35–44", v: 11.8, w: 75 },
+    { a: "45+", v: 15.7, w: 100 },
+  ];
+  return (
+    <div className="mt-5 space-y-2.5">
+      {rows.map((r, i) => (
+        <div key={r.a} className="grid grid-cols-[3rem_1fr_3.5rem] items-center gap-3 text-xs">
+          <span className="text-zinc-500 dark:text-zinc-400">{r.a}</span>
+          <span className="h-2 rounded-full bg-zinc-900/5 dark:bg-white/10">
+            <span
+              className={cn("block h-full rounded-full", i === 0 ? "bg-emerald-500" : "bg-indigo-400/70")}
+              style={{ width: `${r.w}%` }}
+            />
+          </span>
+          <span className="text-right tabular-nums text-zinc-700 dark:text-zinc-300">${r.v.toFixed(2)}</span>
+        </div>
+      ))}
+      <p className="pt-1 text-[11px] text-zinc-500">{tr("Cost per purchase by age", "বয়স অনুযায়ী প্রতি Purchase খরচ")}</p>
+    </div>
+  );
+}
+
+function RetentionCurve({ tr }: { tr: Tr }) {
+  return (
+    <div className="mt-5">
+      <svg viewBox="0 0 200 70" className="h-24 w-full" aria-hidden>
+        <path d="M0 6 C 20 8, 30 30, 50 34 S 90 44, 120 48 S 170 56, 200 58" fill="none" stroke="#3157b0" strokeWidth="2" />
+        <line x1="44" x2="44" y1="0" y2="70" stroke="#ff5a2c" strokeDasharray="3 3" />
+        <circle cx="44" cy="31" r="3.5" fill="#ff5a2c" />
+      </svg>
+      <p className="text-[11px] text-zinc-500">
+        {tr("62% leave before second 3. Your hook needs work.", "৬২% দর্শক ৩ সেকেন্ডের আগেই চলে যায়। শুরুটা বদলাতে হবে।")}
+      </p>
+    </div>
+  );
+}
+
+function Funnel({ tr }: { tr: Tr }) {
+  const steps = [
+    { s: tr("Landing page views", "ল্যান্ডিং পেজ ভিউ"), n: "4,120", w: 100 },
+    { s: tr("Add to cart", "Add to cart"), n: "612", w: 46 },
+    { s: tr("Checkout", "Checkout"), n: "203", w: 24 },
+    { s: tr("Purchase", "Purchase"), n: "151", w: 18 },
+  ];
+  return (
+    <div className="mt-5 space-y-1.5">
+      {steps.map((st, i) => (
+        <div key={st.s} className="flex items-center gap-3 text-xs">
+          <span
+            className={cn("h-6 rounded-md", i === 1 ? "bg-brand-orange/80" : "bg-indigo-500/25 dark:bg-indigo-300/25")}
+            style={{ width: `${st.w}%` }}
+          />
+          <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
+            {st.s} · <span className="tabular-nums">{st.n}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DateChips({ tr }: { tr: Tr }) {
+  const chips = [tr("Today", "আজ"), tr("Yesterday", "গতকাল"), tr("Last 7 days", "গত ৭ দিন"), tr("This month", "এই মাস"), tr("Maximum", "সর্বোচ্চ")];
+  return (
+    <div className="mt-5 flex flex-wrap gap-1.5">
+      {chips.map((c, i) => (
+        <span
+          key={c}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs",
+            i === 2
+              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+              : "bg-zinc-900/5 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
+          )}
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Page ----------
+
 export default async function LandingPage() {
+  const tr = await getTr();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // লগইন করা থাকলে বোতাম সরাসরি ড্যাশবোর্ডে নেয়
+  // Logged-in visitors go straight to their dashboard
   const primaryHref = user ? "/dashboard" : "/login";
-  const primaryLabel = user ? "Dashboard-এ যাও" : "ফ্রি শুরু করো";
+  const primaryLabel = user ? tr("Open your dashboard", "ড্যাশবোর্ডে যাও") : tr("Connect your ad account", "Ad Account কানেক্ট করো");
+
+  const morning = [
+    {
+      time: "9:02",
+      title: tr("An alert you'd have missed", "যে সমস্যা চোখ এড়িয়ে যেত"),
+      text: tr(
+        "Your retargeting campaign has spent for three days without a sale. Hook notices before you open Ads Manager.",
+        "Retargeting campaign তিন দিন ধরে খরচ করছে, বিক্রি নেই। Ads Manager খোলার আগেই Hook জানিয়ে দেয়।",
+      ),
+    },
+    {
+      time: "9:05",
+      title: tr("The why, not just the what", "শুধু কী হয়েছে না, কেন হয়েছে"),
+      text: tr(
+        "Open the campaign report: frequency hit 4.8, the same people have seen the ad too often, and CTR halved.",
+        "Campaign report খোলো: Frequency 4.8 হয়ে গেছে, একই মানুষ বারবার দেখছে, CTR অর্ধেক হয়ে গেছে।",
+      ),
+    },
+    {
+      time: "9:10",
+      title: tr("One clear change", "একটা স্পষ্ট সিদ্ধান্ত"),
+      text: tr(
+        "Pause it, widen the audience, swap the creative. You're done before your tea gets cold.",
+        "বন্ধ করো, audience বড় করো, creative বদলাও। চা ঠান্ডা হওয়ার আগেই কাজ শেষ।",
+      ),
+    },
+  ];
+
+  const never = [
+    tr("Change, pause or create anything in your ad account. We only read.", "তোমার Ad Account-এ কিছু বদলানো, বন্ধ করা বা তৈরি করা। আমরা শুধু পড়ি।"),
+    tr("Make up a number. Every figure comes from Meta and is calculated in code; the AI only explains it.", "নিজে থেকে কোনো সংখ্যা বানানো। সব সংখ্যা Meta থেকে আসে, হিসাব কোডে হয়; AI শুধু ব্যাখ্যা করে।"),
+    tr("Sell or share your data. Your Meta token is encrypted and you can disconnect in one click.", "তোমার ডাটা বিক্রি বা শেয়ার করা। Meta token এনক্রিপ্ট করা, আর এক ক্লিকে বিচ্ছিন্ন করা যায়।"),
+    tr("Hide a broken pixel behind a pretty ROAS. If tracking looks wrong, we say so first.", "ভুল Pixel-কে সুন্দর ROAS দিয়ে ঢেকে রাখা। ট্র্যাকিং ভুল মনে হলে আগে সেটাই বলি।"),
+  ];
+
+  const faq = [
+    {
+      q: tr("Is my ad account safe?", "আমার Ad Account কি নিরাপদ?"),
+      a: tr(
+        "Yes. Hook asks Meta for read-only access (ads_read). It can't edit campaigns or budgets. Your access token is encrypted with AES-256, and disconnecting removes the permission and the stored data.",
+        "হ্যাঁ। Hook Meta-র কাছে শুধু পড়ার অনুমতি (ads_read) চায়। campaign বা budget বদলাতে পারে না। access token AES-256 দিয়ে এনক্রিপ্ট করা, আর disconnect করলে অনুমতি ও সংরক্ষিত ডাটা মুছে যায়।",
+      ),
+    },
+    {
+      q: tr("Will the numbers match Ads Manager?", "সংখ্যা কি Ads Manager-এর সাথে মিলবে?"),
+      a: tr(
+        "They should, to the cent. Results, reach and frequency come straight from Meta, and days are counted in your ad account's time zone, just like Ads Manager does.",
+        "হ্যাঁ, হুবহু। Result, Reach, Frequency সরাসরি Meta থেকে আসে, আর দিন গোনা হয় তোমার Ad Account-এর timezone ধরে, Ads Manager যেভাবে গোনে।",
+      ),
+    },
+    {
+      q: tr("Which campaign types work?", "কোন ধরনের campaign চলে?"),
+      a: tr(
+        "Sales, leads, messages, traffic, engagement and video views. Each campaign's result is counted by its own objective.",
+        "Sales, Leads, Messages, Traffic, Engagement আর Video views। প্রতিটি campaign-এর result তার objective অনুযায়ী গোনা হয়।",
+      ),
+    },
+    {
+      q: tr("Can I read it in Bangla?", "বাংলায় পড়া যাবে?"),
+      a: tr(
+        "Yes. Use the EN / বাং switch at the top. The whole app, including AI reports, follows your choice.",
+        "হ্যাঁ। উপরের EN / বাং বোতাম দিয়ে বদলাও। AI রিপোর্টসহ পুরো অ্যাপ তোমার পছন্দের ভাষায় চলবে।",
+      ),
+    },
+    {
+      q: tr("I manage several ad accounts.", "আমার অনেকগুলো Ad Account আছে।"),
+      a: tr(
+        "Pick any of them from Settings and switch whenever you like. Search works by name or ID.",
+        "Settings থেকে যেকোনোটা বেছে নাও, যখন খুশি বদলাও। নাম বা ID দিয়ে খোঁজা যায়।",
+      ),
+    },
+  ];
 
   return (
-    <div className="bg-white dark:bg-zinc-950">
+    <div className="relative isolate min-h-screen overflow-x-clip">
+      <Backdrop />
       <SiteHeader loggedIn={Boolean(user)} />
 
       <main>
-        {/* হিরো */}
-        <section className="relative overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 -top-40 -z-10 mx-auto h-96 max-w-4xl rounded-full bg-gradient-to-r from-indigo-300/40 to-violet-300/40 blur-3xl dark:from-indigo-900/40 dark:to-violet-900/40"
-          />
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
-            <div>
-              <p className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300">
-                <Sparkles className="size-3.5" aria-hidden /> Meta Ads-এর জন্য AI Agent
-              </p>
-              <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-zinc-900 sm:text-5xl dark:text-zinc-50">
-                Facebook Ads-এর টাকা কোথায় নষ্ট হচ্ছে,{" "}
-                <span className="text-indigo-600 dark:text-indigo-400">AI বলে দেবে</span>{" "}
-                <span className="text-brand-orange">বাংলায়</span>
-              </h1>
-              <p className="mt-5 text-lg text-zinc-600 dark:text-zinc-400">
-                Ad Account connect করো, Hook AI প্রতিটি campaign বিশ্লেষণ করে বলবে কে কিনছে, কখন
-                কিনছে, কোথায় খরচ বেশি, আর এখন কী করা উচিত।
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link href={primaryHref} className={buttonClass("primary", "px-6 py-3 text-base")}>
-                  {primaryLabel}
-                  <ArrowRight className="size-4" aria-hidden />
-                </Link>
-                <a href="#features" className={buttonClass("secondary", "px-6 py-3 text-base")}>
-                  কী কী আছে দেখো
-                </a>
+        {/* Hero */}
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+          <div>
+            <Eyebrow>{tr("For people who run their own Meta ads", "যারা নিজের Meta বিজ্ঞাপন নিজে চালায়")}</Eyebrow>
+            <h1 className="hero-title mt-6 text-[2.6rem] leading-[1.05] font-semibold tracking-tight text-zinc-950 sm:text-6xl dark:text-white">
+              {tr("Find the money your ads are ", "তোমার বিজ্ঞাপনের যে টাকা ")}
+              <Accent>{tr("quietly wasting.", "চুপচাপ নষ্ট হচ্ছে,")}</Accent>
+              {tr("", " খুঁজে বের করো।")}
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-300">
+              {tr(
+                "Hook reads every campaign in your Meta ad account and tells you, in plain words, who's buying, when they buy, and what to change this week.",
+                "Hook তোমার Meta Ad Account-এর প্রতিটি campaign পড়ে সহজ কথায় বলে দেয় কে কিনছে, কখন কিনছে, আর এই সপ্তাহে কী বদলাতে হবে।",
+              )}
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Link href={primaryHref} className={buttonClass("primary", "rounded-xl px-5 py-3 text-base")}>
+                {primaryLabel}
+                <ArrowRight className="size-4" aria-hidden />
+              </Link>
+              <a
+                href="#how"
+                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-3 text-base font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+              >
+                {tr("See a morning with Hook", "Hook-এর সাথে একটা সকাল দেখো")}
+              </a>
+            </div>
+            <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
+              {tr("Free while we're early · No card · Read-only access", "শুরুতে ফ্রি · কার্ড লাগবে না · শুধু পড়ার অনুমতি")}
+            </p>
+          </div>
+          <HeroVisual tr={tr} />
+        </section>
+
+        {/* Plain facts strip */}
+        <section aria-label={tr("At a glance", "এক নজরে")} className="px-4 sm:px-6">
+          <Glass className="mx-auto grid max-w-6xl gap-px overflow-hidden rounded-2xl p-0 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              [tr("Read-only", "শুধু পড়ে"), tr("Never edits your ads", "বিজ্ঞাপনে হাত দেয় না")],
+              [tr("Matches Ads Manager", "Ads Manager-এর সাথে মেলে"), tr("Same numbers, same time zone", "একই সংখ্যা, একই timezone")],
+              [tr("Any currency", "যেকোনো মুদ্রা"), tr("USD, BDT, INR and the rest", "USD, BDT, INR সবই")],
+              [tr("English or বাংলা", "English বা বাংলা"), tr("Switch any time", "যখন খুশি বদলাও")],
+            ].map(([t, d]) => (
+              <div key={t} className="px-5 py-4">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">{t}</p>
+                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{d}</p>
               </div>
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {["শুরুতে ফ্রি", "কোনো card লাগবে না", "বিজ্ঞাপনে কোনো পরিবর্তন করে না"].map((t) => (
-                  <li key={t} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <ProductPreview />
-          </div>
+            ))}
+          </Glass>
         </section>
 
-        {/* সমস্যা → সমাধান */}
-        <section className="border-y border-zinc-100 bg-zinc-50 py-20 dark:border-zinc-900 dark:bg-zinc-900/40">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionTitle
-              eyebrow="সমস্যা চেনা চেনা লাগছে?"
-              title="বেশিরভাগ advertiser এই তিনটি সমস্যায় পড়ে"
-            />
-            <div className="grid gap-6 md:grid-cols-3">
-              {PROBLEMS.map(({ icon: Icon, problem, solution }) => (
-                <div key={problem} className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300">
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <p className="mt-4 font-semibold text-zinc-900 dark:text-zinc-50">{problem}</p>
-                  <p className="mt-3 flex gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                    {solution}
-                  </p>
-                </div>
-              ))}
+        {/* A morning with Hook */}
+        <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6">
+          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <Eyebrow>{tr("How it works", "কীভাবে কাজ করে")}</Eyebrow>
+              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
+                {tr("A Monday morning, ", "সোমবার সকাল, ")}
+                <Accent>{tr("eight minutes long.", "আট মিনিটে শেষ।")}</Accent>
+              </h2>
+              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "Connect once with Facebook. After that Hook keeps an eye on every campaign and only speaks up when something actually changed.",
+                  "Facebook দিয়ে একবার কানেক্ট করো। এরপর Hook প্রতিটি campaign খেয়াল রাখে, আর সত্যিই কিছু বদলালে তবেই জানায়।",
+                )}
+              </p>
             </div>
-          </div>
-        </section>
-
-        {/* ফিচার */}
-        <section id="features" className="scroll-mt-20 py-20">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionTitle
-              eyebrow="Features"
-              title="Ads Manager-এর পুরো ছবি, এক জায়গায়"
-              text="সংখ্যা সরাসরি Meta থেকে, হিসাব কোডে, আর ব্যাখ্যা AI-এর। তাই যা দেখবে, তা Ads Manager-এর সাথে মিলবে।"
-            />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map(({ icon: Icon, title, text }) => (
-                <div key={title} className="rounded-2xl border border-zinc-200 p-6 transition-shadow hover:shadow-md dark:border-zinc-800">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
-                    <Icon className="size-5" aria-hidden />
+            <ol className="relative space-y-4 before:absolute before:top-4 before:bottom-4 before:left-[2.1rem] before:w-px before:bg-zinc-900/10 dark:before:bg-white/10">
+              {morning.map((m) => (
+                <li key={m.time} className="relative flex gap-5">
+                  <span className="glass relative z-10 flex h-9 w-[4.2rem] shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
+                    {m.time}
                   </span>
-                  <h3 className="mt-4 font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* কীভাবে কাজ করে */}
-        <section id="how" className="scroll-mt-20 bg-zinc-50 py-20 dark:bg-zinc-900/40">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionTitle eyebrow="কীভাবে কাজ করে" title="তিন ধাপে শুরু, পাঁচ মিনিটও লাগবে না" />
-            <ol className="grid gap-6 md:grid-cols-3">
-              {STEPS.map(({ icon: Icon, title, text }, i) => (
-                <li key={title} className="relative rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-                  <span className="absolute top-6 right-6 text-4xl font-bold text-zinc-100 dark:text-zinc-800">
-                    {i + 1}
-                  </span>
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <h3 className="mt-4 font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{text}</p>
+                  <Glass className="flex-1 rounded-2xl p-5">
+                    <h3 className="font-semibold text-zinc-900 dark:text-white">{m.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{m.text}</p>
+                  </Glass>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        {/* নিরাপত্তা */}
-        <section className="py-20">
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
-            <div>
-              <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">নিরাপত্তা</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-                তোমার Ad Account, তোমার নিয়ন্ত্রণে
-              </h2>
-              <p className="mt-4 text-zinc-600 dark:text-zinc-400">
-                Meta connect করার আগে এই প্রশ্নটাই সবার আগে আসে। তাই নিরাপত্তা আমরা শুরু থেকেই
-                গুরুত্ব দিয়ে বানিয়েছি।
+        {/* Features: an uneven grid of real snippets */}
+        <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
+          <Eyebrow>{tr("What you get", "যা পাবে")}</Eyebrow>
+          <h2 className="mt-5 max-w-2xl text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
+            {tr("Everything Ads Manager knows, ", "Ads Manager যা জানে সব, ")}
+            <Accent>{tr("minus the forty columns.", "চল্লিশটা কলাম ছাড়া।")}</Accent>
+          </h2>
+
+          <div className="mt-12 grid gap-4 md:grid-cols-6">
+            <Glass className="p-6 md:col-span-4">
+              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Who is actually buying", "আসলে কে কিনছে")}</h3>
+              <p className="mt-1.5 max-w-md text-sm text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "Age, gender, region, placement, device and hour of day, each with its own cost per result, so you can see where the budget earns and where it leaks.",
+                  "বয়স, লিঙ্গ, এলাকা, placement, device আর দিনের ঘণ্টা, প্রতিটির আলাদা cost per result। কোথায় টাকা কাজ করছে আর কোথায় নষ্ট হচ্ছে, পরিষ্কার দেখা যায়।",
+                )}
               </p>
-            </div>
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {[
-                { icon: Eye, t: "শুধু পড়ি", d: "Campaign, budget বা বিজ্ঞাপন কখনো বদলাই না।" },
-                { icon: Lock, t: "Token এনক্রিপ্টেড", d: "Meta-র access token AES-256 দিয়ে এনক্রিপ্ট করা।" },
-                { icon: ShieldCheck, t: "তোমার ডাটা শুধু তোমার", d: "প্রতিটি user শুধু নিজের ডাটা দেখতে পায়।" },
-                { icon: Link2, t: "এক ক্লিকে বিচ্ছিন্ন", d: "Disconnect করলে Meta-র অনুমতি আর সব ডাটা মুছে যায়।" },
-              ].map(({ icon: Icon, t, d }) => (
-                <li key={t} className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
-                  <Icon className="size-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                  <p className="mt-3 font-semibold text-zinc-900 dark:text-zinc-50">{t}</p>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{d}</p>
-                </li>
-              ))}
-            </ul>
+              <AgeBars tr={tr} />
+            </Glass>
+            <Glass className="p-6 md:col-span-2">
+              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Where viewers drop off", "দর্শক কোথায় চলে যায়")}</h3>
+              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                {tr("Hook rate, hold rate and 25–100% views for every video.", "প্রতিটি ভিডিওর Hook rate, Hold rate আর ২৫–১০০% ভিউ।")}
+              </p>
+              <RetentionCurve tr={tr} />
+            </Glass>
+            <Glass className="p-6 md:col-span-3">
+              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Which step loses people", "কোন ধাপে মানুষ হারায়")}</h3>
+              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "From landing page to purchase, and a warning when your pixel stops counting a step.",
+                  "ল্যান্ডিং পেজ থেকে Purchase পর্যন্ত, আর Pixel কোনো ধাপ গোনা বন্ধ করলে সতর্কতা।",
+                )}
+              </p>
+              <Funnel tr={tr} />
+            </Glass>
+            <Glass className="flex flex-col p-6 md:col-span-3">
+              <h3 className="font-semibold text-zinc-900 dark:text-white">{tr("Any date range, like Ads Manager", "Ads Manager-এর মতো যেকোনো তারিখ")}</h3>
+              <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "Today, yesterday, a custom range or everything since the account started, compared with the period before.",
+                  "আজ, গতকাল, নিজের পছন্দের তারিখ বা অ্যাকাউন্টের শুরু থেকে সব, আগের সময়ের সাথে তুলনাসহ।",
+                )}
+              </p>
+              <DateChips tr={tr} />
+              <div className="mt-auto pt-6">
+                <p className="rounded-2xl bg-zinc-900/[0.04] p-4 text-sm text-zinc-700 dark:bg-white/5 dark:text-zinc-200">
+                  <span className="mb-1 block text-[11px] text-zinc-500">{tr("Campaign report, in plain words", "Campaign report, সহজ কথায়")}</span>
+                  {tr(
+                    "“Women 25–34 on Instagram Reels bring 41% of sales for 22% of spend. Give them their own ad set.”",
+                    "“Instagram Reels-এ 25–34 বয়সী নারীরা ২২% খরচে ৪১% বিক্রি আনছে। ওদের জন্য আলাদা ad set বানাও।”",
+                  )}
+                </p>
+              </div>
+            </Glass>
           </div>
         </section>
 
-        {/* দাম */}
-        <section id="pricing" className="scroll-mt-20 bg-zinc-50 py-20 dark:bg-zinc-900/40">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionTitle eyebrow="Pricing" title="শুরুতে পুরোপুরি ফ্রি" text="এখন সব feature ফ্রি ব্যবহার করো। Pro plan শীঘ্রই আসছে।" />
-            <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-2">
-              <div className="rounded-2xl border-2 border-indigo-600 bg-white p-6 shadow-lg dark:border-indigo-500 dark:bg-zinc-900">
-                <p className="font-semibold text-zinc-900 dark:text-zinc-50">Free</p>
-                <p className="mt-2 text-4xl font-bold text-zinc-900 dark:text-zinc-50">৳0</p>
-                <ul className="mt-6 flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  {["Dashboard ও সব view", "AI summary ও campaign report", "Smart alert", "যেকোনো তারিখের হিসাব"].map((f) => (
+        {/* Honesty */}
+        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+          <Glass className="grid gap-10 p-8 sm:p-12 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <Eyebrow>{tr("Trust", "বিশ্বাস")}</Eyebrow>
+              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
+                {tr("Things Hook will ", "যা Hook ")}
+                <Accent>{tr("never", "কখনো")}</Accent>
+                {tr(" do.", " করবে না।")}
+              </h2>
+              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "Connecting an ad account is a real decision. Here's exactly what you're agreeing to, and what you're not.",
+                  "Ad Account কানেক্ট করা একটা বড় সিদ্ধান্ত। ঠিক কী দিচ্ছ আর কী দিচ্ছ না, পরিষ্কার করে বলছি।",
+                )}
+              </p>
+              <Link href="/privacy" className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300">
+                {tr("Read the privacy policy", "Privacy policy পড়ো")}
+                <ArrowUpRight className="size-4" aria-hidden />
+              </Link>
+            </div>
+            <ul className="divide-y divide-zinc-900/10 dark:divide-white/10">
+              {never.map((n) => (
+                <li key={n} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-900/5 dark:bg-white/10">
+                    <Minus className="size-3.5 text-zinc-600 dark:text-zinc-300" aria-hidden />
+                  </span>
+                  <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-200">{n}</p>
+                </li>
+              ))}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-24 sm:px-6">
+          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <Eyebrow>{tr("Pricing", "দাম")}</Eyebrow>
+              <h2 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-zinc-950 dark:text-white">
+                {tr("Free while we're ", "শুরুর সময়টা ")}
+                <Accent>{tr("getting started.", "পুরো ফ্রি।")}</Accent>
+              </h2>
+              <p className="mt-5 text-zinc-600 dark:text-zinc-300">
+                {tr(
+                  "Use everything now. When Pro arrives you'll hear about it first, and nothing is charged unless you choose it.",
+                  "এখন সব ফ্রি ব্যবহার করো। Pro এলে সবার আগে জানবে, আর তুমি না চাইলে কোনো টাকা কাটা হবে না।",
+                )}
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Glass className="p-6 ring-1 ring-indigo-600/30 dark:ring-indigo-300/30">
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Free</p>
+                <p className="mt-1 text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white">৳0</p>
+                <ul className="mt-6 space-y-2.5 text-sm text-zinc-700 dark:text-zinc-200">
+                  {[
+                    tr("Dashboard with every view", "সব view সহ Dashboard"),
+                    tr("AI summary and campaign reports", "AI summary ও campaign report"),
+                    tr("Smart alerts", "Smart alert"),
+                    tr("Any date range", "যেকোনো তারিখ"),
+                  ].map((f) => (
                     <li key={f} className="flex gap-2">
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Link href={primaryHref} className={buttonClass("primary", "mt-6 w-full")}>
-                  {primaryLabel}
+                <Link href={primaryHref} className={buttonClass("primary", "mt-7 w-full rounded-xl")}>
+                  {user ? tr("Open dashboard", "ড্যাশবোর্ডে যাও") : tr("Start free", "ফ্রি শুরু করো")}
                 </Link>
-              </div>
-              <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="font-semibold text-zinc-900 dark:text-zinc-50">Pro</p>
-                <p className="mt-2 text-4xl font-bold text-zinc-400">শীঘ্রই</p>
-                <ul className="mt-6 flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  {["একাধিক Ad Account একসাথে", "Email ও WhatsApp alert", "Agency-র জন্য client report"].map((f) => (
+              </Glass>
+              <Glass className="p-6">
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Pro</p>
+                <p className="mt-1 text-4xl font-semibold tracking-tight text-zinc-400 dark:text-zinc-500">{tr("Soon", "শীঘ্রই")}</p>
+                <ul className="mt-6 space-y-2.5 text-sm text-zinc-600 dark:text-zinc-400">
+                  {[
+                    tr("Several ad accounts side by side", "একাধিক Ad Account একসাথে"),
+                    tr("Email and WhatsApp alerts", "Email ও WhatsApp alert"),
+                    tr("Client reports for agencies", "Agency-র জন্য client report"),
+                  ].map((f) => (
                     <li key={f} className="flex gap-2">
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
+                      <Check className="mt-0.5 size-4 shrink-0 text-zinc-400" aria-hidden />
                       {f}
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Glass>
             </div>
           </div>
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="scroll-mt-20 py-20">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
-            <SectionTitle eyebrow="FAQ" title="সাধারণ প্রশ্ন" />
-            <div className="flex flex-col gap-3">
-              {FAQ.map(({ q, a }) => (
-                <details
-                  key={q}
-                  className="group rounded-2xl border border-zinc-200 px-5 py-4 open:bg-zinc-50 dark:border-zinc-800 dark:open:bg-zinc-900/60"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-zinc-900 dark:text-zinc-50 [&::-webkit-details-marker]:hidden">
-                    {q}
-                    <span className="text-xl text-zinc-400 transition-transform group-open:rotate-45">+</span>
-                  </summary>
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{a}</p>
-                </details>
-              ))}
-            </div>
+        <section id="faq" className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-24 sm:px-6">
+          <Eyebrow>FAQ</Eyebrow>
+          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-950 dark:text-white">
+            {tr("Questions people ask us", "মানুষ যা জিজ্ঞেস করে")}
+          </h2>
+          <div className="mt-10 space-y-3">
+            {faq.map(({ q, a }) => (
+              <details key={q} className="glass group rounded-2xl px-5 py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-zinc-900 dark:text-white [&::-webkit-details-marker]:hidden">
+                  {q}
+                  <span className="text-xl leading-none text-zinc-400 transition-transform group-open:rotate-45" aria-hidden>
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{a}</p>
+              </details>
+            ))}
           </div>
         </section>
 
-        {/* শেষ CTA */}
-        <section className="px-4 pb-20 sm:px-6">
-          <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 px-6 py-14 text-center text-white sm:px-12">
-            <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 size-72 rounded-full bg-violet-400/30 blur-3xl" />
-            <LogoMark className="mx-auto size-12 rounded-xl ring-2 ring-white/30" />
-            <h2 className="mt-6 text-3xl font-semibold tracking-tight sm:text-4xl">
-              আজই জানো তোমার বিজ্ঞাপনের টাকা কোথায় যাচ্ছে
+        {/* Closing */}
+        <section className="px-4 pb-24 sm:px-6">
+          <Glass className="mx-auto max-w-6xl px-6 py-16 text-center sm:px-12">
+            <h2 className="mx-auto max-w-2xl text-4xl leading-tight font-semibold tracking-tight text-zinc-950 sm:text-5xl dark:text-white">
+              {tr("Your next ad dollar ", "তোমার পরের বিজ্ঞাপনের টাকা ")}
+              <Accent>{tr("deserves a better home.", "আরও ভালো জায়গায় যাক।")}</Accent>
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-indigo-100">
-              Connect করার পাঁচ মিনিটের মধ্যে প্রথম AI report হাতে পাবে।
+            <p className="mx-auto mt-5 max-w-lg text-zinc-600 dark:text-zinc-300">
+              {tr(
+                "Connect in two minutes. Your first report is ready right after.",
+                "দুই মিনিটে কানেক্ট করো। প্রথম রিপোর্ট তৈরি হয়ে যাবে সাথে সাথেই।",
+              )}
             </p>
-            <Link
-              href={primaryHref}
-              className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
-            >
+            <Link href={primaryHref} className={buttonClass("primary", "mt-9 rounded-xl px-6 py-3 text-base")}>
               {primaryLabel}
               <ArrowRight className="size-4" aria-hidden />
             </Link>
-          </div>
+          </Glass>
         </section>
       </main>
 

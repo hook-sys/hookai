@@ -5,7 +5,8 @@ import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatPostDate, getPublishedPost, listPublishedPosts, readingMinutes } from "@/lib/blog";
 import Markdown from "@/components/Markdown";
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { Backdrop, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { getTr } from "@/lib/i18n-server";
 import { LogoMark } from "@/components/ui";
 
 export const revalidate = 300;
@@ -16,7 +17,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPublishedPost(createPublicClient(), slug);
-  if (!post) return { title: "পোস্ট পাওয়া যায়নি" };
+  if (!post) return { title: "Post not found" };
   return {
     title: post.title,
     description: post.excerpt ?? undefined,
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
+  const tr = await getTr();
   const supabase = createPublicClient();
   const post = await getPublishedPost(supabase, slug);
   if (!post) notFound();
@@ -50,13 +52,13 @@ export default async function BlogPostPage({ params }: Props) {
     image: post.cover_image_url ?? undefined,
     datePublished: post.published_at,
     dateModified: post.updated_at,
-    inLanguage: "bn",
     publisher: { "@type": "Organization", name: "Hook AI", logo: { "@type": "ImageObject", url: `${siteUrl}/icon.svg` } },
     mainEntityOfPage: `${siteUrl}/blog/${post.slug}`,
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-950">
+    <div className="relative isolate min-h-screen">
+      <Backdrop />
       <SiteHeader />
       <script
         type="application/ld+json"
@@ -69,10 +71,10 @@ export default async function BlogPostPage({ params }: Props) {
           className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
         >
           <ArrowLeft className="size-4" aria-hidden />
-          সব লেখা
+          {tr("All posts", "সব লেখা")}
         </Link>
 
-        <article className="mt-6">
+        <article className="glass mt-6 rounded-3xl p-6 sm:p-10">
           {post.category && (
             <Link
               href={`/blog?cat=${encodeURIComponent(post.category)}`}
@@ -88,7 +90,7 @@ export default async function BlogPostPage({ params }: Props) {
             <span>{formatPostDate(post.published_at)}</span>
             <span className="flex items-center gap-1">
               <Clock className="size-3.5" aria-hidden />
-              {readingMinutes(post.content)} মিনিটে পড়া
+              {tr(`${readingMinutes(post.content)} min read`, `${readingMinutes(post.content)} মিনিটে পড়া`)}
             </span>
           </p>
           {post.cover_image_url && (
@@ -104,21 +106,23 @@ export default async function BlogPostPage({ params }: Props) {
         <aside className="mt-14 flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-800 px-6 py-10 text-center text-white sm:flex-row sm:text-left">
           <LogoMark className="size-12 shrink-0 rounded-xl ring-2 ring-white/30" />
           <div className="flex-1">
-            <p className="text-lg font-semibold">তোমার বিজ্ঞাপনে কোথায় টাকা নষ্ট হচ্ছে?</p>
-            <p className="mt-1 text-sm text-indigo-100">Hook AI ফ্রিতে তোমার campaign বিশ্লেষণ করে বাংলায় বলে দেবে।</p>
+            <p className="text-lg font-semibold">{tr("Where are your ads wasting money?", "তোমার বিজ্ঞাপনে কোথায় টাকা নষ্ট হচ্ছে?")}</p>
+            <p className="mt-1 text-sm text-indigo-100">
+              {tr("Hook AI reads your campaigns for free and tells you in plain words.", "Hook AI ফ্রিতে তোমার campaign বিশ্লেষণ করে সহজ ভাষায় বলে দেবে।")}
+            </p>
           </div>
           <Link
             href="/login"
             className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-white px-5 py-2.5 font-semibold text-indigo-700 hover:bg-indigo-50"
           >
-            ফ্রি শুরু করো
+            {tr("Start free", "ফ্রি শুরু করো")}
             <ArrowRight className="size-4" aria-hidden />
           </Link>
         </aside>
 
         {related.length > 0 && (
           <section className="mt-14">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">আরও পড়ো</h2>
+            <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">{tr("Keep reading", "আরও পড়ো")}</h2>
             <ul className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
               {related.map((p) => (
                 <li key={p.id}>

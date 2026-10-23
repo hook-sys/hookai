@@ -10,12 +10,13 @@ import {
 } from "lucide-react";
 import { Badge, Card, buttonClass } from "@/components/ui";
 import type { Priority, StoredSummary } from "@/lib/ai/summary";
+import { useTr } from "@/components/I18nProvider";
 import { generateAiSummary, type SummaryState } from "./actions";
 
-const PRIORITY: Record<Priority, { label: string; tone: "danger" | "warning" | "neutral" }> = {
-  high: { label: "জরুরি", tone: "danger" },
-  medium: { label: "গুরুত্বপূর্ণ", tone: "warning" },
-  low: { label: "পরে করলেও চলে", tone: "neutral" },
+const PRIORITY_TONE: Record<Priority, "danger" | "warning" | "neutral"> = {
+  high: "danger",
+  medium: "warning",
+  low: "neutral",
 };
 
 function List({
@@ -58,6 +59,12 @@ export default function AiSummaryCard({
   periodLabel: string;
   compare: boolean;
 }) {
+  const tr = useTr();
+  const priorityLabel: Record<Priority, string> = {
+    high: tr("Urgent", "জরুরি"),
+    medium: tr("Important", "গুরুত্বপূর্ণ"),
+    low: tr("Can wait", "পরে করলেও চলে"),
+  };
   const [state, formAction, pending] = useActionState<SummaryState, FormData>(
     generateAiSummary,
     null,
@@ -82,7 +89,11 @@ export default function AiSummaryCard({
         ) : (
           <Sparkles className="size-4" aria-hidden />
         )}
-        {pending ? "বিশ্লেষণ চলছে..." : summary ? "নতুন করে বিশ্লেষণ" : "AI সারসংক্ষেপ তৈরি করো"}
+        {pending
+          ? tr("Analyzing…", "বিশ্লেষণ চলছে...")
+          : summary
+            ? tr("Analyze again", "নতুন করে বিশ্লেষণ")
+            : tr("Create AI summary", "AI সারসংক্ষেপ তৈরি করো")}
       </button>
     </form>
   );
@@ -96,10 +107,10 @@ export default function AiSummaryCard({
           </span>
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              AI সারসংক্ষেপ
+              {tr("AI summary", "AI সারসংক্ষেপ")}
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {periodLabel}-এর হিসাব দেখে AI-এর বিশ্লেষণ ও পরামর্শ
+              {tr(`Analysis and advice · ${periodLabel}`,`${periodLabel}-এর হিসাব দেখে AI-এর বিশ্লেষণ ও পরামর্শ`)}
             </p>
           </div>
         </div>
@@ -118,14 +129,19 @@ export default function AiSummaryCard({
 
         {pending && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            AI তোমার ক্যাম্পেইনগুলো বিশ্লেষণ করছে। সাধারণত ২০-৬০ সেকেন্ড লাগে...
+            {tr(
+              "The AI is reading your campaigns. This usually takes 20–60 seconds…",
+              "AI তোমার ক্যাম্পেইনগুলো বিশ্লেষণ করছে। সাধারণত ২০-৬০ সেকেন্ড লাগে...",
+            )}
           </p>
         )}
 
         {!pending && !content && !(state && !state.ok) && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            এখনো কোনো সারসংক্ষেপ তৈরি হয়নি। উপরের বোতাম চাপলে AI তোমার বিজ্ঞাপনের হিসাব দেখে
-            সহজ বাংলায় বলবে কী ভালো চলছে, কোথায় সমস্যা, আর এখন কী করা উচিত।
+            {tr(
+              "No summary yet. Press the button and the AI will read your numbers and tell you, in plain words, what's working, what isn't, and what to do now.",
+              "এখনো কোনো সারসংক্ষেপ তৈরি হয়নি। উপরের বোতাম চাপলে AI তোমার বিজ্ঞাপনের হিসাব দেখে সহজ বাংলায় বলবে কী ভালো চলছে, কোথায় সমস্যা, আর এখন কী করা উচিত।",
+            )}
           </p>
         )}
 
@@ -144,13 +160,13 @@ export default function AiSummaryCard({
 
             <div className="grid gap-6 md:grid-cols-2">
               <List
-                title="ভালো চলছে"
+                title={tr("Working well", "ভালো চলছে")}
                 items={content.highlights}
                 icon={CheckCircle2}
                 iconClass="text-emerald-600 dark:text-emerald-400"
               />
               <List
-                title="নজর দেওয়া দরকার"
+                title={tr("Needs attention", "নজর দেওয়া দরকার")}
                 items={content.concerns}
                 icon={AlertTriangle}
                 iconClass="text-amber-600 dark:text-amber-400"
@@ -160,7 +176,7 @@ export default function AiSummaryCard({
             {content.recommendations.length > 0 && (
               <div>
                 <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                  এখন কী করবে
+                  {tr("What to do now", "এখন কী করবে")}
                 </h3>
                 <ol className="flex flex-col gap-3">
                   {content.recommendations.map((r, i) => (
@@ -177,10 +193,10 @@ export default function AiSummaryCard({
                           <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                             {r.action}
                           </span>
-                          <Badge tone={PRIORITY[r.priority].tone}>{PRIORITY[r.priority].label}</Badge>
+                          <Badge tone={PRIORITY_TONE[r.priority]}>{priorityLabel[r.priority]}</Badge>
                         </div>
                         {r.campaign && (
-                          <p className="mt-0.5 text-xs text-zinc-500">ক্যাম্পেইন: {r.campaign}</p>
+                          <p className="mt-0.5 text-xs text-zinc-500">{tr("Campaign", "ক্যাম্পেইন")}: {r.campaign}</p>
                         )}
                         {r.reason && (
                           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{r.reason}</p>
@@ -193,11 +209,12 @@ export default function AiSummaryCard({
             )}
 
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              তৈরি:{" "}
+              {tr("Created", "তৈরি")}:{" "}
               <span suppressHydrationWarning>
                 {new Date(summary!.created_at).toLocaleString("en-GB")}
               </span>{" "}
-              · {summary!.model} · AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।
+              · {summary!.model} ·{" "}
+              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}
             </p>
           </div>
         )}

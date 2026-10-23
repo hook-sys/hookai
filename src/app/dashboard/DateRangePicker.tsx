@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { CalendarDays, ChevronDown } from "lucide-react";
 import { PRESETS, formatRange, type PresetId } from "@/lib/dates";
+import { useTr } from "@/components/I18nProvider";
 import { buttonClass, cn, inputClass } from "@/components/ui";
 
 // Meta Ads Manager-এর মতো তারিখ বাছাই: বাঁয়ে তৈরি সময়সীমা, ডানে নিজের পছন্দের তারিখ
@@ -28,6 +29,7 @@ export default function DateRangePicker({
   // কোন পেজে তারিখ বদলাবে (ড্যাশবোর্ড বা ক্যাম্পেইন বিশ্লেষণ)
   basePath?: string;
 }) {
+  const tr = useTr();
   const ref = useRef<HTMLDetailsElement>(null);
   const extra = new URLSearchParams(keepParams).toString();
 
@@ -67,7 +69,7 @@ export default function DateRangePicker({
       {/* ছোট স্ক্রিনে বোতাম বাঁয়ে থাকে, বড় স্ক্রিনে ডানে; প্যানেল সেই দিকেই খোলে */}
       <div className="absolute left-0 z-20 mt-2 flex lg:right-0 lg:left-auto w-[min(92vw,34rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl sm:flex-row dark:border-zinc-800 dark:bg-zinc-900">
         <nav
-          aria-label="তৈরি সময়সীমা"
+          aria-label={tr("Preset ranges", "তৈরি সময়সীমা")}
           className="grid grid-cols-2 gap-1 border-b border-zinc-100 p-2 sm:w-44 sm:grid-cols-1 sm:border-r sm:border-b-0 dark:border-zinc-800"
         >
           {PRESETS.map((p) => (
@@ -82,18 +84,18 @@ export default function DateRangePicker({
                   : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
               )}
             >
-              {p.label}
+              {tr(p.en, p.bn)}
             </Link>
           ))}
         </nav>
 
         <form action={basePath} method="get" className="flex flex-1 flex-col gap-3 p-4">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">কাস্টম তারিখ</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{tr("Custom range", "কাস্টম তারিখ")}</p>
           {Object.entries(keepParams).map(([k, v]) => (
             <input key={k} type="hidden" name={k} value={v} />
           ))}
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">শুরু</span>
+            <span className="text-zinc-600 dark:text-zinc-400">{tr("Start", "শুরু")}</span>
             <input
               type="date"
               name="since"
@@ -105,7 +107,7 @@ export default function DateRangePicker({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">শেষ</span>
+            <span className="text-zinc-600 dark:text-zinc-400">{tr("End", "শেষ")}</span>
             <input
               type="date"
               name="until"
@@ -116,10 +118,11 @@ export default function DateRangePicker({
             />
           </label>
           <p className="text-xs text-zinc-400">
-            শুধু এক দিন দেখতে &ldquo;শেষ&rdquo; খালি রাখো। সবচেয়ে পুরনো: {formatRange(minDate, minDate)}
+            {tr("Leave “End” empty to see a single day. Earliest: ", "শুধু এক দিন দেখতে “শেষ” খালি রাখো। সবচেয়ে পুরনো: ")}
+            {formatRange(minDate, minDate)}
           </p>
           <button type="submit" className={buttonClass("primary", "mt-auto")}>
-            প্রয়োগ করো
+            {tr("Apply", "প্রয়োগ করো")}
           </button>
         </form>
       </div>

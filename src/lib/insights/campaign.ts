@@ -8,20 +8,22 @@ import {
   type Ctx,
   type LiveCampaign,
 } from "./live";
+import { enTr, type Tr } from "@/lib/i18n";
 
 // একটি ক্যাম্পেইনের গভীর বিশ্লেষণ: কোন বয়স, লিঙ্গ, এলাকা, প্লেসমেন্ট, সময় ও দিনে ভালো চলে।
 // সেরা ও দুর্বল অংশ কোডে বাছাই হয়; AI শুধু ব্যাখ্যা ও সমাধান লেখে।
 
 const DIMENSIONS = [
-  { id: "age", label: "বয়স", breakdowns: "age", labelAs: "age" },
-  { id: "gender", label: "লিঙ্গ", breakdowns: "gender", labelAs: "gender" },
-  { id: "region", label: "এলাকা", breakdowns: "region", labelAs: "region" },
-  { id: "placement", label: "প্লেসমেন্ট", breakdowns: "publisher_platform,platform_position", labelAs: "placement" },
-  { id: "device", label: "ডিভাইস", breakdowns: "device_platform", labelAs: "device" },
-  { id: "hour", label: "দিনের সময়", breakdowns: "hourly_stats_aggregated_by_advertiser_time_zone", labelAs: null },
-] as const satisfies readonly { id: string; label: string; breakdowns: string; labelAs: BreakdownId | null }[];
+  { id: "age", en: "Age", bn: "বয়স", breakdowns: "age", labelAs: "age" },
+  { id: "gender", en: "Gender", bn: "লিঙ্গ", breakdowns: "gender", labelAs: "gender" },
+  { id: "region", en: "Region", bn: "এলাকা", breakdowns: "region", labelAs: "region" },
+  { id: "placement", en: "Placement", bn: "প্লেসমেন্ট", breakdowns: "publisher_platform,platform_position", labelAs: "placement" },
+  { id: "device", en: "Device", bn: "ডিভাইস", breakdowns: "device_platform", labelAs: "device" },
+  { id: "hour", en: "Time of day", bn: "দিনের সময়", breakdowns: "hourly_stats_aggregated_by_advertiser_time_zone", labelAs: null },
+] as const satisfies readonly { id: string; en: string; bn: string; breakdowns: string; labelAs: BreakdownId | null }[];
 
-const WEEKDAYS = ["রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার"];
+const WEEKDAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS_BN = ["রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার", "শনিবার"];
 
 export type Segment = {
   key: string;
@@ -101,6 +103,7 @@ export async function loadCampaignAnalysis(
   campaign: LiveCampaign,
   range: { since: string; until: string },
   today: string,
+  tr: Tr = enTr,
 ): Promise<CampaignAnalysis> {
   const actionType = campaign.resultIndicator?.startsWith("actions:")
     ? campaign.resultIndicator.slice("actions:".length)
@@ -131,13 +134,13 @@ export async function loadCampaignAnalysis(
         .join("|");
       const label =
         d.labelAs !== null
-          ? breakdownLabel(r, d.labelAs)
+          ? breakdownLabel(r, d.labelAs, tr)
           : `${key.slice(0, 2)}:00 – ${String((Number(key.slice(0, 2)) + 1) % 24).padStart(2, "0")}:00`;
       return toSegment(key, label, r, actionType, available);
     });
     // ঘণ্টা সময়ের ক্রমে, বাকিগুলো খরচ অনুযায়ী
     if (d.id !== "hour") raw.sort((a, b) => b.spend - a.spend);
-    return analyse(d.id, d.label, raw, available);
+    return analyse(d.id, tr(d.en, d.bn), raw, available);
   });
 
   // সপ্তাহের দিন: দিনভিত্তিক ডাটা দিন অনুযায়ী যোগ করে
@@ -162,7 +165,10 @@ export async function loadCampaignAnalysis(
       const linkClicks = sum((s) => s.web.linkClicks);
       return {
         key: String(day),
-        label: `${WEEKDAYS[day]} (${rows.length} দিন)`,
+        label: tr(
+          `${WEEKDAYS_EN[day]} (${rows.length} ${rows.length === 1 ? "day" : "days"})`,
+          `${WEEKDAYS_BN[day]} (${rows.length} দিন)`,
+        ),
         spend,
         impressions,
         linkClicks,
@@ -171,7 +177,7 @@ export async function loadCampaignAnalysis(
         ctr: impressions > 0 ? (linkClicks / impressions) * 100 : null,
       };
     });
-  dimensions.push(analyse("weekday", "সপ্তাহের দিন", weekdayRaw, weekdayAvailable));
+  dimensions.push(analyse("weekday", tr("Day of week", "সপ্তাহের দিন"), weekdayRaw, weekdayAvailable));
 
-  return { campaign, resultLabel: indicatorLabel(campaign.resultIndicator), dimensions };
+  return { campaign, resultLabel: indicatorLabel(campaign.resultIndicator, tr), dimensions };
 }

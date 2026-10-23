@@ -25,7 +25,7 @@ export async function getProviderConfig(
     .maybeSingle();
 
   if (!data?.api_key_encrypted) {
-    throw new AiError(`${AI_PROVIDERS[provider].label}-এর API key সেট করা নেই।`);
+    throw new AiError(`No API key is set for ${AI_PROVIDERS[provider].label}.`);
   }
   return {
     provider,
@@ -46,7 +46,7 @@ export async function getActiveAiConfig(
   }>();
 
   if (error || !data || !isAiProvider(data.provider)) {
-    throw new AiError("AI এখনো চালু করা হয়নি। সুপার অ্যাডমিনকে একটি AI প্রোভাইডার চালু করতে বলো।");
+    throw new AiError("AI is not switched on yet. Ask the super admin to activate an AI provider.");
   }
   return {
     provider: data.provider,

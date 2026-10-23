@@ -50,7 +50,7 @@ async function upsertRange(ctx: SyncContext, since: string, until: string) {
         .upsert(records.slice(i, i + UPSERT_CHUNK), {
           onConflict: "user_id,ad_account_id,campaign_id,date",
         });
-      if (error) throw new Error(`insights সংরক্ষণ ব্যর্থ: ${error.message}`);
+      if (error) throw new Error(`Saving insights failed: ${error.message}`);
     }
     count += records.length;
   }
@@ -62,7 +62,7 @@ async function updateConnection(ctx: SyncContext, fields: Record<string, unknown
     .from("meta_connections")
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq("user_id", ctx.userId);
-  if (error) throw new Error(`sync তথ্য সংরক্ষণ ব্যর্থ: ${error.message}`);
+  if (error) throw new Error(`Saving sync info failed: ${error.message}`);
 }
 
 // নিয়মিত আপডেট: গত ৩০ দিন ও আজ, সাথে Ad Account-এর নাম, মুদ্রা ও টাইমজোন

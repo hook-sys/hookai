@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { SLUG_PATTERN, slugify } from "@/lib/blog";
+import { getTr } from "@/lib/i18n-server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,6 +32,9 @@ function revalidateBlog(slugs: string[]) {
 
 export async function savePost(_prev: SaveState, formData: FormData): Promise<SaveState> {
   const { supabase, user } = await requireAdmin();
+  const tr = await getTr();
+  const duplicateSlug = tr("Another post already uses this URL. Pick a different one.", "এই URL অন্য পোস্টে আছে, আলাদা URL দাও।");
+  const saveFailed = tr("Could not save.", "সংরক্ষণ করা যায়নি।");
 
   const id = text(formData, "id");
   const title = text(formData, "title");
@@ -42,20 +46,20 @@ export async function savePost(_prev: SaveState, formData: FormData): Promise<Sa
   const status = text(formData, "status") === "published" ? "published" : "draft";
   const publishedAtRaw = text(formData, "published_at");
 
-  if (!title) return { error: "শিরোনাম দাও।" };
-  if (title.length > 200) return { error: "শিরোনাম ২০০ অক্ষরের মধ্যে রাখো।" };
+  if (!title) return { error: tr("Add a title.", "শিরোনাম দাও।") };
+  if (title.length > 200) return { error: tr("Keep the title under 200 characters.", "শিরোনাম ২০০ অক্ষরের মধ্যে রাখো।") };
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
-    return { error: "URL শুধু ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন দিয়ে লেখো (যেমন pixel-setup-guide)।" };
+    return { error: tr("Use only lowercase letters, numbers and hyphens in the URL (e.g. pixel-setup-guide).", "URL শুধু ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন দিয়ে লেখো (যেমন pixel-setup-guide)।") };
   }
-  if (excerpt.length > 400) return { error: "সারাংশ ৪০০ অক্ষরের মধ্যে রাখো।" };
-  if (coverImageUrl && !/^https:\/\//.test(coverImageUrl)) return { error: "কভার ছবির লিংক https দিয়ে শুরু হতে হবে।" };
-  if (category.length > 60) return { error: "ক্যাটাগরি ছোট রাখো।" };
+  if (excerpt.length > 400) return { error: tr("Keep the excerpt under 400 characters.", "সারাংশ ৪০০ অক্ষরের মধ্যে রাখো।") };
+  if (coverImageUrl && !/^https:\/\//.test(coverImageUrl)) return { error: tr("The cover image link must start with https.", "কভার ছবির লিংক https দিয়ে শুরু হতে হবে।") };
+  if (category.length > 60) return { error: tr("Keep the category short.", "ক্যাটাগরি ছোট রাখো।") };
 
   // প্রকাশের সময়: না দিলে এখন; ভবিষ্যতের সময় দিলে সেই সময়ে নিজে থেকে প্রকাশ হবে
   let publishedAt: string | null = null;
   if (status === "published") {
     const d = publishedAtRaw ? new Date(publishedAtRaw) : new Date();
-    if (Number.isNaN(d.getTime())) return { error: "প্রকাশের সময় সঠিক নয়।" };
+    if (Number.isNaN(d.getTime())) return { error: tr("That publish time is not valid.", "প্রকাশের সময় সঠিক নয়।") };
     publishedAt = d.toISOString();
   }
 
@@ -78,7 +82,7 @@ export async function savePost(_prev: SaveState, formData: FormData): Promise<Sa
     const { data: old } = await supabase.from("blog_posts").select("slug").eq("id", id).maybeSingle();
     oldSlug = old?.slug ?? null;
     const { error } = await supabase.from("blog_posts").update(fields).eq("id", id);
-    if (error) return { error: error.code === "23505" ? "এই URL অন্য পোস্টে আছে, আলাদা URL দাও।" : "সংরক্ষণ করা যায়নি।" };
+    if (error) return { error: error.code === "23505" ? duplicateSlug : saveFailed };
   } else {
     const { data, error } = await supabase
       .from("blog_posts")
@@ -86,7 +90,7 @@ export async function savePost(_prev: SaveState, formData: FormData): Promise<Sa
       .select("id")
       .single();
     if (error || !data) {
-      return { error: error?.code === "23505" ? "এই URL অন্য পোস্টে আছে, আলাদা URL দাও।" : "সংরক্ষণ করা যায়নি।" };
+      return { error: error?.code === "23505" ? duplicateSlug : saveFailed };
     }
     savedId = data.id;
   }
@@ -156,18 +160,19 @@ export type UploadResult = { url: string } | { error: string };
 // ছবি Supabase Storage-এ যায়; পাবলিক লিংক ফেরত দেয়
 export async function uploadBlogImage(formData: FormData): Promise<UploadResult> {
   const { supabase } = await requireAdmin();
+  const tr = await getTr();
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "ছবি বেছে নাও।" };
+  if (!(file instanceof File) || file.size === 0) return { error: tr("Choose an image.", "ছবি বেছে নাও।") };
 
   const ext = IMAGE_TYPES[file.type];
-  if (!ext) return { error: "শুধু PNG, JPG, WebP বা GIF ছবি দেওয়া যাবে।" };
-  if (file.size > MAX_IMAGE_BYTES) return { error: "ছবি ৫ MB-এর কম হতে হবে।" };
+  if (!ext) return { error: tr("Only PNG, JPG, WebP or GIF images.", "শুধু PNG, JPG, WebP বা GIF ছবি দেওয়া যাবে।") };
+  if (file.size > MAX_IMAGE_BYTES) return { error: tr("Images must be under 5 MB.", "ছবি ৫ MB-এর কম হতে হবে।") };
 
   const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
     .from("blog-images")
     .upload(path, file, { contentType: file.type, cacheControl: "31536000" });
-  if (error) return { error: "ছবি আপলোড করা যায়নি।" };
+  if (error) return { error: tr("Could not upload the image.", "ছবি আপলোড করা যায়নি।") };
 
   return { url: supabase.storage.from("blog-images").getPublicUrl(path).data.publicUrl };
 }

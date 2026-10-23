@@ -1,6 +1,6 @@
 import { renderEditor } from "../editorPage";
 
-export const metadata = { title: "পোস্ট সম্পাদনা" };
+export const metadata = { title: "Edit post" };
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> };
 

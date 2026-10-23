@@ -1,14 +1,82 @@
 import type { Metadata } from "next";
 import LegalPage, { contactMarkdown } from "@/components/LegalPage";
 import { SITE } from "@/lib/site";
+import { getTr } from "@/lib/i18n-server";
+import type { Tr } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Hook AI ব্যবহারের শর্তাবলি।",
+  description: "The terms for using Hook AI.",
   alternates: { canonical: "/terms" },
 };
 
-const body = `
+const bodyEn = (tr: Tr) => `
+## 1. Accepting these terms
+
+By creating an account or using ${SITE.name} you agree to these terms and our [Privacy Policy](/privacy). If you don't agree, please don't use the service.
+
+## 2. What the service does
+
+${SITE.name} reads your Meta (Facebook and Instagram) ad data and shows numbers, alerts and AI-written analysis. We never change your ads; deciding and acting on anything is up to you.
+
+## 3. Who can use it
+
+- You must be at least 18 years old.
+- You must have the right to view any ad account you connect (your own, or with the owner's permission).
+- You must follow Meta's own terms and advertising policies.
+
+## 4. Your account
+
+- Give a real email address and keep your password secret.
+- You're responsible for what happens under your account. If something looks wrong, change your password straight away and let us know.
+
+## 5. What you must not do
+
+- Try to break the service, access other people's data or get around security
+- Overload the service with automated requests
+- Connect someone else's ad account without permission
+- Use the service for anything illegal
+
+If you do, we may suspend or close your account.
+
+## 6. AI-written analysis
+
+AI analysis and advice are there to help, not to guarantee anything. AI can be wrong, and Meta's data can be wrong too (for example when a Pixel isn't tracking properly). Check the numbers yourself before big budget or campaign decisions. This is not financial or legal advice.
+
+## 7. Third-party services
+
+The service depends on Meta, database, hosting and AI providers. Their outages, changes or shutdowns can interrupt our service and are outside our control.
+
+## 8. Price
+
+The service is free for now. If paid plans arrive, prices and terms will be made clear in advance, and nothing will be charged unless you agree.
+
+## 9. No warranty
+
+The service is provided "as is". We don't promise it will always be available, error-free, or deliver any particular business result.
+
+## 10. Limit of liability
+
+To the extent the law allows, we are not liable for indirect losses, lost sales or profit, or advertising spend resulting from use of the service.
+
+## 11. Closing your account
+
+You can delete your account from Settings at any time. We may also close accounts that break these terms.
+
+## 12. Changes to these terms
+
+If these terms change, we'll update this page with a new date. Continuing to use the service after a change means you accept the new terms.
+
+## 13. Governing law
+
+These terms are governed by the laws of Bangladesh.
+
+## 14. Contact
+
+${contactMarkdown(tr)}
+`;
+
+const bodyBn = (tr: Tr) => `
 ## ১. শর্ত মেনে নেওয়া
 
 ${SITE.name}-এ অ্যাকাউন্ট খুললে বা সেবা ব্যবহার করলে তুমি এই শর্তাবলি ও আমাদের [Privacy Policy](/privacy) মেনে নিচ্ছ। রাজি না হলে সেবা ব্যবহার কোরো না।
@@ -71,16 +139,21 @@ AI-এর বিশ্লেষণ ও পরামর্শ সহায়ত�
 
 ## ১৪. যোগাযোগ
 
-${contactMarkdown()}
+${contactMarkdown(tr)}
 `;
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const tr = await getTr();
   return (
     <LegalPage
       path="/terms"
       title="Terms of Service"
-      intro={`${SITE.name} ব্যবহারের নিয়ম। সংক্ষেপে: তোমার নিজের বা অনুমতি থাকা Ad Account কানেক্ট করো, সেবার অপব্যবহার কোরো না, আর AI-এর পরামর্শ যাচাই করে সিদ্ধান্ত নাও।`}
-      body={body}
+      intro={tr(
+        `The rules for using ${SITE.name}. In short: connect only ad accounts you're allowed to, don't misuse the service, and check AI advice before acting on it.`,
+        `${SITE.name} ব্যবহারের নিয়ম। সংক্ষেপে: তোমার নিজের বা অনুমতি থাকা Ad Account কানেক্ট করো, সেবার অপব্যবহার কোরো না, আর AI-এর পরামর্শ যাচাই করে সিদ্ধান্ত নাও।`,
+      )}
+      body={tr(bodyEn(tr), bodyBn(tr))}
+      tr={tr}
     />
   );
 }

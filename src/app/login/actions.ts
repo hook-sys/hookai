@@ -3,22 +3,24 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getTr } from "@/lib/i18n-server";
+import type { Tr } from "@/lib/i18n";
 
 export type AuthState = { error?: string; message?: string } | null;
 
 // Supabase-এর ত্রুটি কোড থেকে ব্যবহারকারী-বান্ধব বার্তা।
 // লগইনে "ইমেইল আছে কিনা" আলাদা করে বলা হয় না, যাতে অ্যাকাউন্ট খোঁজা না যায়।
-function authErrorMessage(code: string | undefined, fallback: string) {
+function authErrorMessage(tr: Tr, code: string | undefined, fallback: string) {
   switch (code) {
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":
-      return "অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করো।";
+      return tr("Too many attempts. Please wait a little and try again.", "অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করো।");
     case "email_address_invalid":
-      return "ইমেইল ঠিকানাটি গ্রহণযোগ্য নয়।";
+      return tr("That email address isn't accepted.", "ইমেইল ঠিকানাটি গ্রহণযোগ্য নয়।");
     case "weak_password":
-      return "পাসওয়ার্ড দুর্বল। আরও লম্বা ও জটিল পাসওয়ার্ড দাও।";
+      return tr("That password is too weak. Try a longer, less common one.", "পাসওয়ার্ড দুর্বল। আরও লম্বা ও জটিল পাসওয়ার্ড দাও।");
     case "user_already_exists":
-      return "এই ইমেইল দিয়ে আগে থেকেই অ্যাকাউন্ট আছে। লগইন করো।";
+      return tr("There's already an account with this email. Log in instead.", "এই ইমেইল দিয়ে আগে থেকেই অ্যাকাউন্ট আছে। লগইন করো।");
     default:
       return fallback;
   }
@@ -32,13 +34,14 @@ async function getSiteUrl() {
   const origin = (await headers()).get("origin");
   if (origin) return origin;
 
-  throw new Error("NEXT_PUBLIC_SITE_URL সেট করা নেই");
+  throw new Error("NEXT_PUBLIC_SITE_URL is not set");
 }
 
 export async function signIn(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const tr = await getTr();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -48,8 +51,9 @@ export async function signIn(
   if (error) {
     return {
       error: authErrorMessage(
+        tr,
         error.code,
-        "ইমেইল বা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করো।",
+        tr("Wrong email or password. Please try again.", "ইমেইল বা পাসওয়ার্ড সঠিক নয়। আবার চেষ্টা করো।"),
       ),
     };
   }
@@ -61,11 +65,12 @@ export async function signUp(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const tr = await getTr();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
   if (password.length < 8) {
-    return { error: "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।" };
+    return { error: tr("Password must be at least 8 characters.", "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।") };
   }
 
   const supabase = await createClient();
@@ -80,8 +85,9 @@ export async function signUp(
   if (error) {
     return {
       error: authErrorMessage(
+        tr,
         error.code,
-        "অ্যাকাউন্ট তৈরি করা যায়নি। আবার চেষ্টা করো।",
+        tr("Couldn't create the account. Please try again.", "অ্যাকাউন্ট তৈরি করা যায়নি। আবার চেষ্টা করো।"),
       ),
     };
   }
@@ -92,8 +98,10 @@ export async function signUp(
   }
 
   return {
-    message:
+    message: tr(
+      "Account created. Click the link we emailed you to confirm, then log in.",
       "অ্যাকাউন্ট তৈরি হয়েছে। ইমেইলে আসা লিংকে ক্লিক করে নিশ্চিত করো, তারপর লগইন করো।",
+    ),
   };
 }
 

@@ -17,6 +17,7 @@ import {
 import Markdown from "@/components/Markdown";
 import { Card, buttonClass, cn, inputClass } from "@/components/ui";
 import { slugify, type BlogPost } from "@/lib/blog";
+import { useTr } from "@/components/I18nProvider";
 import { savePost, uploadBlogImage, type SaveState } from "./actions";
 
 // datetime-local ইনপুটের জন্য স্থানীয় সময় (ব্রাউজারের টাইমজোনে)
@@ -33,6 +34,7 @@ export default function PostEditor({
   post: BlogPost | null;
   categories: string[];
 }) {
+  const tr = useTr();
   const [state, formAction, pending] = useActionState<SaveState, FormData>(savePost, null);
 
   const [title, setTitle] = useState(post?.title ?? "");
@@ -88,7 +90,7 @@ export default function PostEditor({
       return;
     }
     if (target === "cover") setCover(res.url);
-    else wrap(`![`, `](${res.url})`, "ছবির বর্ণনা");
+    else wrap(`![`, `](${res.url})`, tr("image description", "ছবির বর্ণনা"));
   };
 
   const tool = (label: string, Icon: typeof Bold, onClick: () => void) => (
@@ -133,24 +135,24 @@ export default function PostEditor({
             setTitle(e.target.value);
             if (!slugTouched) setSlug(slugify(e.target.value));
           }}
-          placeholder="পোস্টের শিরোনাম"
+          placeholder={tr("Post title", "পোস্টের শিরোনাম")}
           required
           maxLength={200}
-          aria-label="শিরোনাম"
+          aria-label={tr("Title", "শিরোনাম")}
           className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-2xl font-semibold tracking-tight focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
         />
 
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-2 py-1.5 dark:border-zinc-800">
             <div className="flex flex-wrap items-center">
-              {tool("শিরোনাম", Heading2, () => prefixLine("## "))}
-              {tool("বোল্ড", Bold, () => wrap("**", "**", "লেখা"))}
-              {tool("তালিকা", List, () => prefixLine("- "))}
-              {tool("নম্বর তালিকা", ListOrdered, () => prefixLine("1. "))}
-              {tool("উদ্ধৃতি", Quote, () => prefixLine("> "))}
-              {tool("লিংক", Link2, () => wrap("[", "](https://)", "লিংকের লেখা"))}
+              {tool(tr("Heading", "শিরোনাম"), Heading2, () => prefixLine("## "))}
+              {tool(tr("Bold", "বোল্ড"), Bold, () => wrap("**", "**", tr("text", "লেখা")))}
+              {tool(tr("List", "তালিকা"), List, () => prefixLine("- "))}
+              {tool(tr("Numbered list", "নম্বর তালিকা"), ListOrdered, () => prefixLine("1. "))}
+              {tool(tr("Quote", "উদ্ধৃতি"), Quote, () => prefixLine("> "))}
+              {tool(tr("Link", "লিংক"), Link2, () => wrap("[", "](https://)", tr("link text", "লিংকের লেখা")))}
               <label
-                title="লেখায় ছবি যোগ করো"
+                title={tr("Add an image", "লেখায় ছবি যোগ করো")}
                 className="cursor-pointer rounded-md p-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 {uploading === "inline" ? (
@@ -158,7 +160,7 @@ export default function PostEditor({
                 ) : (
                   <ImagePlus className="size-4" aria-hidden />
                 )}
-                <span className="sr-only">লেখায় ছবি যোগ করো</span>
+                <span className="sr-only">{tr("Add an image", "লেখায় ছবি যোগ করো")}</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif"
@@ -174,8 +176,8 @@ export default function PostEditor({
             <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
               {(
                 [
-                  ["write", "লেখা", PenLine],
-                  ["preview", "প্রিভিউ", Eye],
+                  ["write", tr("Write", "লেখা"), PenLine],
+                  ["preview", tr("Preview", "প্রিভিউ"), Eye],
                 ] as const
               ).map(([id, label, Icon]) => (
                 <button
@@ -202,17 +204,23 @@ export default function PostEditor({
               ref={textRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={"এখানে লেখো। ## দিয়ে উপশিরোনাম, **বোল্ড**, - দিয়ে তালিকা।\n\nউপরের বোতামগুলোও ব্যবহার করতে পারো।"}
-              aria-label="পোস্টের লেখা"
+              placeholder={tr(
+                "Write here. ## for a subheading, **bold**, - for a list.\n\nOr use the buttons above.",
+                "এখানে লেখো। ## দিয়ে উপশিরোনাম, **বোল্ড**, - দিয়ে তালিকা।\n\nউপরের বোতামগুলোও ব্যবহার করতে পারো।",
+              )}
+              aria-label={tr("Post body", "পোস্টের লেখা")}
               className="min-h-[28rem] w-full resize-y bg-transparent px-5 py-4 font-mono text-sm leading-relaxed focus:outline-none"
             />
           ) : (
             <div className="min-h-[28rem] px-6 py-5">
-              {content.trim() ? <Markdown>{content}</Markdown> : <p className="text-sm text-zinc-400">এখনো কিছু লেখা হয়নি।</p>}
+              {content.trim() ? <Markdown>{content}</Markdown> : <p className="text-sm text-zinc-400">{tr("Nothing written yet.", "এখনো কিছু লেখা হয়নি।")}</p>}
             </div>
           )}
           <p className="border-t border-zinc-100 px-4 py-2 text-xs text-zinc-400 dark:border-zinc-800">
-            {words} শব্দ · প্রায় {Math.max(1, Math.round(words / 200))} মিনিটে পড়া যায়
+            {tr(
+              `${words} words · about ${Math.max(1, Math.round(words / 200))} min read`,
+              `${words} শব্দ · প্রায় ${Math.max(1, Math.round(words / 200))} মিনিটে পড়া যায়`,
+            )}
           </p>
         </Card>
         {uploadError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>}
@@ -220,12 +228,12 @@ export default function PostEditor({
 
       <aside className="flex flex-col gap-4">
         <Card className="flex flex-col gap-3 p-4">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">প্রকাশ</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{tr("Publishing", "প্রকাশ")}</p>
           <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
             {(
               [
-                ["draft", "খসড়া"],
-                ["published", "প্রকাশ করো"],
+                ["draft", tr("Draft", "খসড়া")],
+                ["published", tr("Publish", "প্রকাশ করো")],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -244,7 +252,7 @@ export default function PostEditor({
           </div>
           {status === "published" && (
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-zinc-600 dark:text-zinc-400">প্রকাশের সময়</span>
+              <span className="text-zinc-600 dark:text-zinc-400">{tr("Publish time", "প্রকাশের সময়")}</span>
               <input
                 type="datetime-local"
                 value={publishAt}
@@ -252,24 +260,26 @@ export default function PostEditor({
                 className={inputClass}
               />
               <span className="text-xs text-zinc-400">
-                {scheduled ? "এই সময়ে নিজে থেকে প্রকাশ হবে।" : "এখনই প্রকাশ হবে। ভবিষ্যতের সময় দিলে শিডিউল হবে।"}
+                {scheduled
+                  ? tr("It will go live on its own at this time.", "এই সময়ে নিজে থেকে প্রকাশ হবে।")
+                  : tr("Goes live now. Pick a future time to schedule it.", "এখনই প্রকাশ হবে। ভবিষ্যতের সময় দিলে শিডিউল হবে।")}
               </span>
             </label>
           )}
           <button type="submit" disabled={pending} className={buttonClass("primary", "w-full")}>
             {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            {status === "draft" ? "খসড়া সংরক্ষণ করো" : scheduled ? "শিডিউল করো" : "প্রকাশ করো"}
+            {status === "draft" ? tr("Save draft", "খসড়া সংরক্ষণ করো") : scheduled ? tr("Schedule", "শিডিউল করো") : tr("Publish", "প্রকাশ করো")}
           </button>
         </Card>
 
         <Card className="flex flex-col gap-3 p-4">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">কভার ছবি</p>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{tr("Cover image", "কভার ছবি")}</p>
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="কভার" className="aspect-[1.91/1] w-full rounded-lg object-cover" />
+            <img src={cover} alt={tr("Cover", "কভার")} className="aspect-[1.91/1] w-full rounded-lg object-cover" />
           ) : (
             <div className="flex aspect-[1.91/1] items-center justify-center rounded-lg border border-dashed border-zinc-300 text-xs text-zinc-400 dark:border-zinc-700">
-              Facebook-এ শেয়ার করলে এই ছবি দেখাবে (1200×630)
+              {tr("Shown when shared on Facebook (1200×630)", "Facebook-এ শেয়ার করলে এই ছবি দেখাবে (1200×630)")}
             </div>
           )}
           <div className="flex gap-2">
@@ -279,7 +289,7 @@ export default function PostEditor({
               ) : (
                 <Upload className="size-4" aria-hidden />
               )}
-              আপলোড
+              {tr("Upload", "আপলোড")}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
@@ -293,7 +303,7 @@ export default function PostEditor({
             </label>
             {cover && (
               <button type="button" onClick={() => setCover("")} className={buttonClass("danger")}>
-                সরাও
+                {tr("Remove", "সরাও")}
               </button>
             )}
           </div>
@@ -315,16 +325,16 @@ export default function PostEditor({
                 maxLength={80}
               />
             </span>
-            <span className="text-xs text-zinc-400">ইংরেজি ছোট হাতের অক্ষর ও হাইফেন। Google-এ এটি দেখায়।</span>
+            <span className="text-xs text-zinc-400">{tr("Lowercase letters, numbers and hyphens. Google shows this.", "ইংরেজি ছোট হাতের অক্ষর ও হাইফেন। Google-এ এটি দেখায়।")}</span>
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-semibold text-zinc-900 dark:text-zinc-50">ক্যাটাগরি</span>
+            <span className="font-semibold text-zinc-900 dark:text-zinc-50">{tr("Category", "ক্যাটাগরি")}</span>
             <input
               name="category"
               defaultValue={post?.category ?? ""}
               list="blog-categories"
-              placeholder="যেমন Pixel, Budget, Creative"
+              placeholder={tr("e.g. Pixel, Budget, Creative", "যেমন Pixel, Budget, Creative")}
               maxLength={60}
               className={inputClass}
             />
@@ -336,14 +346,14 @@ export default function PostEditor({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-semibold text-zinc-900 dark:text-zinc-50">সারাংশ</span>
+            <span className="font-semibold text-zinc-900 dark:text-zinc-50">{tr("Excerpt", "সারাংশ")}</span>
             <textarea
               name="excerpt"
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
               rows={3}
               maxLength={400}
-              placeholder="তালিকায় ও Google-এ দেখানো ছোট বর্ণনা"
+              placeholder={tr("Short description for the list and Google", "তালিকায় ও Google-এ দেখানো ছোট বর্ণনা")}
               className={inputClass}
             />
             <span className="text-right text-xs text-zinc-400">{excerpt.length}/400</span>

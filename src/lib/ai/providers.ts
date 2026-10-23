@@ -8,25 +8,25 @@ export const AI_PROVIDERS = {
   fal: {
     label: "fal.ai",
     defaultModel: "anthropic/claude-opus-5.5",
-    modelHint: "OpenRouter-এর মডেল নাম, যেমন anthropic/claude-opus-5.5, google/gemini-2.5-flash",
+    modelHint: "OpenRouter model name, e.g. anthropic/claude-opus-5.5, google/gemini-2.5-flash",
     keyHint: "fal.ai → Dashboard → Keys",
   },
   openai: {
     label: "OpenAI",
     defaultModel: "gpt-5-mini",
-    modelHint: "যেমন gpt-5-mini, gpt-5",
+    modelHint: "e.g. gpt-5-mini, gpt-5",
     keyHint: "platform.openai.com → API keys",
   },
   gemini: {
     label: "Google Gemini",
     defaultModel: "gemini-2.5-flash",
-    modelHint: "যেমন gemini-2.5-flash, gemini-2.5-pro",
+    modelHint: "e.g. gemini-2.5-flash, gemini-2.5-pro",
     keyHint: "aistudio.google.com → Get API key",
   },
   anthropic: {
     label: "Anthropic (Claude)",
     defaultModel: "claude-opus-5-5",
-    modelHint: "যেমন claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5",
+    modelHint: "e.g. claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5",
     keyHint: "platform.claude.com → API keys",
   },
 } as const;
@@ -72,12 +72,12 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
-    throw new AiError("AI প্রোভাইডার থেকে সময়মতো উত্তর আসেনি।");
+    throw new AiError("The AI provider did not answer in time.");
   }
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new AiError(`AI প্রোভাইডার ত্রুটি: ${message}`);
+    throw new AiError(`AI provider error: ${message}`);
   }
   return json;
 }
@@ -107,19 +107,19 @@ async function generateAnthropic(cfg: AiConfig, input: GenerateInput) {
       : await client.beta.messages.create(params);
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) {
-      throw new AiError("Anthropic API key সঠিক নয়।");
+      throw new AiError("The Anthropic API key is not valid.");
     }
     if (err instanceof Anthropic.RateLimitError) {
-      throw new AiError("Anthropic-এর সীমা পূর্ণ হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করো।");
+      throw new AiError("Anthropic rate limit reached. Please try again shortly.");
     }
     if (err instanceof Anthropic.APIError) {
-      throw new AiError(`Anthropic ত্রুটি (${err.status}): ${err.message}`);
+      throw new AiError(`Anthropic error (${err.status}): ${err.message}`);
     }
-    throw new AiError("Anthropic-এ সংযোগ করা যায়নি।");
+    throw new AiError("Could not reach Anthropic.");
   }
 
   if (response.stop_reason === "refusal") {
-    throw new AiError("Claude এই অনুরোধে উত্তর দিতে অস্বীকার করেছে।");
+    throw new AiError("Claude declined to answer this request.");
   }
 
   return response.content
@@ -174,15 +174,15 @@ async function generateFal(cfg: AiConfig, input: GenerateInput) {
   } catch (err) {
     const status = (err as { status?: number })?.status;
     if (status === 401 || status === 403) {
-      throw new AiError("fal.ai API key সঠিক নয়।");
+      throw new AiError("The fal.ai API key is not valid.");
     }
     throw new AiError(
-      `fal.ai ত্রুটি: ${err instanceof Error ? err.message : "অজানা সমস্যা"}`,
+      `fal.ai error: ${err instanceof Error ? err.message : "unknown problem"}`,
     );
   }
 
   const data = result.data as { output?: string; error?: string };
-  if (data.error) throw new AiError(`fal.ai ত্রুটি: ${data.error}`);
+  if (data.error) throw new AiError(`fal.ai error: ${data.error}`);
   return data.output ?? "";
 }
 
@@ -202,6 +202,6 @@ export async function generateText(cfg: AiConfig, input: GenerateInput) {
       text = await generateFal(cfg, input);
       break;
   }
-  if (!text.trim()) throw new AiError("AI কোনো উত্তর দেয়নি।");
+  if (!text.trim()) throw new AiError("The AI returned an empty answer.");
   return text;
 }

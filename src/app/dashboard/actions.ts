@@ -10,6 +10,8 @@ import { buildPeriodReport, findDataWarnings } from "@/lib/insights/report";
 import { isValidDate, minAllowedDate, rangeQuery, resolveRange, todayIn } from "@/lib/dates";
 import { AiError } from "@/lib/ai/providers";
 import { generateAndStoreSummary, type StoredSummary } from "@/lib/ai/summary";
+import { getLocale } from "@/lib/i18n-server";
+import { makeTr } from "@/lib/i18n";
 
 const field = (formData: FormData, name: string) => {
   const v = formData.get(name);
@@ -104,6 +106,8 @@ export async function generateAiSummary(
   _prev: SummaryState,
   formData: FormData,
 ): Promise<SummaryState> {
+  const locale = await getLocale();
+  const tr = makeTr(locale);
   const supabase = await createClient();
   const {
     data: { user },
@@ -120,7 +124,7 @@ export async function generateAiSummary(
 
   const accountId = connection?.selected_ad_account_id;
   if (!accountId) {
-    return { ok: false, error: "আগে সেটিংস থেকে একটি Ad Account বেছে নাও।" };
+    return { ok: false, error: tr("Pick an ad account in Settings first.", "আগে সেটিংস থেকে একটি Ad Account বেছে নাও।") };
   }
 
   const today = todayIn(connection.selected_ad_account_timezone);
@@ -135,7 +139,7 @@ export async function generateAiSummary(
     until > today ||
     since < minAllowedDate(today)
   ) {
-    return { ok: false, error: "তারিখ সঠিক নয়। পেজ রিফ্রেশ করে আবার চেষ্টা করো।" };
+    return { ok: false, error: tr("Those dates aren't valid. Refresh the page and try again.", "তারিখ সঠিক নয়। পেজ রিফ্রেশ করে আবার চেষ্টা করো।") };
   }
 
   try {
@@ -160,11 +164,12 @@ export async function generateAiSummary(
         current: findDataWarnings(report.current),
         previous: report.previous ? findDataWarnings(report.previous) : [],
       },
+      locale,
     );
     return { ok: true, summary };
   } catch (err) {
     if (err instanceof AiError) return { ok: false, error: err.message };
     console.error("ai summary failed", err instanceof Error ? err.message : err);
-    return { ok: false, error: "সারসংক্ষেপ তৈরি করা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।" };
+    return { ok: false, error: tr("Couldn't create the summary. Please try again shortly.", "সারসংক্ষেপ তৈরি করা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করো।") };
   }
 }

@@ -3,9 +3,11 @@
 import { useActionState } from "react";
 import { PlugZap } from "lucide-react";
 import { buttonClass, cn } from "@/components/ui";
+import { useTr } from "@/components/I18nProvider";
 import { testProvider, type TestState } from "./actions";
 
 export default function TestButton({ provider }: { provider: string }) {
+  const tr = useTr();
   const [state, formAction, pending] = useActionState<TestState, FormData>(
     testProvider,
     null,
@@ -16,7 +18,7 @@ export default function TestButton({ provider }: { provider: string }) {
       <input type="hidden" name="provider" value={provider} />
       <button type="submit" disabled={pending} className={buttonClass("secondary", "w-fit")}>
         <PlugZap className="size-4" aria-hidden />
-        {pending ? "পরীক্ষা চলছে..." : "সংযোগ পরীক্ষা করো"}
+        {pending ? tr("Testing…", "পরীক্ষা চলছে...") : tr("Test connection", "সংযোগ পরীক্ষা করো")}
       </button>
       {state && (
         <p
@@ -28,7 +30,7 @@ export default function TestButton({ provider }: { provider: string }) {
               : "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
           )}
         >
-          {state.ok ? "কাজ করছে: " : "ব্যর্থ: "}
+          {state.ok ? tr("Working: ", "কাজ করছে: ") : tr("Failed: ", "ব্যর্থ: ")}
           {state.message}
         </p>
       )}

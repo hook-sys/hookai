@@ -6,6 +6,7 @@
   /* Inter-এ বাংলা অক্ষর নেই, তাই বাংলা অক্ষর আপনাআপনি Hind Siliguri থেকে আসে */
   --font-sans: var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui,
     sans-serif;
+  --font-serif: var(--font-instrument), var(--font-bengali), Georgia, serif;
 
   /* Hook-এর ব্র্যান্ড নীল (লোগোর #3157B0 = 600)। পুরো অ্যাপ "indigo" নামে এই রং ব্যবহার করে,
      তাই এখানে বদলালেই সব জায়গায় বদলায়। */
@@ -56,6 +57,68 @@
 
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+/* Bangla script needs more room between lines than Latin, and has no real italic */
+:lang(bn) :is(h1, h2, h3) {
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+:lang(bn) .hero-title {
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+}
+:lang(bn) em.font-serif {
+  font-family: var(--font-sans);
+  font-style: normal;
+}
+
+/* Frosted glass panel used on the public pages */
+@utility glass {
+  background-color: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 1px 2px rgb(23 35 64 / 0.06),
+    0 24px 60px -28px rgb(23 35 64 / 0.35);
+
+  @media (prefers-color-scheme: dark) {
+    background-color: rgb(255 255 255 / 0.05);
+    border-color: rgb(255 255 255 / 0.1);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 24px 60px -28px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* Soft colour fields behind the glass, plus a little grain so it doesn't look flat */
+.aurora {
+  background:
+    radial-gradient(38% 32% at 12% 8%, rgb(111 143 216 / 0.55), transparent 70%),
+    radial-gradient(30% 28% at 88% 12%, rgb(255 122 77 / 0.35), transparent 70%),
+    radial-gradient(40% 36% at 70% 70%, rgb(156 180 230 / 0.45), transparent 70%),
+    radial-gradient(30% 30% at 8% 80%, rgb(255 190 150 / 0.3), transparent 70%),
+    #f5f3ee;
+
+  @media (prefers-color-scheme: dark) {
+    background:
+      radial-gradient(38% 32% at 12% 8%, rgb(49 87 176 / 0.45), transparent 70%),
+      radial-gradient(30% 28% at 88% 12%, rgb(255 90 44 / 0.18), transparent 70%),
+      radial-gradient(40% 36% at 70% 70%, rgb(42 74 150 / 0.35), transparent 70%),
+      radial-gradient(30% 30% at 8% 80%, rgb(255 122 77 / 0.12), transparent 70%),
+      #0a0f1d;
+  }
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 ::selection {

@@ -12,7 +12,7 @@ export class MetaApiError extends Error {}
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} সেট করা নেই`);
+  if (!value) throw new Error(`${name} is not set`);
   return value;
 }
 
@@ -40,12 +40,12 @@ async function graphRequest<T>(path: string, options: GraphOptions = {}) {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {
-    throw new MetaApiError("Meta থেকে সময়মতো উত্তর আসেনি। একটু পরে আবার চেষ্টা করো।");
+    throw new MetaApiError("Meta didn't answer in time. Please try again shortly.");
   }
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.error) {
-    throw new MetaApiError(body?.error?.message ?? "Meta API ত্রুটি");
+    throw new MetaApiError(body?.error?.message ?? "Meta API error");
   }
   return body as T;
 }

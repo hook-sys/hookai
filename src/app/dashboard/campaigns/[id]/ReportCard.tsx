@@ -13,12 +13,13 @@ import {
 import { Badge, Card, buttonClass } from "@/components/ui";
 import type { Priority, StoredCampaignReport } from "@/lib/ai/campaignReport";
 import { formatRange } from "@/lib/dates";
+import { useTr } from "@/components/I18nProvider";
 import { generateCampaignReportAction, type ReportState } from "./actions";
 
-const PRIORITY: Record<Priority, { label: string; tone: "danger" | "warning" | "neutral" }> = {
-  high: { label: "জরুরি", tone: "danger" },
-  medium: { label: "গুরুত্বপূর্ণ", tone: "warning" },
-  low: { label: "পরে করলেও চলে", tone: "neutral" },
+const PRIORITY_TONE: Record<Priority, "danger" | "warning" | "neutral"> = {
+  high: "danger",
+  medium: "warning",
+  low: "neutral",
 };
 
 function Section({
@@ -54,6 +55,12 @@ export default function ReportCard({
   todays: StoredCampaignReport | null;
   latest: StoredCampaignReport | null;
 }) {
+  const tr = useTr();
+  const priorityLabel: Record<Priority, string> = {
+    high: tr("Urgent", "জরুরি"),
+    medium: tr("Important", "গুরুত্বপূর্ণ"),
+    low: tr("Can wait", "পরে করলেও চলে"),
+  };
   const [state, formAction, pending] = useActionState<ReportState, FormData>(
     generateCampaignReportAction,
     null,
@@ -72,10 +79,13 @@ export default function ReportCard({
           </span>
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              AI ক্যাম্পেইন রিপোর্ট
+              {tr("AI campaign report", "AI ক্যাম্পেইন রিপোর্ট")}
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              কে কিনছে, কখন, কোথায় মানুষ হারিয়ে যাচ্ছে, আর কী করবে · প্রতিটি ক্যাম্পেইনে দিনে একবার
+              {tr(
+                "Who buys, when, where people drop off, and what to do · once a day per campaign",
+                "কে কিনছে, কখন, কোথায় মানুষ হারিয়ে যাচ্ছে, আর কী করবে · প্রতিটি ক্যাম্পেইনে দিনে একবার",
+              )}
             </p>
           </div>
         </div>
@@ -94,10 +104,10 @@ export default function ReportCard({
               <Sparkles className="size-4" aria-hidden />
             )}
             {pending
-              ? "বিশ্লেষণ চলছে..."
+              ? tr("Analyzing…", "বিশ্লেষণ চলছে...")
               : usedToday
-                ? "আজকের রিপোর্ট নেওয়া হয়েছে"
-                : "রিপোর্ট তৈরি করো"}
+                ? tr("Today's report is done", "আজকের রিপোর্ট নেওয়া হয়েছে")
+                : tr("Create report", "রিপোর্ট তৈরি করো")}
           </button>
         </form>
       </div>
@@ -114,14 +124,19 @@ export default function ReportCard({
 
         {pending && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            AI ক্যাম্পেইনের বয়স, লিঙ্গ, এলাকা, সময়, ভিডিও আর ওয়েবসাইটের ডাটা বিশ্লেষণ করছে। ৩০-৯০ সেকেন্ড লাগতে পারে...
+            {tr(
+              "The AI is reading this campaign's age, gender, region, timing, video and website data. This can take 30–90 seconds…",
+              "AI ক্যাম্পেইনের বয়স, লিঙ্গ, এলাকা, সময়, ভিডিও আর ওয়েবসাইটের ডাটা বিশ্লেষণ করছে। ৩০-৯০ সেকেন্ড লাগতে পারে...",
+            )}
           </p>
         )}
 
         {!pending && !c && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            এখনো কোনো রিপোর্ট নেই। বোতাম চাপলে AI নিচের সব ডাটা দেখে বলবে কোন অডিয়েন্স ও সময়ে ভালো
-            বিক্রি হচ্ছে, ভিডিও ও ওয়েবসাইটে কোথায় মানুষ চলে যাচ্ছে, আর সমাধান কী।
+            {tr(
+              "No report yet. Press the button and the AI will look at everything below and tell you which audiences and hours sell best, where people leave your video and website, and how to fix it.",
+              "এখনো কোনো রিপোর্ট নেই। বোতাম চাপলে AI নিচের সব ডাটা দেখে বলবে কোন অডিয়েন্স ও সময়ে ভালো বিক্রি হচ্ছে, ভিডিও ও ওয়েবসাইটে কোথায় মানুষ চলে যাচ্ছে, আর সমাধান কী।",
+            )}
           </p>
         )}
 
@@ -129,7 +144,10 @@ export default function ReportCard({
           <div className="flex flex-col gap-6">
             {!usedToday && (
               <p className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                এটি আগের রিপোর্ট ({formatRange(report.date_from, report.date_to)}-এর ডাটা)। আজ নতুন রিপোর্ট নিতে পারো।
+                {tr(
+                  `This is an earlier report (data for ${formatRange(report.date_from, report.date_to)}). You can take a new one today.`,
+                  `এটি আগের রিপোর্ট (${formatRange(report.date_from, report.date_to)}-এর ডাটা)। আজ নতুন রিপোর্ট নিতে পারো।`,
+                )}
               </p>
             )}
 
@@ -141,7 +159,7 @@ export default function ReportCard({
             </div>
 
             {c.best_audience.length > 0 && (
-              <Section icon={Users} title="কোথায় ভালো চলছে">
+              <Section icon={Users} title={tr("Where it works best", "কোথায় ভালো চলছে")}>
                 <ul className="grid gap-2 md:grid-cols-2">
                   {c.best_audience.map((b, i) => (
                     <li key={i} className="rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
@@ -156,12 +174,12 @@ export default function ReportCard({
             {(c.video_analysis || c.website_analysis) && (
               <div className="grid gap-6 md:grid-cols-2">
                 {c.video_analysis && (
-                  <Section icon={Clapperboard} title="ভিডিওতে কোথায় মানুষ চলে যাচ্ছে">
+                  <Section icon={Clapperboard} title={tr("Where viewers leave the video", "ভিডিওতে কোথায় মানুষ চলে যাচ্ছে")}>
                     <p className="text-sm text-zinc-700 dark:text-zinc-300">{c.video_analysis}</p>
                   </Section>
                 )}
                 {c.website_analysis && (
-                  <Section icon={Globe} title="ওয়েবসাইটে কোন ধাপে মানুষ চলে যাচ্ছে">
+                  <Section icon={Globe} title={tr("Where visitors leave the website", "ওয়েবসাইটে কোন ধাপে মানুষ চলে যাচ্ছে")}>
                     <p className="text-sm text-zinc-700 dark:text-zinc-300">{c.website_analysis}</p>
                   </Section>
                 )}
@@ -169,7 +187,7 @@ export default function ReportCard({
             )}
 
             {c.problems.length > 0 && (
-              <Section icon={AlertTriangle} title="সমস্যা">
+              <Section icon={AlertTriangle} title={tr("Problems", "সমস্যা")}>
                 <ul className="flex flex-col gap-2">
                   {c.problems.map((p, i) => (
                     <li key={i} className="text-sm">
@@ -182,13 +200,13 @@ export default function ReportCard({
             )}
 
             {c.solutions.length > 0 && (
-              <Section icon={Lightbulb} title="সমাধান: এখন কী করবে">
+              <Section icon={Lightbulb} title={tr("What to do now", "সমাধান: এখন কী করবে")}>
                 <ol className="flex flex-col gap-3">
                   {c.solutions.map((s, i) => (
                     <li key={i} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{s.action}</span>
-                        <Badge tone={PRIORITY[s.priority].tone}>{PRIORITY[s.priority].label}</Badge>
+                        <Badge tone={PRIORITY_TONE[s.priority]}>{priorityLabel[s.priority]}</Badge>
                       </div>
                       {s.reason && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{s.reason}</p>}
                     </li>
@@ -198,9 +216,10 @@ export default function ReportCard({
             )}
 
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              তৈরি:{" "}
+              {tr("Created", "তৈরি")}:{" "}
               <span suppressHydrationWarning>{new Date(report.created_at).toLocaleString("en-GB")}</span> ·{" "}
-              {report.model} · AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।
+              {report.model} ·{" "}
+              {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}
             </p>
           </div>
         )}

@@ -11,6 +11,7 @@ export type StoredAlert = {
   severity: Severity;
   title: string;
   message: string;
+  data: Record<string, number | null> | null;
   alert_date: string;
 };
 
@@ -58,7 +59,7 @@ export async function evaluateAndStoreAlerts(
     })),
     { onConflict: "user_id,ad_account_id,campaign_id,type,alert_date", ignoreDuplicates: true },
   );
-  if (error) throw new Error(`অ্যালার্ট সংরক্ষণ ব্যর্থ: ${error.message}`);
+  if (error) throw new Error(`Saving alerts failed: ${error.message}`);
   return found.length;
 }
 
@@ -71,7 +72,7 @@ export async function getActiveAlerts(
 ): Promise<StoredAlert[]> {
   const { data } = await supabase
     .from("alerts")
-    .select("id, campaign_name, type, severity, title, message, alert_date")
+    .select("id, campaign_name, type, severity, title, message, data, alert_date")
     .eq("user_id", userId)
     .eq("ad_account_id", accountId)
     .is("dismissed_at", null)

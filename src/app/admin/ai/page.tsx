@@ -5,6 +5,7 @@ import { decrypt } from "@/lib/crypto";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { AI_PROVIDERS, AI_PROVIDER_IDS, isAiProvider } from "@/lib/ai/providers";
 import AppShell from "@/components/AppShell";
+import { getTr } from "@/lib/i18n-server";
 import {
   Badge,
   Card,
@@ -17,17 +18,7 @@ import {
 import { activateProvider, removeProviderKey, saveProviderConfig } from "./actions";
 import TestButton from "./TestButton";
 
-export const metadata = { title: "সুপার অ্যাডমিন" };
-
-const STATUS: Record<string, { text: string; tone: "success" | "warning" | "danger" | "info" }> = {
-  saved: { text: "সংরক্ষণ হয়েছে।", tone: "success" },
-  activated: { text: "চালু করা হয়েছে। এখন থেকে সব AI কাজ এটি দিয়ে হবে।", tone: "success" },
-  removed: { text: "কী মুছে ফেলা হয়েছে।", tone: "info" },
-  no_key: { text: "আগে API key সংরক্ষণ করো, তারপর চালু করো।", tone: "warning" },
-  bad_model: { text: "মডেলের নাম সঠিক নয়।", tone: "danger" },
-  bad_key: { text: "API key অস্বাভাবিক লম্বা।", tone: "danger" },
-  error: { text: "সংরক্ষণ করা যায়নি। আবার চেষ্টা করো।", tone: "danger" },
-};
+export const metadata = { title: "Super admin" };
 
 // কী-এর শেষ ৪ অক্ষর, যাতে কোন কী বসানো আছে চেনা যায়
 function keyTail(encrypted: string | null) {
@@ -42,6 +33,16 @@ function keyTail(encrypted: string | null) {
 type Props = { searchParams: Promise<{ status?: string; provider?: string }> };
 
 export default async function AdminAiPage({ searchParams }: Props) {
+  const tr = await getTr();
+  const STATUS: Record<string, { text: string; tone: "success" | "warning" | "danger" | "info" }> = {
+    saved: { text: tr("Saved.", "সংরক্ষণ হয়েছে।"), tone: "success" },
+    activated: { text: tr("Activated. All AI work now runs on this provider.", "চালু করা হয়েছে। এখন থেকে সব AI কাজ এটি দিয়ে হবে।"), tone: "success" },
+    removed: { text: tr("Key removed.", "কী মুছে ফেলা হয়েছে।"), tone: "info" },
+    no_key: { text: tr("Save an API key first, then activate.", "আগে API key সংরক্ষণ করো, তারপর চালু করো।"), tone: "warning" },
+    bad_model: { text: tr("That model name is not valid.", "মডেলের নাম সঠিক নয়।"), tone: "danger" },
+    bad_key: { text: tr("That API key is unusually long.", "API key অস্বাভাবিক লম্বা।"), tone: "danger" },
+    error: { text: tr("Could not save. Please try again.", "সংরক্ষণ করা যায়নি। আবার চেষ্টা করো।"), tone: "danger" },
+  };
   const params = await searchParams;
   const supabase = await createClient();
   const {
@@ -68,12 +69,12 @@ export default async function AdminAiPage({ searchParams }: Props) {
   return (
     <AppShell active="admin">
       <PageHeader
-        title="AI প্রোভাইডার"
-        description="যে প্রোভাইডার চালু থাকবে, অ্যাপের সব AI কাজ (সারসংক্ষেপ, সুপারিশ) সেটি দিয়েই হবে। কী এনক্রিপ্ট করে রাখা হয়, ব্রাউজারে কখনো পাঠানো হয় না।"
+        title={tr("AI provider", "AI প্রোভাইডার")}
+        description={tr("Whichever provider is active handles all AI work in the app (summaries, reports). Keys are stored encrypted and never sent to the browser.", "যে প্রোভাইডার চালু থাকবে, অ্যাপের সব AI কাজ (সারসংক্ষেপ, সুপারিশ) সেটি দিয়েই হবে। কী এনক্রিপ্ট করে রাখা হয়, ব্রাউজারে কখনো পাঠানো হয় না।")}
         actions={
           <Badge tone={active ? "success" : "warning"}>
             <Bot className="size-3.5" aria-hidden />
-            {active ? `চালু: ${AI_PROVIDERS[active].label}` : "কোনো প্রোভাইডার চালু নেই"}
+            {active ? tr(`Active: ${AI_PROVIDERS[active].label}`, `চালু: ${AI_PROVIDERS[active].label}`) : tr("No provider active", "কোনো প্রোভাইডার চালু নেই")}
           </Badge>
         }
       />
@@ -105,18 +106,18 @@ export default async function AdminAiPage({ searchParams }: Props) {
                   {meta.label}
                 </h2>
                 {isActive ? (
-                  <Badge tone="success">চালু</Badge>
+                  <Badge tone="success">{tr("Active", "চালু")}</Badge>
                 ) : tail ? (
-                  <Badge tone="brand">কী সেট আছে</Badge>
+                  <Badge tone="brand">{tr("Key set", "কী সেট আছে")}</Badge>
                 ) : (
-                  <Badge>সেট নেই</Badge>
+                  <Badge>{tr("Not set", "সেট নেই")}</Badge>
                 )}
               </div>
 
               <div className="flex flex-1 flex-col gap-4 px-5 py-5">
                 <p className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <KeyRound className="size-3.5" aria-hidden />
-                  {tail ? `বর্তমান কী …${tail}` : "কী বসানো নেই"} · কোথায় পাবে: {meta.keyHint}
+                  {tail ? tr(`Current key …${tail}`, `বর্তমান কী …${tail}`) : tr("No key", "কী বসানো নেই")} · {tr("Get one at", "কোথায় পাবে")}: {meta.keyHint}
                 </p>
 
                 <form action={saveProviderConfig} className="flex flex-col gap-3">
@@ -127,12 +128,12 @@ export default async function AdminAiPage({ searchParams }: Props) {
                       name="apiKey"
                       type="password"
                       autoComplete="off"
-                      placeholder={tail ? "নতুন কী দিলে আগেরটি বদলাবে" : "কী বসাও"}
+                      placeholder={tail ? tr("A new key replaces the old one", "নতুন কী দিলে আগেরটি বদলাবে") : tr("Paste key", "কী বসাও")}
                       className={inputClass}
                     />
                   </label>
                   <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">মডেল</span>
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Model", "মডেল")}</span>
                     <input
                       name="model"
                       defaultValue={cfg?.model ?? ""}
@@ -140,11 +141,11 @@ export default async function AdminAiPage({ searchParams }: Props) {
                       className={cn(inputClass, "font-mono")}
                     />
                     <span className="text-xs text-zinc-400">
-                      খালি রাখলে {meta.defaultModel} · {meta.modelHint}
+                      {tr("Leave empty for", "খালি রাখলে")} {meta.defaultModel} · {meta.modelHint}
                     </span>
                   </label>
                   <button type="submit" className={buttonClass("secondary", "w-fit")}>
-                    সংরক্ষণ করো
+                    {tr("Save", "সংরক্ষণ করো")}
                   </button>
                 </form>
 
@@ -156,14 +157,14 @@ export default async function AdminAiPage({ searchParams }: Props) {
                         <form action={activateProvider}>
                           <input type="hidden" name="provider" value={id} />
                           <button type="submit" className={buttonClass("primary")}>
-                            এটি চালু করো
+                            {tr("Activate", "এটি চালু করো")}
                           </button>
                         </form>
                       )}
                       <form action={removeProviderKey}>
                         <input type="hidden" name="provider" value={id} />
                         <button type="submit" className={buttonClass("danger")}>
-                          কী মুছে দাও
+                          {tr("Remove key", "কী মুছে দাও")}
                         </button>
                       </form>
                     </div>

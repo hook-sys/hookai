@@ -5,7 +5,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 function getKey(): Buffer {
   const hex = process.env.META_TOKEN_ENCRYPTION_KEY;
   if (!hex || hex.length !== 64) {
-    throw new Error("META_TOKEN_ENCRYPTION_KEY সঠিকভাবে সেট করা নেই");
+    throw new Error("META_TOKEN_ENCRYPTION_KEY is not set correctly");
   }
   return Buffer.from(hex, "hex");
 }

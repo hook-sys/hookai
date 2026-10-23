@@ -115,13 +115,13 @@ export async function testProvider(
     const cfg = await getProviderConfig(supabase, provider);
     const text = await generateText(cfg, {
       system: "You are a connectivity check. Answer in one short sentence.",
-      prompt: "বাংলায় এক বাক্যে বলো যে তুমি কাজ করছ।",
+      prompt: "Say in one sentence that you are working.",
       maxTokens: 1000,
     });
     return { ok: true, message: `${cfg.model}: ${text.trim().slice(0, 300)}` };
   } catch (err) {
     if (err instanceof AiError) return { ok: false, message: err.message };
     console.error("ai test failed", err instanceof Error ? err.message : err);
-    return { ok: false, message: "পরীক্ষা ব্যর্থ হয়েছে। সার্ভার লগ দেখো।" };
+    return { ok: false, message: "Test failed. Check the server logs." };
   }
 }

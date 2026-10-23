@@ -3,15 +3,16 @@ import type { Metadata } from "next";
 import { Newspaper } from "lucide-react";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatPostDate, listPublishedPosts } from "@/lib/blog";
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { Backdrop, SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { getTr } from "@/lib/i18n-server";
 import { cn } from "@/components/ui";
 
 // শিডিউল করা পোস্ট সময়মতো দেখাতে ৫ মিনিট পর পর নতুন করে তৈরি হয়
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "ব্লগ: Meta Ads টিপস বাংলায়",
-  description: "Facebook ও Instagram বিজ্ঞাপন, Pixel, budget, creative নিয়ে প্রতিদিনের বাংলা টিপস ও গাইড।",
+  title: "Blog: Meta Ads tips",
+  description: "Practical tips and guides on Facebook and Instagram ads, Pixel, budgets and creative.",
   alternates: { canonical: "/blog" },
 };
 
@@ -19,6 +20,7 @@ type Props = { searchParams: Promise<{ cat?: string }> };
 
 export default async function BlogIndexPage({ searchParams }: Props) {
   const { cat } = await searchParams;
+  const tr = await getTr();
   const supabase = createPublicClient();
   const all = await listPublishedPosts(supabase);
   const categories = [...new Set(all.map((p) => p.category).filter(Boolean) as string[])].sort();
@@ -26,22 +28,23 @@ export default async function BlogIndexPage({ searchParams }: Props) {
   const [featured, ...rest] = posts;
 
   return (
-    <div className="bg-white dark:bg-zinc-950">
+    <div className="relative isolate min-h-screen">
+      <Backdrop />
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <div className="mb-10 max-w-2xl">
-          <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">ব্লগ</p>
+          <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{tr("Blog", "ব্লগ")}</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Meta Ads টিপস, সহজ বাংলায়
+            {tr("Meta Ads tips, in plain words", "Meta Ads টিপস, সহজ বাংলায়")}
           </h1>
           <p className="mt-3 text-zinc-600 dark:text-zinc-400">
-            Pixel, budget, creative আর campaign নিয়ে প্রতিদিন নতুন লেখা।
+            {tr("New posts on Pixel, budgets, creative and campaigns.", "Pixel, budget, creative আর campaign নিয়ে প্রতিদিন নতুন লেখা।")}
           </p>
         </div>
 
         {categories.length > 0 && (
-          <nav aria-label="ক্যাটাগরি" className="mb-8 flex flex-wrap gap-2">
-            {[{ label: "সব", href: "/blog", active: !cat }, ...categories.map((c) => ({ label: c, href: `/blog?cat=${encodeURIComponent(c)}`, active: c === cat }))].map(
+          <nav aria-label={tr("Categories", "ক্যাটাগরি")} className="mb-8 flex flex-wrap gap-2">
+            {[{ label: tr("All", "সব"), href: "/blog", active: !cat }, ...categories.map((c) => ({ label: c, href: `/blog?cat=${encodeURIComponent(c)}`, active: c === cat }))].map(
               (c) => (
                 <Link
                   key={c.href}
@@ -51,7 +54,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
                     "rounded-full border px-3 py-1 text-sm",
                     c.active
                       ? "border-indigo-600 bg-indigo-600 text-white"
-                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:text-zinc-400",
+                      : "glass border-white/60 text-zinc-600 hover:text-zinc-900 dark:text-zinc-300",
                   )}
                 >
                   {c.label}
@@ -62,16 +65,16 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         )}
 
         {!featured ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 px-6 py-16 text-center dark:border-zinc-700">
+          <div className="glass rounded-3xl px-6 py-16 text-center">
             <Newspaper className="mx-auto size-8 text-zinc-400" aria-hidden />
-            <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-50">শীঘ্রই প্রথম লেখা আসছে</p>
-            <p className="mt-1 text-sm text-zinc-500">প্রতিদিন Meta Ads নিয়ে নতুন টিপস থাকবে।</p>
+            <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-50">{tr("The first post is on its way", "শীঘ্রই প্রথম লেখা আসছে")}</p>
+            <p className="mt-1 text-sm text-zinc-500">{tr("Fresh Meta Ads tips, regularly.", "প্রতিদিন Meta Ads নিয়ে নতুন টিপস থাকবে।")}</p>
           </div>
         ) : (
           <>
             <Link
               href={`/blog/${featured.slug}`}
-              className="group mb-10 grid overflow-hidden rounded-3xl border border-zinc-200 md:grid-cols-2 dark:border-zinc-800"
+              className="glass group mb-10 grid overflow-hidden rounded-3xl md:grid-cols-2"
             >
               {featured.cover_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -96,7 +99,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
                 <Link
                   key={p.id}
                   href={`/blog/${p.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 transition-shadow hover:shadow-md dark:border-zinc-800"
+                  className="glass group flex flex-col overflow-hidden rounded-2xl transition-transform hover:-translate-y-0.5"
                 >
                   {p.cover_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element

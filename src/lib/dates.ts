@@ -1,3 +1,5 @@
+import { enTr, type Tr } from "@/lib/i18n";
+
 // তারিখের হিসাব। সব তারিখ "YYYY-MM-DD" স্ট্রিং, Ad Account-এর টাইমজোনে।
 // Meta-ও একইভাবে দিন গোনে, তাই আমাদের "আজ" আর Meta-র "আজ" মিলে যায়।
 
@@ -57,17 +59,22 @@ function monthStart(date: string) {
 }
 
 export const PRESETS = [
-  { id: "today", label: "আজ" },
-  { id: "yesterday", label: "গতকাল" },
-  { id: "last_7d", label: "গত ৭ দিন" },
-  { id: "last_14d", label: "গত ১৪ দিন" },
-  { id: "last_30d", label: "গত ৩০ দিন" },
-  { id: "this_month", label: "এই মাস" },
-  { id: "last_month", label: "গত মাস" },
-  { id: "maximum", label: "সর্বোচ্চ" },
+  { id: "today", en: "Today", bn: "আজ" },
+  { id: "yesterday", en: "Yesterday", bn: "গতকাল" },
+  { id: "last_7d", en: "Last 7 days", bn: "গত ৭ দিন" },
+  { id: "last_14d", en: "Last 14 days", bn: "গত ১৪ দিন" },
+  { id: "last_30d", en: "Last 30 days", bn: "গত ৩০ দিন" },
+  { id: "this_month", en: "This month", bn: "এই মাস" },
+  { id: "last_month", en: "Last month", bn: "গত মাস" },
+  { id: "maximum", en: "Maximum", bn: "সর্বোচ্চ" },
 ] as const;
 
 export type PresetId = (typeof PRESETS)[number]["id"];
+
+export function presetLabel(id: PresetId, tr: Tr = enTr) {
+  const p = PRESETS.find((x) => x.id === id)!;
+  return tr(p.en, p.bn);
+}
 
 export type DateRange = {
   preset: PresetId | "custom";
@@ -109,6 +116,7 @@ function presetDates(id: PresetId, today: string): { since: string; until: strin
 export function resolveRange(
   params: { preset?: string; since?: string; until?: string },
   today: string,
+  tr: Tr = enTr,
 ): DateRange {
   const min = minAllowedDate(today);
 
@@ -117,13 +125,12 @@ export function resolveRange(
     let until = params.until > today ? today : params.until;
     if (since > until) [since, until] = [until, since];
     if (since >= min && until <= today) {
-      return { preset: "custom", since, until, label: "কাস্টম" };
+      return { preset: "custom", since, until, label: tr("Custom", "কাস্টম") };
     }
   }
 
   const id: PresetId = isPreset(params.preset) ? params.preset : "last_7d";
-  const label = PRESETS.find((p) => p.id === id)!.label;
-  return { preset: id, ...presetDates(id, today), label };
+  return { preset: id, ...presetDates(id, today), label: presetLabel(id, tr) };
 }
 
 // তুলনার জন্য ঠিক আগের সমান দৈর্ঘ্যের সময়
