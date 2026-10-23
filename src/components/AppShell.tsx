@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   LogOut,
+  Newspaper,
   Settings,
   ShieldCheck,
   type LucideIcon,
@@ -12,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { Logo, cn } from "@/components/ui";
 
-type Section = "dashboard" | "settings" | "admin";
+type Section = "dashboard" | "settings" | "admin" | "admin-blog";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon };
 
@@ -21,12 +22,10 @@ const NAV: NavItem[] = [
   { id: "settings", href: "/settings", label: "সেটিংস", icon: Settings },
 ];
 
-const ADMIN_NAV: NavItem = {
-  id: "admin",
-  href: "/admin/ai",
-  label: "সুপার অ্যাডমিন",
-  icon: ShieldCheck,
-};
+const ADMIN_NAV: NavItem[] = [
+  { id: "admin", href: "/admin/ai", label: "AI প্রোভাইডার", icon: ShieldCheck },
+  { id: "admin-blog", href: "/admin/blog", label: "ব্লগ", icon: Newspaper },
+];
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
@@ -79,7 +78,7 @@ export default async function AppShell({
   ] = await Promise.all([supabase.auth.getUser(), isCurrentUserAdmin(supabase)]);
 
   // অ্যাডমিন লিংক শুধু অ্যাডমিনকে দেখায়; আসল সুরক্ষা পেজ ও action-এর ভেতরে
-  const items = isAdmin ? [...NAV, ADMIN_NAV] : NAV;
+  const items = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
 
   return (
     <div className="min-h-screen lg:flex">

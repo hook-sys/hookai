@@ -1,0 +1,124 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { Newspaper } from "lucide-react";
+import { createPublicClient } from "@/lib/supabase/public";
+import { formatPostDate, listPublishedPosts } from "@/lib/blog";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { cn } from "@/components/ui";
+
+// শিডিউল করা পোস্ট সময়মতো দেখাতে ৫ মিনিট পর পর নতুন করে তৈরি হয়
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "ব্লগ: Meta Ads টিপস বাংলায়",
+  description: "Facebook ও Instagram বিজ্ঞাপন, Pixel, budget, creative নিয়ে প্রতিদিনের বাংলা টিপস ও গাইড।",
+  alternates: { canonical: "/blog" },
+};
+
+type Props = { searchParams: Promise<{ cat?: string }> };
+
+export default async function BlogIndexPage({ searchParams }: Props) {
+  const { cat } = await searchParams;
+  const supabase = createPublicClient();
+  const all = await listPublishedPosts(supabase);
+  const categories = [...new Set(all.map((p) => p.category).filter(Boolean) as string[])].sort();
+  const posts = cat ? all.filter((p) => p.category === cat) : all;
+  const [featured, ...rest] = posts;
+
+  return (
+    <div className="bg-white dark:bg-zinc-950">
+      <SiteHeader />
+      <main className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <div className="mb-10 max-w-2xl">
+          <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">ব্লগ</p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Meta Ads টিপস, সহজ বাংলায়
+          </h1>
+          <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+            Pixel, budget, creative আর campaign নিয়ে প্রতিদিন নতুন লেখা।
+          </p>
+        </div>
+
+        {categories.length > 0 && (
+          <nav aria-label="ক্যাটাগরি" className="mb-8 flex flex-wrap gap-2">
+            {[{ label: "সব", href: "/blog", active: !cat }, ...categories.map((c) => ({ label: c, href: `/blog?cat=${encodeURIComponent(c)}`, active: c === cat }))].map(
+              (c) => (
+                <Link
+                  key={c.href}
+                  href={c.href}
+                  aria-current={c.active ? "page" : undefined}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm",
+                    c.active
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:text-zinc-400",
+                  )}
+                >
+                  {c.label}
+                </Link>
+              ),
+            )}
+          </nav>
+        )}
+
+        {!featured ? (
+          <div className="rounded-2xl border border-dashed border-zinc-300 px-6 py-16 text-center dark:border-zinc-700">
+            <Newspaper className="mx-auto size-8 text-zinc-400" aria-hidden />
+            <p className="mt-3 font-medium text-zinc-900 dark:text-zinc-50">শীঘ্রই প্রথম লেখা আসছে</p>
+            <p className="mt-1 text-sm text-zinc-500">প্রতিদিন Meta Ads নিয়ে নতুন টিপস থাকবে।</p>
+          </div>
+        ) : (
+          <>
+            <Link
+              href={`/blog/${featured.slug}`}
+              className="group mb-10 grid overflow-hidden rounded-3xl border border-zinc-200 md:grid-cols-2 dark:border-zinc-800"
+            >
+              {featured.cover_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={featured.cover_image_url} alt="" className="aspect-[1.91/1] h-full w-full object-cover" />
+              ) : (
+                <div className="aspect-[1.91/1] bg-gradient-to-br from-indigo-500 to-violet-700" />
+              )}
+              <div className="flex flex-col justify-center p-6 sm:p-8">
+                {featured.category && (
+                  <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">{featured.category}</p>
+                )}
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900 group-hover:text-indigo-600 sm:text-3xl dark:text-zinc-50 dark:group-hover:text-indigo-400">
+                  {featured.title}
+                </h2>
+                {featured.excerpt && <p className="mt-3 text-zinc-600 dark:text-zinc-400">{featured.excerpt}</p>}
+                <p className="mt-4 text-sm text-zinc-400">{formatPostDate(featured.published_at)}</p>
+              </div>
+            </Link>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {rest.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/blog/${p.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 transition-shadow hover:shadow-md dark:border-zinc-800"
+                >
+                  {p.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.cover_image_url} alt="" loading="lazy" className="aspect-[1.91/1] w-full object-cover" />
+                  ) : (
+                    <div className="aspect-[1.91/1] bg-gradient-to-br from-indigo-400 to-violet-600" />
+                  )}
+                  <div className="flex flex-1 flex-col p-5">
+                    {p.category && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{p.category}</p>}
+                    <h2 className="mt-1 font-semibold text-zinc-900 group-hover:text-indigo-600 dark:text-zinc-50 dark:group-hover:text-indigo-400">
+                      {p.title}
+                    </h2>
+                    {p.excerpt && <p className="mt-2 line-clamp-3 text-sm text-zinc-600 dark:text-zinc-400">{p.excerpt}</p>}
+                    <p className="mt-auto pt-4 text-xs text-zinc-400">{formatPostDate(p.published_at)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}

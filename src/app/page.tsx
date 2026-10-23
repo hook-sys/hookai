@@ -17,7 +17,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Logo, LogoMark, buttonClass, cn } from "@/components/ui";
+import { LogoMark, buttonClass, cn } from "@/components/ui";
+import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 
 // লগইনের আগের পেজ। ভাষা বাংলা, বিজ্ঞাপনের শব্দগুলো (ROAS, Pixel ইত্যাদি) ইংরেজিতে, মানুষ যেভাবে বলে।
 
@@ -179,29 +180,7 @@ export default async function LandingPage() {
 
   return (
     <div className="bg-white dark:bg-zinc-950">
-      <header className="sticky top-0 z-20 border-b border-zinc-100 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href="/" aria-label="Hook AI হোম">
-            <Logo />
-          </Link>
-          <nav aria-label="পেজের অংশ" className="hidden items-center gap-6 text-sm text-zinc-600 md:flex dark:text-zinc-400">
-            <a href="#features" className="hover:text-zinc-900 dark:hover:text-zinc-100">Features</a>
-            <a href="#how" className="hover:text-zinc-900 dark:hover:text-zinc-100">কীভাবে কাজ করে</a>
-            <a href="#pricing" className="hover:text-zinc-900 dark:hover:text-zinc-100">Pricing</a>
-            <a href="#faq" className="hover:text-zinc-900 dark:hover:text-zinc-100">FAQ</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            {!user && (
-              <Link href="/login" className={buttonClass("ghost", "hidden sm:inline-flex")}>
-                Login
-              </Link>
-            )}
-            <Link href={primaryHref} className={buttonClass("primary")}>
-              {primaryLabel}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader loggedIn={Boolean(user)} />
 
       <main>
         {/* হিরো */}
@@ -422,12 +401,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-zinc-100 py-10 dark:border-zinc-900">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-zinc-500 sm:flex-row sm:px-6">
-          <Logo />
-          <p>© {new Date().getFullYear()} Hook AI · Meta Ads-এর জন্য AI Agent</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

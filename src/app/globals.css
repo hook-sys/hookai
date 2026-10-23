@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* ব্লগের লেখার জন্য সুন্দর টাইপোগ্রাফি (prose ক্লাস) */
+@plugin "@tailwindcss/typography";
 
 @theme {
   /* Inter-এ বাংলা অক্ষর নেই, তাই বাংলা অক্ষর আপনাআপনি Hind Siliguri থেকে আসে */

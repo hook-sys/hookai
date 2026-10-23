@@ -14,6 +14,8 @@ const bengali = Hind_Siliguri({
 });
 
 export const metadata: Metadata = {
+  // শেয়ারের লিংক ও ছবির পূর্ণ ঠিকানা তৈরিতে লাগে
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: {
     default: "Hook AI · Meta Ads Agent",
     template: "%s · Hook AI",
