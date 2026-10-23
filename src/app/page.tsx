@@ -12,17 +12,11 @@ import { getTr } from "@/lib/i18n-server";
 // The public landing page. One promise, the real product on screen, honest proof,
 // and the same call to action at every natural stopping point.
 
-function Label({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
-  return (
-    <p className={cn("text-sm font-semibold", dark ? "text-[#8fa8e6]" : "text-[#3157B0] dark:text-[#8fa8e6]")}>{children}</p>
-  );
-}
-
 function H2({ children, dark = false, className }: { children: ReactNode; dark?: boolean; className?: string }) {
   return (
     <h2
       className={cn(
-        "mt-3 text-3xl leading-[1.12] font-semibold tracking-[-0.03em] sm:text-[2.6rem]",
+        "text-3xl leading-[1.12] font-semibold tracking-[-0.03em] sm:text-[2.6rem]",
         dark ? "text-white" : "text-zinc-950 dark:text-white",
         className,
       )}
@@ -168,8 +162,8 @@ export default async function LandingPage() {
         {/* Hero */}
         <section className="ink overflow-hidden">
           <div className="mx-auto max-w-6xl px-4 pt-16 pb-0 text-center sm:px-6 sm:pt-24">
-            <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
-              <span className="size-1.5 rounded-full bg-emerald-400" aria-hidden />
+            <p className="mx-auto inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.06] px-5 py-2 text-sm font-medium text-zinc-200 sm:text-base">
+              <span className="size-2 rounded-full bg-emerald-400" aria-hidden />
               {tr("For anyone who runs their own Facebook & Instagram ads", "যারা নিজের Facebook ও Instagram বিজ্ঞাপন নিজে চালায়")}
             </p>
             <h1 className="hero-title mx-auto mt-6 max-w-4xl text-[2.6rem] leading-[1.04] font-semibold tracking-[-0.04em] text-white sm:text-6xl lg:text-[4.4rem]">
@@ -222,7 +216,6 @@ export default async function LandingPage() {
         {/* Before / after */}
         <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
           <div className="max-w-2xl">
-            <Label>{tr("Why Hook", "কেন Hook")}</Label>
             <H2>{tr("Ads Manager tells you what happened. Hook tells you what to do.", "Ads Manager বলে কী হয়েছে। Hook বলে এখন কী করতে হবে।")}</H2>
           </div>
           <div className="mt-12 overflow-hidden rounded-2xl border border-zinc-900/10 bg-white dark:border-white/10 dark:bg-[#12151d]">
@@ -249,7 +242,6 @@ export default async function LandingPage() {
         <section id="tour" className="scroll-mt-20 border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="mb-10 max-w-2xl">
-              <Label>{tr("The product", "প্রোডাক্ট")}</Label>
               <H2>{tr("Everything you need to decide, nothing you don't.", "সিদ্ধান্ত নিতে যা দরকার সব, বাড়তি কিছু নয়।")}</H2>
             </div>
             <ProductTour />
@@ -259,7 +251,6 @@ export default async function LandingPage() {
         {/* How it works */}
         <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
           <div className="max-w-2xl">
-            <Label>{tr("How it works", "কীভাবে কাজ করে")}</Label>
             <H2>{tr("From sign-up to your first answer in about two minutes.", "অ্যাকাউন্ট খোলা থেকে প্রথম উত্তর, মোটামুটি দুই মিনিটে।")}</H2>
           </div>
           <ol className="mt-12 grid gap-4 md:grid-cols-3">
@@ -283,7 +274,6 @@ export default async function LandingPage() {
         <section className="border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
-              <Label>{tr("Who it's for", "কাদের জন্য")}</Label>
               <H2>{tr("Built for the people who actually press Publish.", "যারা নিজের হাতে Publish চাপে, তাদের জন্য।")}</H2>
             </div>
             <div className="mt-12 grid gap-4 md:grid-cols-3">
@@ -301,7 +291,6 @@ export default async function LandingPage() {
         {/* Pricing */}
         <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
           <div className="max-w-2xl">
-            <Label>{tr("Pricing", "দাম")}</Label>
             <H2>{tr("Start free. Upgrade when it pays for itself.", "ফ্রি দিয়ে শুরু করো। লাভ দেখলে তবেই প্ল্যান বাড়াও।")}</H2>
             <p className="mt-4 text-zinc-600 dark:text-zinc-400">
               {tr(
@@ -318,7 +307,7 @@ export default async function LandingPage() {
           <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <ShieldCheck className="size-8 text-[#3157B0] dark:text-[#8fa8e6]" aria-hidden />
-              <H2 className="sm:text-3xl">{tr("Your ad account stays yours.", "তোমার Ad Account তোমারই থাকে।")}</H2>
+              <H2 className="mt-4 sm:text-3xl">{tr("Your ad account stays yours.", "তোমার Ad Account তোমারই থাকে।")}</H2>
               <Link href="/privacy" className="mt-4 inline-block text-sm font-medium text-[#3157B0] hover:underline dark:text-[#8fa8e6]">
                 {tr("Read the privacy policy →", "Privacy policy পড়ো →")}
               </Link>
@@ -337,7 +326,6 @@ export default async function LandingPage() {
 
         {/* FAQ */}
         <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-24 sm:px-6">
-          <Label>FAQ</Label>
           <H2>{tr("Questions before you connect", "কানেক্ট করার আগে যা জানতে চাও")}</H2>
           <div className="mt-10 divide-y divide-zinc-900/10 border-y border-zinc-900/10 dark:divide-white/10 dark:border-white/10">
             {faq.map(({ q, a }) => (

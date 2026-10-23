@@ -58,10 +58,10 @@ export function DashboardMock() {
   ];
   const maxS = Math.max(...days.map((d) => d.s));
   const rows = [
-    { n: "Winter Jacket · Broad", r: 64, cpr: 6.1, tone: "good" },
-    { n: "Retargeting · 30d", r: 41, cpr: 7.4, tone: "good" },
-    { n: "Lookalike 1% BD", r: 29, cpr: 11.8, tone: "bad" },
-    { n: "Reels · Creative test", r: 17, cpr: 9.2, tone: "mid" },
+    { n: "Winter Jacket · Broad", r: "1,042", cpr: 0.42, tone: "good" },
+    { n: "Retargeting · 30d", r: "806", cpr: 0.47, tone: "good" },
+    { n: "Lookalike 1% BD", r: "296", cpr: 0.89, tone: "bad" },
+    { n: "Reels · Creative test", r: "374", cpr: 0.61, tone: "mid" },
   ] as const;
 
   return (
@@ -96,8 +96,8 @@ export function DashboardMock() {
 
         <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
           {[
-            { k: "Result", v: "151", d: "+38%", good: true, sub: "Purchase" },
-            { k: "Cost per Result", v: "$8.51", d: "−12%", good: true },
+            { k: "Result", v: "2,518", d: "+38%", good: true, sub: "Purchase" },
+            { k: "Cost per Result", v: "$0.51", d: "−12%", good: true },
             { k: "Reach", v: "50,138", d: "+21%", good: true },
             { k: tr("Amount spent", "খরচ"), v: "$1,284", d: "+9%", good: null },
           ].map((m) => (
@@ -127,8 +127,8 @@ export function DashboardMock() {
             </p>
             <p className="mt-1 text-[11px] leading-snug text-zinc-700">
               {tr(
-                "Purchases up 38% while cost per purchase fell to $8.51. Lookalike 1% costs almost twice the rest: move $15/day to Broad.",
-                "Purchase ৩৮% বেড়েছে, প্রতি Purchase খরচ কমে $8.51। Lookalike 1%-এ খরচ প্রায় দ্বিগুণ: দিনে $15 Broad-এ সরাও।",
+                "Results up 38% while cost per result fell to $0.51. Lookalike 1% costs about twice Broad ($0.89 vs $0.42): move $15/day to Broad.",
+                "Result ৩৮% বেড়েছে, প্রতি Result খরচ কমে $0.51। Lookalike 1%-এ খরচ Broad-এর প্রায় দ্বিগুণ ($0.89 বনাম $0.42): দিনে $15 Broad-এ সরাও।",
               )}
             </p>
           </div>
@@ -178,14 +178,14 @@ export function ReportMock() {
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {[
-          { k: tr("Best age", "সেরা বয়স"), v: "25–34", s: "$6.10" },
-          { k: tr("Best placement", "সেরা প্লেসমেন্ট"), v: "IG Reels", s: "$5.80" },
-          { k: tr("Best hours", "সেরা সময়"), v: "8–11 PM", s: "$6.40" },
+          { k: tr("Best age", "সেরা বয়স"), v: "25–34", s: "$0.38" },
+          { k: tr("Best placement", "সেরা প্লেসমেন্ট"), v: "IG Reels", s: "$0.35" },
+          { k: tr("Best hours", "সেরা সময়"), v: "8–11 PM", s: "$0.40" },
         ].map((x) => (
           <div key={x.k} className="rounded-lg border border-zinc-200 bg-white p-2.5">
             <p className="text-[10px] text-zinc-500">{x.k}</p>
             <p className="mt-0.5 text-sm font-semibold">{x.v}</p>
-            <p className="text-[10px] text-emerald-600">{tr(`${x.s} per purchase`, `প্রতি Purchase ${x.s}`)}</p>
+            <p className="text-[10px] text-emerald-600">{tr(`${x.s} per result`, `প্রতি Result ${x.s}`)}</p>
           </div>
         ))}
       </div>
