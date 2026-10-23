@@ -7,8 +7,14 @@ import { createClient } from "@/lib/supabase/server";
 import { encrypt } from "@/lib/crypto";
 import { getTr } from "@/lib/i18n-server";
 import { getUserPlan } from "@/lib/plans";
-import { SteadfastError, checkSteadfastKeys, syncSteadfast } from "@/lib/couriers/steadfast";
+import { isAuthError, isCourierId } from "@/lib/couriers/common";
+import { COURIER_LABELS, listConnections, sealCredentials, syncCouriers } from "@/lib/couriers";
+import { checkSteadfast } from "@/lib/couriers/steadfast";
+import { loginPathao } from "@/lib/couriers/pathao";
+import { checkCarrybee } from "@/lib/couriers/carrybee";
 import type { OrderFormState } from "./actions";
+
+const CARRYBEE_SETUP_MS = 10 * 60 * 1000;
 
 async function session() {
   const supabase = await createClient();
@@ -19,91 +25,175 @@ async function session() {
   return { supabase, user };
 }
 
-export async function connectSteadfast(_prev: OrderFormState, formData: FormData): Promise<OrderFormState> {
+const field = (formData: FormData, name: string, max = 300) => String(formData.get(name) ?? "").trim().slice(0, max);
+const looksLikeKey = (v: string) => /^[\w.\-=+/]{4,300}$/.test(v);
+
+function webhookSecretFields(secret: string) {
+  return {
+    webhook_token_encrypted: encrypt(secret),
+    webhook_token_hash: createHash("sha256").update(secret).digest("hex"),
+  };
+}
+
+// কুরিয়ারের সাথে মিলিয়ে দেখে তবেই সেভ করে। আগে থেকে সংযোগ থাকলে webhook secret একই থাকে।
+export async function connectCourier(_prev: OrderFormState, formData: FormData): Promise<OrderFormState> {
   const tr = await getTr();
   const { supabase, user } = await session();
+  const courier = formData.get("courier");
+  if (!isCourierId(courier)) return { ok: false, error: tr("Unknown courier.", "অচেনা কুরিয়ার।") };
+  const name = COURIER_LABELS[courier];
+
   const plan = await getUserPlan(supabase, user.id);
   if (!plan.courierSync) {
     return { ok: false, error: tr(`Courier sync isn't included in the ${plan.name} plan.`, `${plan.name} প্ল্যানে কুরিয়ার সংযোগ নেই।`) };
   }
 
-  const apiKey = String(formData.get("api_key") ?? "").trim();
-  const secretKey = String(formData.get("secret_key") ?? "").trim();
-  if (!/^[\w-]{8,200}$/.test(apiKey) || !/^[\w-]{8,200}$/.test(secretKey)) {
-    return { ok: false, error: tr("Paste both the API key and the secret key.", "API key আর Secret key দুটোই বসাও।") };
-  }
-
-  let valid = false;
+  const missing = { ok: false as const, error: tr("Fill in every field.", "সবগুলো ঘর পূরণ করো।") };
+  let credentials: object;
   try {
-    valid = await checkSteadfastKeys({ apiKey, secretKey });
-  } catch (err) {
-    if (!(err instanceof SteadfastError && (err.status === 401 || err.status === 403))) {
-      console.error("steadfast check failed", err instanceof Error ? err.message : err);
-      return { ok: false, error: tr("Couldn't reach Steadfast. Try again in a moment.", "Steadfast-এ পৌঁছানো যায়নি। একটু পরে আবার চেষ্টা করো।") };
+    if (courier === "steadfast") {
+      const c = { apiKey: field(formData, "api_key"), secretKey: field(formData, "secret_key") };
+      if (!looksLikeKey(c.apiKey) || !looksLikeKey(c.secretKey)) return missing;
+      await checkSteadfast(c);
+      credentials = c;
+    } else if (courier === "pathao") {
+      const input = {
+        clientId: field(formData, "client_id"),
+        clientSecret: field(formData, "client_secret"),
+        username: field(formData, "username"),
+        password: String(formData.get("password") ?? ""),
+      };
+      if (!input.clientId || !looksLikeKey(input.clientSecret) || !input.username || !input.password) return missing;
+      // পাসওয়ার্ড শুধু টোকেন নিতে ব্যবহার হয়, কোথাও জমা থাকে না
+      credentials = await loginPathao(input);
+    } else {
+      const c = {
+        clientId: field(formData, "client_id"),
+        clientSecret: field(formData, "client_secret"),
+        clientContext: field(formData, "client_context"),
+      };
+      if (!c.clientId || !looksLikeKey(c.clientSecret) || !c.clientContext) return missing;
+      await checkCarrybee(c);
+      credentials = c;
     }
+  } catch (err) {
+    if (isAuthError(err) || (err instanceof Error && /HTTP 4\d\d/.test(err.message))) {
+      return {
+        ok: false,
+        error: tr(
+          `${name} didn't accept these details. Check them in your ${name} merchant panel.`,
+          `${name} এই তথ্য গ্রহণ করেনি। ${name} মার্চেন্ট প্যানেল থেকে মিলিয়ে দেখো।`,
+        ),
+      };
+    }
+    // Pathao ও CarryBee ভুল তথ্যেও কখনো 500 দেয়, তাই এখানে দুটো কারণই বলা হয়
+    console.error(`${courier} check failed`, err instanceof Error ? err.message : err);
+    return {
+      ok: false,
+      error: tr(
+        `${name} couldn't verify these details. Double-check each field; if they're right, try again in a few minutes.`,
+        `${name} এই তথ্য যাচাই করতে পারেনি। প্রতিটা ঘর মিলিয়ে দেখো; ঠিক থাকলে কয়েক মিনিট পরে আবার চেষ্টা করো।`,
+      ),
+    };
   }
-  if (!valid) return { ok: false, error: tr("Steadfast didn't accept these keys. Check them in your Steadfast panel.", "Steadfast এই key গ্রহণ করেনি। Steadfast প্যানেল থেকে মিলিয়ে দেখো।") };
 
-  // আগে থেকে সংযোগ থাকলে webhook token একই থাকে, যাতে Steadfast-এ বসানো ঠিকানা বদলাতে না হয়
   const { data: existing } = await supabase
     .from("courier_connections")
     .select("id")
     .eq("user_id", user.id)
-    .eq("courier", "steadfast")
+    .eq("courier", courier)
     .maybeSingle();
 
-  const fields = { api_key_encrypted: encrypt(apiKey), secret_key_encrypted: encrypt(secretKey) };
+  const fields = { credentials_encrypted: sealCredentials(credentials) };
   let error;
   if (existing) {
     ({ error } = await supabase.from("courier_connections").update(fields).eq("id", existing.id).eq("user_id", user.id));
   } else {
-    const token = randomBytes(32).toString("hex");
+    // Steadfast ও Pathao-র webhook secret Hook বানায়; CarryBee-র secret CarryBee দেয়, পরে বসানো হয়
+    const secret = courier === "carrybee" ? null : randomBytes(32).toString("hex");
     ({ error } = await supabase.from("courier_connections").insert({
       ...fields,
+      ...(secret ? webhookSecretFields(secret) : {}),
       user_id: user.id,
-      courier: "steadfast",
-      webhook_token_encrypted: encrypt(token),
-      webhook_token_hash: createHash("sha256").update(token).digest("hex"),
+      courier,
     }));
   }
   if (error) {
-    console.error("steadfast save failed", error.message);
+    console.error(`${courier} save failed`, error.message);
     return { ok: false, error: tr("Couldn't save the connection. Try again.", "সংযোগ সেভ করা যায়নি। আবার চেষ্টা করো।") };
   }
   revalidatePath("/orders");
-  return { ok: true, message: tr("Steadfast connected.", "Steadfast কানেক্ট হয়েছে।") };
+  return { ok: true, message: tr(`${name} connected.`, `${name} কানেক্ট হয়েছে।`) };
 }
 
-export async function disconnectSteadfast() {
+// CarryBee-র Webhook Integration পাতায় দেখানো secret Hook-এ বসানো
+export async function saveCarrybeeSecret(_prev: OrderFormState, formData: FormData): Promise<OrderFormState> {
+  const tr = await getTr();
   const { supabase, user } = await session();
-  await supabase.from("courier_connections").delete().eq("user_id", user.id).eq("courier", "steadfast");
+  const secret = field(formData, "webhook_secret", 200);
+  if (!/^[\w-]{8,200}$/.test(secret)) {
+    return { ok: false, error: tr("Paste the integration secret CarryBee shows.", "CarryBee-র দেখানো integration secret বসাও।") };
+  }
+  const { error } = await supabase
+    .from("courier_connections")
+    .update({ ...webhookSecretFields(secret), webhook_setup_until: new Date(Date.now() + CARRYBEE_SETUP_MS).toISOString() })
+    .eq("user_id", user.id)
+    .eq("courier", "carrybee");
+  if (error) return { ok: false, error: tr("Couldn't save. Try again.", "সেভ করা যায়নি। আবার চেষ্টা করো।") };
   revalidatePath("/orders");
-  redirect("/orders?courier=disconnected#courier");
+  return {
+    ok: true,
+    message: tr(
+      "Saved. Now press Add Webhook in CarryBee within 10 minutes.",
+      "সেভ হয়েছে। এখন ১০ মিনিটের মধ্যে CarryBee-তে Add Webhook চাপো।",
+    ),
+  };
 }
 
-export async function syncSteadfastNow(formData: FormData) {
+// CarryBee-র webhook যোগ করার পরীক্ষার জন্য আবার ১০ মিনিট সময় খোলা
+export async function openCarrybeeSetup() {
+  const { supabase, user } = await session();
+  await supabase
+    .from("courier_connections")
+    .update({ webhook_setup_until: new Date(Date.now() + CARRYBEE_SETUP_MS).toISOString() })
+    .eq("user_id", user.id)
+    .eq("courier", "carrybee")
+    .not("webhook_token_hash", "is", null);
+  revalidatePath("/orders");
+  redirect("/orders?courier=setup#couriers");
+}
+
+export async function disconnectCourier(formData: FormData) {
+  const courier = formData.get("courier");
+  const { supabase, user } = await session();
+  if (isCourierId(courier)) {
+    await supabase.from("courier_connections").delete().eq("user_id", user.id).eq("courier", courier);
+  }
+  revalidatePath("/orders");
+  redirect(`/orders?courier=disconnected&which=${isCourierId(courier) ? courier : ""}#couriers`);
+}
+
+export async function syncCouriersNow(formData: FormData) {
   const { supabase, user } = await session();
   const back = String(formData.get("back") ?? "/orders");
   const safeBack = back.startsWith("/orders") ? back.split("#")[0] : "/orders";
   const join = safeBack.includes("?") ? "&" : "?";
 
   const plan = await getUserPlan(supabase, user.id);
-  const { data: connection } = await supabase
-    .from("courier_connections")
-    .select("id, api_key_encrypted, secret_key_encrypted")
-    .eq("user_id", user.id)
-    .eq("courier", "steadfast")
-    .maybeSingle();
-  if (!connection || !plan.courierSync) redirect(`${safeBack}${join}courier=missing#courier`);
+  const connections = await listConnections(supabase, user.id);
+  if (connections.length === 0 || !plan.courierSync) redirect(`${safeBack}${join}courier=missing#couriers`);
 
   let query: string;
   try {
-    const r = await syncSteadfast(supabase, user.id, connection);
+    const r = await syncCouriers(supabase, user.id, connections);
     query = `courier=synced&checked=${r.checked}&updated=${r.updated}`;
+    if (r.rejected.length) query += `&rejected=${r.rejected.join(",")}`;
+    else if (r.failed > 0 && r.updated === 0) query = "courier=error";
   } catch (err) {
-    console.error("steadfast sync failed", err instanceof Error ? err.message : err);
-    query = err instanceof SteadfastError && err.status === 401 ? "courier=badkeys" : "courier=error";
+    console.error("courier sync failed", err instanceof Error ? err.message : err);
+    query = "courier=error";
   }
   revalidatePath("/orders");
-  redirect(`${safeBack}${join}${query}#courier`);
+  redirect(`${safeBack}${join}${query}#couriers`);
 }
+

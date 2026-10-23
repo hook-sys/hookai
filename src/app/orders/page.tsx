@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Link2, Link2Off, PackageCheck, Plus, RefreshCw, Trash2, Truck, Upload } from "lucide-react";
+import { Link2, Link2Off, PackageCheck, Plus, Trash2, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { ensureCoverage } from "@/lib/insights/sync";
+import { listConnections } from "@/lib/couriers";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { addDays, formatRange, resolveRange, todayIn } from "@/lib/dates";
@@ -22,9 +23,9 @@ import {
 import AppShell from "@/components/AppShell";
 import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass, cn } from "@/components/ui";
 import DateRangePicker from "@/app/dashboard/DateRangePicker";
-import { AddOrderForm, CopyText, ImportOrdersForm, StatusSelect, SteadfastConnectForm } from "./OrderForms";
+import { AddOrderForm, CopyText, ImportOrdersForm, StatusSelect } from "./OrderForms";
+import CourierSection from "./CourierSection";
 import { deleteOrder } from "./actions";
-import { disconnectSteadfast, syncSteadfastNow } from "./courier-actions";
 
 export async function generateMetadata() {
   return { title: makeTr(await getLocale())("Orders", "অর্ডার") };
@@ -39,6 +40,8 @@ type Props = {
     courier?: string;
     checked?: string;
     updated?: string;
+    rejected?: string;
+    which?: string;
   }>;
 };
 
@@ -52,7 +55,6 @@ const STATUS_TONES: Record<OrderStatus, "neutral" | "success" | "warning" | "dan
 };
 
 const ORDER_LIST_LIMIT = 200;
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hook.com.bd").replace(/\/$/, "");
 
 // কোন ক্যাম্পেইন থেকে কয়টা অর্ডার এসেছে, কয়টা কনফার্ম, ডেলিভারি বা ক্যানসেল হলো
 export default async function OrdersPage({ searchParams }: Props) {
@@ -129,26 +131,11 @@ export default async function OrdersPage({ searchParams }: Props) {
     }
   }
 
-  const [orders, campaigns, { data: steadfast }] = await Promise.all([
+  const [orders, campaigns, connections] = await Promise.all([
     loadOrders(supabase, user.id, accountId, { since, until }),
     knownCampaigns(supabase, user.id, accountId),
-    supabase
-      .from("courier_connections")
-      .select("id, webhook_token_encrypted, last_synced_at, last_webhook_at")
-      .eq("user_id", user.id)
-      .eq("courier", "steadfast")
-      .maybeSingle(),
+    listConnections(supabase, user.id),
   ]);
-  const courierNotice = courierMessage(params, tr);
-  let webhookToken: string | null = null;
-  try {
-    webhookToken = steadfast ? decrypt(steadfast.webhook_token_encrypted) : null;
-  } catch {
-    console.error("steadfast webhook token unreadable");
-  }
-  const webhookUrl = steadfast ? `${SITE_URL}/api/webhooks/steadfast/${steadfast.id}` : null;
-  const dhaka = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" }) : tr("never", "এখনো হয়নি");
   const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, tr);
 
   const filter = params.campaign;
@@ -306,89 +293,13 @@ export default async function OrdersPage({ searchParams }: Props) {
         </Card>
       </div>
 
-      <div id="courier" className="mb-6 scroll-mt-6">
-        <Card>
-          <CardHeader
-            icon={Truck}
-            title={tr("Steadfast courier", "Steadfast কুরিয়ার")}
-            description={tr(
-              "Delivery, return and in-transit status comes straight from Steadfast. Orders are matched by the tracking or consignment ID, or by order number = Steadfast invoice.",
-              "ডেলিভারি, রিটার্ন আর কুরিয়ারে থাকার খবর সরাসরি Steadfast থেকে আসে। অর্ডার মেলে ট্র্যাকিং বা কনসাইনমেন্ট ID দিয়ে, অথবা অর্ডার নম্বর = Steadfast invoice হলে।",
-            )}
-            action={steadfast ? <Badge tone="success">{tr("Connected", "কানেক্টেড")}</Badge> : undefined}
-          />
-          <div className="flex flex-col gap-4 p-5 text-sm text-zinc-600 dark:text-zinc-400">
-            {courierNotice && <Notice tone={courierNotice.tone}>{courierNotice.text}</Notice>}
-            {!plan.courierSync ? (
-              <p>
-                {tr(
-                  `Courier sync is part of the Pro Marketer and Agency plans. You're on ${plan.name}.`,
-                  `কুরিয়ার সংযোগ Pro Marketer আর Agency প্ল্যানে আছে। তুমি এখন ${plan.name} প্ল্যানে।`,
-                )}{" "}
-                <Link href="/settings#plan" className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">
-                  {tr("See plans", "প্ল্যান দেখো")}
-                </Link>
-              </p>
-            ) : steadfast && webhookUrl ? (
-              <>
-                <div className="flex flex-wrap items-center gap-3">
-                  <form action={syncSteadfastNow}>
-                    <input type="hidden" name="back" value={`/orders?${baseQuery}`} />
-                    <button type="submit" className={buttonClass("primary")}>
-                      <RefreshCw className="size-4" aria-hidden />
-                      {tr("Sync statuses now", "এখনই অবস্থা আনো")}
-                    </button>
-                  </form>
-                  <span className="text-xs">
-                    {tr("Last sync", "শেষ সিঙ্ক")}: {dhaka(steadfast.last_synced_at)} · {tr("Last live update", "শেষ লাইভ আপডেট")}:{" "}
-                    {dhaka(steadfast.last_webhook_at)}
-                  </span>
-                </div>
-                <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {tr("Live updates (recommended)", "লাইভ আপডেট (চালু রাখা ভালো)")}
-                  </p>
-                  <p className="mt-1 mb-3">
-                    {tr(
-                      "In the Steadfast panel open API → Webhook, paste this Callback URL and Auth token, and turn on delivery status notifications. Every status change then reaches Hook within seconds.",
-                      "Steadfast প্যানেলে API → Webhook-এ গিয়ে এই Callback URL আর Auth token বসাও, আর ডেলিভারি স্ট্যাটাস নোটিফিকেশন চালু করো। তাহলে প্রতিটা অবস্থা বদল কয়েক সেকেন্ডে Hook-এ চলে আসবে।",
-                    )}
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-medium">Callback URL</span>
-                    <CopyText text={webhookUrl} />
-                    <span className="mt-1 text-xs font-medium">Auth token (Bearer)</span>
-                    <CopyText text={webhookToken ?? ""} secret />
-                  </div>
-                </div>
-                <details>
-                  <summary className="cursor-pointer text-xs font-medium">
-                    {tr("Change keys or disconnect", "Key বদলাও বা সংযোগ বিচ্ছিন্ন করো")}
-                  </summary>
-                  <div className="mt-3 flex flex-col gap-4">
-                    <SteadfastConnectForm update />
-                    <form action={disconnectSteadfast}>
-                      <button type="submit" className={buttonClass("danger", "px-0")}>
-                        {tr("Disconnect Steadfast", "Steadfast সংযোগ বিচ্ছিন্ন করো")}
-                      </button>
-                    </form>
-                  </div>
-                </details>
-              </>
-            ) : (
-              <>
-                <p>
-                  {tr(
-                    "Find your API key and secret key in the Steadfast merchant panel under API. Hook only reads parcel status; it never creates or changes parcels.",
-                    "Steadfast মার্চেন্ট প্যানেলের API অংশে API key আর Secret key পাবে। Hook শুধু পার্সেলের অবস্থা পড়ে, কোনো পার্সেল তৈরি বা বদল করে না।",
-                  )}
-                </p>
-                <SteadfastConnectForm />
-              </>
-            )}
-          </div>
-        </Card>
-      </div>
+      <CourierSection
+        connections={connections}
+        allowed={plan.courierSync}
+        planName={plan.name}
+        params={params}
+        back={`/orders?${baseQuery}`}
+      />
 
       <Card className="mb-6">
         <CardHeader
@@ -492,33 +403,4 @@ export default async function OrdersPage({ searchParams }: Props) {
       </div>
     </AppShell>
   );
-}
-
-function courierMessage(
-  params: { courier?: string; checked?: string; updated?: string },
-  tr: (en: string, bn: string) => string,
-): { text: string; tone: "success" | "warning" | "danger" | "info" } | null {
-  switch (params.courier) {
-    case "synced": {
-      const checked = Number(params.checked) || 0;
-      const updated = Number(params.updated) || 0;
-      return {
-        tone: "success",
-        text: tr(
-          `Checked ${checked} open orders with Steadfast, ${updated} updated.`,
-          `Steadfast-এ ${checked}টি চলমান অর্ডার দেখা হয়েছে, ${updated}টির অবস্থা বদলেছে।`,
-        ),
-      };
-    }
-    case "badkeys":
-      return { tone: "danger", text: tr("Steadfast rejected the saved keys. Update them below.", "Steadfast সেভ করা key গ্রহণ করছে না। নিচে key আপডেট করো।") };
-    case "error":
-      return { tone: "warning", text: tr("Couldn't reach Steadfast. Try again in a moment.", "Steadfast-এ পৌঁছানো যায়নি। একটু পরে আবার চেষ্টা করো।") };
-    case "disconnected":
-      return { tone: "info", text: tr("Steadfast disconnected. Its keys were deleted from Hook.", "Steadfast সংযোগ বিচ্ছিন্ন হয়েছে। এর key Hook থেকে মুছে ফেলা হয়েছে।") };
-    case "missing":
-      return { tone: "warning", text: tr("Connect Steadfast first.", "আগে Steadfast কানেক্ট করো।") };
-    default:
-      return null;
-  }
 }

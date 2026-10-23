@@ -6,7 +6,8 @@ import { useTr } from "@/components/I18nProvider";
 import { buttonClass, inputClass } from "@/components/ui";
 import { COURIERS, COURIER_NAMES, CSV_TEMPLATE, ORDER_STATUSES, statusLabel, type KnownCampaign, type OrderStatus } from "@/lib/orders";
 import { addOrder, importOrders, updateOrderStatus, type OrderFormState } from "./actions";
-import { connectSteadfast } from "./courier-actions";
+import { connectCourier, saveCarrybeeSecret } from "./courier-actions";
+import type { CourierId } from "@/lib/couriers/common";
 
 function Result({ state }: { state: OrderFormState }) {
   if (!state) return null;
@@ -130,23 +131,70 @@ export function ImportOrdersForm() {
   );
 }
 
-export function SteadfastConnectForm({ update = false }: { update?: boolean }) {
+const COURIER_FIELDS: Record<CourierId, { name: string; label: string; secret?: boolean; type?: string }[]> = {
+  steadfast: [
+    { name: "api_key", label: "API key" },
+    { name: "secret_key", label: "Secret key", secret: true },
+  ],
+  pathao: [
+    { name: "client_id", label: "Client ID" },
+    { name: "client_secret", label: "Client Secret", secret: true },
+    { name: "username", label: "Email", type: "email" },
+    { name: "password", label: "Password", secret: true },
+  ],
+  carrybee: [
+    { name: "client_id", label: "Client-ID" },
+    { name: "client_secret", label: "Client-Secret", secret: true },
+    { name: "client_context", label: "Client-Context" },
+  ],
+};
+
+export function CourierConnectForm({ courier, update = false }: { courier: CourierId; update?: boolean }) {
   const tr = useTr();
-  const [state, formAction, pending] = useActionState<OrderFormState, FormData>(connectSteadfast, null);
+  const [state, formAction, pending] = useActionState<OrderFormState, FormData>(connectCourier, null);
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="API key">
-          <input name="api_key" required autoComplete="off" spellCheck={false} className={inputClass} />
+    <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="courier" value={courier} />
+      {COURIER_FIELDS[courier].map((f) => (
+        <Field key={f.name} label={f.label}>
+          <input
+            name={f.name}
+            type={f.secret ? "password" : (f.type ?? "text")}
+            required
+            autoComplete="off"
+            spellCheck={false}
+            className={inputClass}
+          />
         </Field>
-        <Field label="Secret key">
-          <input name="secret_key" type="password" required autoComplete="off" className={inputClass} />
-        </Field>
-      </div>
+      ))}
       <Result state={state} />
       <button type="submit" disabled={pending} className={buttonClass(update ? "secondary" : "primary", "self-start")}>
         {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-        {update ? tr("Update keys", "Key আপডেট করো") : tr("Connect Steadfast", "Steadfast কানেক্ট করো")}
+        {update ? tr("Update", "আপডেট করো") : tr("Connect", "কানেক্ট করো")}
+      </button>
+    </form>
+  );
+}
+
+export function CarrybeeSecretForm({ hasSecret }: { hasSecret: boolean }) {
+  const tr = useTr();
+  const [state, formAction, pending] = useActionState<OrderFormState, FormData>(saveCarrybeeSecret, null);
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <Field label={tr("CarryBee's integration secret", "CarryBee-র integration secret")}>
+        <input
+          name="webhook_secret"
+          type="password"
+          required
+          autoComplete="off"
+          placeholder={hasSecret ? tr("Saved. Paste a new one to replace it.", "সেভ করা আছে। বদলাতে নতুনটা বসাও।") : "40489fe0-…"}
+          className={inputClass}
+        />
+      </Field>
+      <Result state={state} />
+      <button type="submit" disabled={pending} className={buttonClass("secondary", "self-start")}>
+        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {tr("Save and open 10-minute setup", "সেভ করে ১০ মিনিটের সেটআপ খোলো")}
       </button>
     </form>
   );

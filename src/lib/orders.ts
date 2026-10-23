@@ -7,7 +7,7 @@ import { isValidDate } from "@/lib/dates";
 export const ORDER_STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled", "returned"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export const COURIERS = ["steadfast", "pathao", "redx", "paperfly", "other"] as const;
+export const COURIERS = ["steadfast", "pathao", "carrybee", "redx", "paperfly", "other"] as const;
 export type Courier = (typeof COURIERS)[number];
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
@@ -33,6 +33,7 @@ export function statusLabel(status: OrderStatus, tr: Tr = enTr) {
 export const COURIER_NAMES: Record<Courier, string> = {
   steadfast: "Steadfast",
   pathao: "Pathao",
+  carrybee: "CarryBee",
   redx: "RedX",
   paperfly: "Paperfly",
   other: "Other",
