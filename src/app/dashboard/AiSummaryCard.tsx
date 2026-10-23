@@ -109,7 +109,6 @@ export default function AiSummaryCard({
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
               {tr("Created", "তৈরি")}:{" "}
               <span suppressHydrationWarning>{new Date(summary!.created_at).toLocaleString("en-GB")}</span> ·{" "}
-              {summary!.model} ·{" "}
               {tr("AI can make mistakes. Check the numbers before big decisions.", "AI ভুল করতে পারে, বড় সিদ্ধান্তের আগে সংখ্যাগুলো মিলিয়ে নিও।")}{" "}
               ·{" "}
               <Link href={`/reports/summary/${summary!.id}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">

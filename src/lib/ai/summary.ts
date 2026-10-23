@@ -13,6 +13,8 @@ export type AiSummary = {
   locale?: Locale;
   // কোন Ad Account-এর (রিপোর্ট তালিকায় নাম দেখাতে)
   account_name?: string;
+  // কোন ক্যাম্পেইনগুলো বিশ্লেষণে ছিল
+  campaigns?: string[];
   headline: string;
   overview: string;
   highlights: string[];
@@ -240,6 +242,7 @@ export async function generateAndStoreSummary(
   const content: AiSummary = {
     ...parsed,
     account_name: account.name,
+    campaigns: limited.current.campaigns.map((c) => c.name),
     recommendations: parsed.recommendations.filter(
       (r) => r.campaign === null || running.has(r.campaign.trim().toLowerCase()),
     ),

@@ -89,15 +89,26 @@ export default async function ReportsPage({ searchParams }: Props) {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{r.title}</span>
+                        <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                          {r.kind === "campaign" ? r.campaignName : r.accountName}
+                        </span>
                         <Badge tone={r.kind === "summary" ? "brand" : "neutral"}>
                           {r.kind === "summary" ? tr("AI summary", "AI সারসংক্ষেপ") : tr("Campaign report", "ক্যাম্পেইন রিপোর্ট")}
                         </Badge>
                       </div>
                       <p className="mt-0.5 truncate text-sm text-zinc-600 dark:text-zinc-400">{r.headline}</p>
-                      <p className="mt-0.5 text-xs text-zinc-400">
-                        {r.date_from && r.date_to ? formatRange(r.date_from, r.date_to) : "—"} ·{" "}
-                        {tr("created", "তৈরি")} {new Date(r.created_at).toLocaleString("en-GB")}
+                      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        <span>Ad Account: {r.accountName}</span>
+                        <span>
+                          {tr("Campaigns", "ক্যাম্পেইন")}: {r.campaignName ?? tr("All campaigns", "সব ক্যাম্পেইন")}
+                        </span>
+                        <span>
+                          {tr("Data", "ডাটা")}: {r.date_from && r.date_to ? formatRange(r.date_from, r.date_to) : "—"}
+                        </span>
+                        <span>
+                          {tr("Created", "তৈরি")}:{" "}
+                          {new Date(r.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" })}
+                        </span>
                       </p>
                     </div>
                     <ChevronRight className="size-4 shrink-0 text-zinc-400" aria-hidden />

@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiSummary } from "@/lib/ai/summary";
 import type { CampaignReport } from "@/lib/ai/campaignReport";
-import { enTr, type Tr } from "@/lib/i18n";
+import { decrypt } from "@/lib/crypto";
+import { getAdAccounts } from "@/lib/meta/graph";
+import { enTr, type Locale, type Tr } from "@/lib/i18n";
 
 // সব AI রিপোর্ট (অ্যাকাউন্টের সারসংক্ষেপ ও ক্যাম্পেইন রিপোর্ট) ডাটাবেসেই জমা থাকে।
-// এখানে সেগুলো এক তালিকায় আনা, একটি খোলা, আর CSV বানানো হয়।
+// এখানে সেগুলো এক তালিকায় আনা, একটি খোলা (দরকার হলে অনুবাদসহ), আর CSV বানানো হয়।
 
 export type ReportKind = "summary" | "campaign";
 
@@ -15,33 +17,55 @@ export function isReportKind(value: unknown): value is ReportKind {
 export type ReportListItem = {
   kind: ReportKind;
   id: string;
-  title: string; // অ্যাকাউন্ট বা ক্যাম্পেইনের নাম
+  accountName: string;
+  campaignName: string | null; // ক্যাম্পেইন রিপোর্টে; সারসংক্ষেপে null (সব ক্যাম্পেইন)
   headline: string;
   date_from: string | null;
   date_to: string | null;
-  model: string;
   created_at: string;
 };
 
+type Base = {
+  id: string;
+  accountName: string;
+  date_from: string | null;
+  date_to: string | null;
+  created_at: string;
+  // রিপোর্ট যে ভাষায় লেখা হয়েছিল, আর এখন যে ভাষায় দেখানো হচ্ছে
+  originalLocale: Locale;
+  shownLocale: Locale;
+};
+
 export type FullReport =
-  | { kind: "summary"; id: string; title: string; adAccountId: string; date_from: string | null; date_to: string | null; model: string; created_at: string; content: AiSummary }
-  | { kind: "campaign"; id: string; title: string; adAccountId: string; date_from: string; date_to: string; model: string; created_at: string; content: CampaignReport };
+  | (Base & { kind: "summary"; campaignName: null; campaigns: string[]; content: AiSummary })
+  | (Base & { kind: "campaign"; campaignName: string; campaigns: string[]; content: CampaignReport });
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Ad Account-এর নাম (শুধু বর্তমানে বাছাই করা অ্যাকাউন্টের নাম জমা থাকে; বাকিগুলোর ID দেখায়)
+// Ad Account ID থেকে নাম। Meta থেকে একবার তালিকা আনা হয়; না পেলে জমা থাকা নাম বা ID।
 async function accountNames(supabase: SupabaseClient, userId: string) {
+  const map = new Map<string, string>();
   const { data } = await supabase
     .from("meta_connections")
-    .select("selected_ad_account_id, selected_ad_account_name")
+    .select("access_token_encrypted, token_expires_at, selected_ad_account_id, selected_ad_account_name")
     .eq("user_id", userId)
     .maybeSingle();
-  const map = new Map<string, string>();
-  if (data?.selected_ad_account_id && data.selected_ad_account_name) {
+  if (!data) return map;
+  if (data.selected_ad_account_id && data.selected_ad_account_name) {
     map.set(data.selected_ad_account_id, data.selected_ad_account_name);
+  }
+  const expired = data.token_expires_at && new Date(data.token_expires_at) < new Date();
+  if (!expired) {
+    try {
+      for (const a of await getAdAccounts(decrypt(data.access_token_encrypted))) map.set(a.id, a.name);
+    } catch (err) {
+      console.error("account names failed", err instanceof Error ? err.message : err);
+    }
   }
   return map;
 }
+
+const localeOf = (content: { locale?: Locale } | null | undefined): Locale => content?.locale ?? "bn";
 
 export async function listReports(
   supabase: SupabaseClient,
@@ -49,13 +73,13 @@ export async function listReports(
   kind: ReportKind | null,
   limit = 100,
 ): Promise<ReportListItem[]> {
-  const names = await accountNames(supabase, userId);
-  const [summaries, campaigns] = await Promise.all([
+  const [names, summaries, campaigns] = await Promise.all([
+    accountNames(supabase, userId),
     kind === "campaign"
       ? Promise.resolve({ data: [] })
       : supabase
           .from("ai_summaries")
-          .select("id, ad_account_id, date_from, date_to, model, content, created_at")
+          .select("id, ad_account_id, date_from, date_to, content, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(limit),
@@ -63,84 +87,104 @@ export async function listReports(
       ? Promise.resolve({ data: [] })
       : supabase
           .from("campaign_reports")
-          .select("id, campaign_name, campaign_id, date_from, date_to, model, content, created_at")
+          .select("id, ad_account_id, campaign_name, campaign_id, date_from, date_to, content, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(limit),
   ]);
 
+  const nameOf = (id: string, stored?: string) => names.get(id) ?? stored ?? id;
   const items: ReportListItem[] = [
-    ...((summaries.data ?? []) as Record<string, unknown>[]).map((s) => ({
-      kind: "summary" as const,
-      id: String(s.id),
-      title: (s.content as AiSummary)?.account_name ?? names.get(String(s.ad_account_id)) ?? String(s.ad_account_id),
-      headline: String((s.content as AiSummary)?.headline ?? ""),
-      date_from: (s.date_from as string) ?? null,
-      date_to: (s.date_to as string) ?? null,
-      model: String(s.model),
-      created_at: String(s.created_at),
-    })),
+    ...((summaries.data ?? []) as Record<string, unknown>[]).map((s) => {
+      const content = s.content as AiSummary;
+      return {
+        kind: "summary" as const,
+        id: String(s.id),
+        accountName: nameOf(String(s.ad_account_id), content?.account_name),
+        campaignName: null,
+        headline: String(content?.headline ?? ""),
+        date_from: (s.date_from as string) ?? null,
+        date_to: (s.date_to as string) ?? null,
+        created_at: String(s.created_at),
+      };
+    }),
     ...((campaigns.data ?? []) as Record<string, unknown>[]).map((c) => ({
       kind: "campaign" as const,
       id: String(c.id),
-      title: String(c.campaign_name ?? c.campaign_id),
+      accountName: nameOf(String(c.ad_account_id)),
+      campaignName: String(c.campaign_name ?? c.campaign_id),
       headline: String((c.content as CampaignReport)?.headline ?? ""),
       date_from: (c.date_from as string) ?? null,
       date_to: (c.date_to as string) ?? null,
-      model: String(c.model),
       created_at: String(c.created_at),
     })),
   ];
   return items.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
 }
 
-// RLS নিশ্চিত করে শুধু নিজের রিপোর্ট পাওয়া যায়; তবু user_id মিলিয়ে নেওয়া হয়
+export async function getTranslation(
+  supabase: SupabaseClient,
+  kind: ReportKind,
+  id: string,
+  locale: Locale,
+) {
+  const { data } = await supabase
+    .from("report_translations")
+    .select("content")
+    .eq("report_kind", kind)
+    .eq("report_id", id)
+    .eq("locale", locale)
+    .maybeSingle();
+  return data?.content ?? null;
+}
+
+// RLS নিশ্চিত করে শুধু নিজের রিপোর্ট পাওয়া যায়; তবু user_id মিলিয়ে নেওয়া হয়।
+// want দিলে সেই ভাষার অনুবাদ থাকলে সেটি দেখায়।
 export async function getReport(
   supabase: SupabaseClient,
   userId: string,
   kind: ReportKind,
   id: string,
+  want?: Locale,
 ): Promise<FullReport | null> {
   if (!UUID_PATTERN.test(id)) return null;
-  if (kind === "summary") {
-    const { data } = await supabase
-      .from("ai_summaries")
-      .select("id, ad_account_id, date_from, date_to, model, content, created_at")
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
-    if (!data) return null;
-    const names = await accountNames(supabase, userId);
-    return {
-      kind,
-      id: data.id,
-      title: (data.content as AiSummary)?.account_name ?? names.get(data.ad_account_id) ?? data.ad_account_id,
-      adAccountId: data.ad_account_id,
-      date_from: data.date_from,
-      date_to: data.date_to,
-      model: data.model,
-      created_at: data.created_at,
-      content: data.content as AiSummary,
-    };
-  }
+  const table = kind === "summary" ? "ai_summaries" : "campaign_reports";
   const { data } = await supabase
-    .from("campaign_reports")
-    .select("id, ad_account_id, campaign_id, campaign_name, date_from, date_to, model, content, created_at")
+    .from(table)
+    .select(kind === "summary" ? "id, ad_account_id, date_from, date_to, content, created_at" : "id, ad_account_id, campaign_id, campaign_name, date_from, date_to, content, created_at")
     .eq("user_id", userId)
     .eq("id", id)
     .maybeSingle();
   if (!data) return null;
-  return {
-    kind,
-    id: data.id,
-    title: data.campaign_name ?? data.campaign_id,
-    adAccountId: data.ad_account_id,
-    date_from: data.date_from,
-    date_to: data.date_to,
-    model: data.model,
-    created_at: data.created_at,
-    content: data.content as CampaignReport,
+  const row = data as unknown as Record<string, unknown> & { content: AiSummary & CampaignReport };
+
+  const original = row.content;
+  const originalLocale = localeOf(original);
+  let content = original;
+  let shownLocale = originalLocale;
+  if (want && want !== originalLocale) {
+    const translated = await getTranslation(supabase, kind, id, want);
+    if (translated) {
+      content = translated;
+      shownLocale = want;
+    }
+  }
+
+  const names = await accountNames(supabase, userId);
+  const base = {
+    id: String(row.id),
+    accountName: names.get(String(row.ad_account_id)) ?? original.account_name ?? String(row.ad_account_id),
+    date_from: (row.date_from as string) ?? null,
+    date_to: (row.date_to as string) ?? null,
+    created_at: String(row.created_at),
+    originalLocale,
+    shownLocale,
   };
+  if (kind === "summary") {
+    return { ...base, kind, campaignName: null, campaigns: original.campaigns ?? [], content };
+  }
+  const campaignName = String(row.campaign_name ?? row.campaign_id);
+  return { ...base, kind, campaignName, campaigns: [campaignName], content };
 }
 
 // ---------- CSV ----------
@@ -154,13 +198,26 @@ function cell(v: string) {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
+export function campaignsLabel(r: FullReport, tr: Tr) {
+  if (r.kind === "campaign") return r.campaignName;
+  return r.campaigns.length > 0
+    ? tr(`All campaigns (${r.campaigns.length}): `, `সব ক্যাম্পেইন (${r.campaigns.length}টি): `) + r.campaigns.join(", ")
+    : tr("All campaigns", "সব ক্যাম্পেইন");
+}
+
+// CSV-এর লেবেলও রিপোর্ট যে ভাষায় দেখানো হচ্ছে সেই ভাষায়
 export function reportToCsv(r: FullReport, tr: Tr = enTr) {
   const rows: string[][] = [[tr("Section", "অংশ"), tr("Item", "বিষয়"), tr("Detail", "বিস্তারিত"), tr("Priority", "গুরুত্ব")]];
   const add = (section: string, item: string, detail = "", priority = "") => rows.push([section, item, detail, priority]);
 
-  add(tr("Report", "রিপোর্ট"), r.kind === "summary" ? tr("AI summary", "AI সারসংক্ষেপ") : tr("Campaign report", "ক্যাম্পেইন রিপোর্ট"), r.title);
+  add(tr("Report", "রিপোর্ট"), r.kind === "summary" ? tr("AI summary", "AI সারসংক্ষেপ") : tr("Campaign report", "ক্যাম্পেইন রিপোর্ট"));
+  add("Ad Account", r.accountName);
+  add(tr("Campaigns", "ক্যাম্পেইন"), campaignsLabel(r, tr));
   add(tr("Period", "সময়"), `${r.date_from ?? ""} – ${r.date_to ?? ""}`);
-  add(tr("Created", "তৈরি"), new Date(r.created_at).toISOString().replace("T", " ").slice(0, 16), r.model);
+  add(
+    tr("Created", "তৈরি"),
+    new Date(r.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" }),
+  );
   add(tr("Headline", "মূল কথা"), r.content.headline);
   if (r.content.overview) add(tr("Overview", "সংক্ষেপে"), r.content.overview);
 
@@ -181,10 +238,11 @@ export function reportToCsv(r: FullReport, tr: Tr = enTr) {
   }
 
   // শুরুর BOM থাকলে Excel বাংলা ঠিকমতো দেখায়
-  return "﻿" + rows.map((r) => r.map(cell).join(",")).join("\r\n");
+  return "﻿" + rows.map((row) => row.map(cell).join(",")).join("\r\n");
 }
 
 export function reportFileName(r: FullReport) {
-  const slug = r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || r.kind;
-  return `hook-${r.kind}-${slug}-${(r.date_to ?? r.created_at).slice(0, 10)}`;
+  const name = r.kind === "campaign" ? r.campaignName : r.accountName;
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || r.kind;
+  return `hook-${r.kind}-${slug}-${(r.date_to ?? r.created_at).slice(0, 10)}-${r.shownLocale}`;
 }
