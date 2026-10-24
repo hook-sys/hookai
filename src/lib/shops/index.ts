@@ -45,10 +45,12 @@ export async function syncShop(
     : new Date(Date.now() - FIRST_SYNC_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const startedAt = new Date().toISOString();
 
-  const { orders, complete } =
+  const { orders: fetched, complete } =
     shop.platform === "woocommerce"
       ? await fetchWooOrders(shop.shop_domain, credentials as WooCredentials, since)
       : await fetchShopifyOrders(shop.shop_domain, (credentials as { accessToken: string }).accessToken, since);
+  // পাতা আনার মাঝে কোনো অর্ডার বদলালে সেটা দুই পাতায় আসতে পারে; একই নম্বরের শেষেরটাই রাখা হয়
+  const orders = [...new Map(fetched.map((o) => [o.external_id, o])).values()];
   const result: ShopSyncResult = { fetched: orders.length, added: 0, updated: 0, skippedByLimit: 0, complete };
 
   if (orders.length > 0) {
@@ -113,7 +115,7 @@ export async function syncShop(
   }
 
   // সব পাতা আনা গেলে এখনকার সময় থেকে পরের বার; না গেলে শেষ আনা অর্ডারের সময় থেকে
-  const cursor = complete || orders.length === 0 ? startedAt : orders[orders.length - 1].updated_at;
+  const cursor = complete || fetched.length === 0 ? startedAt : fetched[fetched.length - 1].updated_at;
   await supabase
     .from("shop_connections")
     .update({ last_synced_at: cursor })
