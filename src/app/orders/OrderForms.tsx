@@ -162,7 +162,7 @@ export function CourierConnectForm({ courier, update = false }: { courier: Couri
             name={f.name}
             type={f.secret ? "password" : (f.type ?? "text")}
             required
-            autoComplete="off"
+            autoComplete={f.secret ? "new-password" : "off"}
             spellCheck={false}
             className={inputClass}
           />
@@ -187,7 +187,7 @@ export function CarrybeeSecretForm({ hasSecret }: { hasSecret: boolean }) {
           name="webhook_secret"
           type="password"
           required
-          autoComplete="off"
+          autoComplete="new-password"
           placeholder={hasSecret ? tr("Saved. Paste a new one to replace it.", "সেভ করা আছে। বদলাতে নতুনটা বসাও।") : "40489fe0-…"}
           className={inputClass}
         />
@@ -270,7 +270,7 @@ export function WooConnectForm() {
         <input name="consumer_key" required placeholder="ck_…" autoComplete="off" spellCheck={false} className={inputClass} />
       </Field>
       <Field label="Consumer secret">
-        <input name="consumer_secret" type="password" required placeholder="cs_…" autoComplete="off" className={inputClass} />
+        <input name="consumer_secret" type="password" required placeholder="cs_…" autoComplete="new-password" className={inputClass} />
       </Field>
       <Result state={state} />
       <button type="submit" disabled={pending} className={buttonClass("primary", "self-start")}>
