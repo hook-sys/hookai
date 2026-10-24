@@ -137,18 +137,21 @@ export default async function OrdersPage({ searchParams }: Props) {
   }
 
   const [orders, campaigns, connections, shops] = await Promise.all([
-    loadOrders(supabase, user.id, accountId, { since, until }),
+    loadOrders(supabase, user.id, { since, until }),
     knownCampaigns(supabase, user.id, accountId),
     listConnections(supabase, user.id),
     listShops(supabase, user.id),
   ]);
-  const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, tr);
+  const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, campaigns, tr);
+  const accountCampaignIds = new Set(rows.filter((r) => r.campaignId).map((r) => r.key));
+  for (const c of campaigns) accountCampaignIds.add(c.id);
+  const keyOfOrder = (id: string | null) => (id ? (accountCampaignIds.has(id) ? id : "other") : "none");
 
   const filter = params.campaign;
   const listed = orders
-    .filter((o) => !filter || (filter === "none" ? o.campaign_id === null : o.campaign_id === filter))
+    .filter((o) => !filter || keyOfOrder(o.campaign_id) === filter)
     .slice(0, ORDER_LIST_LIMIT);
-  const filterName = filter ? rows.find((r) => (r.campaignId ?? "none") === filter)?.name : null;
+  const filterName = filter ? rows.find((r) => r.key === filter)?.name : null;
   const baseQuery = range.preset === "custom" ? `since=${since}&until=${until}` : `preset=${range.preset}`;
   // অর্ডারের টাকা টাকায়; বিজ্ঞাপন খরচও টাকায় হলে তবেই ROAS তুলনা করা যায়
   const sameCurrency = currency === "BDT";
@@ -239,7 +242,7 @@ export default async function OrdersPage({ searchParams }: Props) {
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {rows.map((r) => {
                   const dr = deliveryRate(r);
-                  const key = r.campaignId ?? "none";
+                  const key = r.key;
                   return (
                     <tr key={key} className={cn(filter === key && "bg-indigo-50/60 dark:bg-indigo-950/40")}>
                       <td className="max-w-72 px-5 py-3">

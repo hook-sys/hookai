@@ -175,3 +175,32 @@ export async function connectWooCommerce(_prev: OrderFormState, formData: FormDa
     };
   }
 }
+
+// WooCommerce-এর "Processing" মানে কী, সেটা বদলালে গত ৬০ দিনের অর্ডার আবার পড়ে অবস্থা ঠিক করা হয়
+export async function setWooProcessing(formData: FormData) {
+  const { supabase, user } = await session();
+  const id = String(formData.get("id") ?? "");
+  const value = formData.get("processing_status");
+  if (!/^[0-9a-f-]{36}$/i.test(id) || (value !== "pending" && value !== "confirmed")) redirect("/orders#shops");
+
+  const { data: shop } = await supabase
+    .from("shop_connections")
+    .update({ processing_status: value, last_synced_at: null })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("platform", "woocommerce")
+    .select(SHOP_COLUMNS)
+    .single();
+  if (!shop) redirect("/orders?shop=error#shops");
+
+  let query: string;
+  try {
+    const r = await syncShop(supabase, user.id, shop as ShopConnection, await getUserPlan(supabase, user.id));
+    query = `shop=synced&added=${r.added}&updated=${r.updated}`;
+  } catch (err) {
+    console.error("woocommerce resync failed", err instanceof Error ? err.message : err);
+    query = "shop=error";
+  }
+  revalidatePath("/orders");
+  redirect(`/orders?${query}#shops`);
+}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decrypt } from "@/lib/crypto";
-import { knownCampaigns, matchCampaign, type OrderStatus } from "@/lib/orders";
+import { allCampaigns, matchCampaign, type OrderStatus } from "@/lib/orders";
 import type { Plan } from "@/lib/plans";
 import { fetchShopifyOrders } from "./shopify";
 import { fetchWooOrders, type WooCredentials } from "./woocommerce";
@@ -8,6 +8,7 @@ import { fetchWooOrders, type WooCredentials } from "./woocommerce";
 export type ShopConnection = {
   id: string;
   platform: "shopify" | "woocommerce";
+  processing_status: "pending" | "confirmed";
   shop_domain: string;
   ad_account_id: string;
   credentials_encrypted: string;
@@ -15,7 +16,7 @@ export type ShopConnection = {
   last_webhook_at: string | null;
 };
 
-export const SHOP_COLUMNS = "id, platform, shop_domain, ad_account_id, credentials_encrypted, last_synced_at, last_webhook_at";
+export const SHOP_COLUMNS = "id, platform, shop_domain, ad_account_id, processing_status, credentials_encrypted, last_synced_at, last_webhook_at";
 
 export async function listShops(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase.from("shop_connections").select(SHOP_COLUMNS).eq("user_id", userId);
@@ -47,14 +48,15 @@ export async function syncShop(
 
   const { orders: fetched, complete } =
     shop.platform === "woocommerce"
-      ? await fetchWooOrders(shop.shop_domain, credentials as WooCredentials, since)
+      ? await fetchWooOrders(shop.shop_domain, credentials as WooCredentials, since, shop.processing_status)
       : await fetchShopifyOrders(shop.shop_domain, (credentials as { accessToken: string }).accessToken, since);
   // পাতা আনার মাঝে কোনো অর্ডার বদলালে সেটা দুই পাতায় আসতে পারে; একই নম্বরের শেষেরটাই রাখা হয়
   const orders = [...new Map(fetched.map((o) => [o.external_id, o])).values()];
   const result: ShopSyncResult = { fetched: orders.length, added: 0, updated: 0, skippedByLimit: 0, complete };
 
   if (orders.length > 0) {
-    const campaigns = await knownCampaigns(supabase, userId, shop.ad_account_id);
+    // একটা দোকানের অর্ডার কয়েকটা Ad Account-এর বিজ্ঞাপন থেকে আসে, তাই সব অ্যাকাউন্টের ক্যাম্পেইনের সাথে মেলানো
+    const campaigns = await allCampaigns(supabase, userId);
     const existing = new Map<string, { status: OrderStatus; campaign_id: string | null; campaign_name: string | null; courier: string | null; tracking_code: string | null; status_updated_at: string }>();
     const ids = [...new Set(orders.map((o) => o.external_id))];
     for (let i = 0; i < ids.length; i += 300) {

@@ -6,7 +6,7 @@ import type { ShopConnection } from "@/lib/shops";
 import { shopifyConfig } from "@/lib/shops/shopify";
 import { decrypt } from "@/lib/crypto";
 import { Badge, Card, CardHeader, Notice, buttonClass, inputClass } from "@/components/ui";
-import { disconnectShop, startShopifyConnect, syncShopsNow } from "./shop-actions";
+import { disconnectShop, setWooProcessing, startShopifyConnect, syncShopsNow } from "./shop-actions";
 import { CopyText, WooConnectForm } from "./OrderForms";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.hook.com.bd").replace(/\/$/, "");
@@ -141,6 +141,21 @@ export default async function ShopSection({
                         </button>
                       </form>
                     </div>
+                    {s.platform === "woocommerce" && (
+                      <form action={setWooProcessing} className="flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 text-xs dark:border-zinc-800">
+                        <input type="hidden" name="id" value={s.id} />
+                        <label className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">{tr("In this store, \"Processing\" means", "এই দোকানে \"Processing\" মানে")}</span>
+                          <select name="processing_status" defaultValue={s.processing_status} className="rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900">
+                            <option value="pending">{tr("a new order (not confirmed yet)", "নতুন অর্ডার (এখনো কনফার্ম হয়নি)")}</option>
+                            <option value="confirmed">{tr("confirmed (new orders come in On hold)", "কনফার্ম (নতুন অর্ডার আসে On hold হয়ে)")}</option>
+                          </select>
+                        </label>
+                        <button type="submit" className={buttonClass("secondary", "px-3 py-1 text-xs")}>
+                          {tr("Save and re-read orders", "সেভ করে অর্ডার আবার পড়ো")}
+                        </button>
+                      </form>
+                    )}
                     {secret && (
                       <details open={!s.last_webhook_at} className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
                         <summary className="cursor-pointer font-medium text-zinc-900 dark:text-zinc-100">

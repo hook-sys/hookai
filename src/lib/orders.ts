@@ -110,6 +110,23 @@ export async function knownCampaigns(supabase: SupabaseClient, userId: string, a
   return [...map.entries()].map(([id, name]) => ({ id, name }));
 }
 
+// সব Ad Account মিলিয়ে ব্যবহারকারীর যেসব ক্যাম্পেইনের ডাটা Hook-এ আছে
+export async function allCampaigns(supabase: SupabaseClient, userId: string) {
+  const map = new Map<string, string>();
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data } = await supabase
+      .from("ad_insights_daily")
+      .select("campaign_id, campaign_name, date")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .order("campaign_id", { ascending: true })
+      .range(from, from + 999);
+    for (const r of data ?? []) if (!map.has(r.campaign_id)) map.set(r.campaign_id, r.campaign_name ?? r.campaign_id);
+    if (!data || data.length < 1000) break;
+  }
+  return [...map.entries()].map(([id, name]) => ({ id, name }));
+}
+
 async function spendByCampaign(
   supabase: SupabaseClient,
   userId: string,
@@ -161,7 +178,8 @@ export type OutcomeCounts = {
 };
 
 export type CampaignOutcome = OutcomeCounts & {
-  campaignId: string | null; // null = কোনো ক্যাম্পেইনের সাথে মেলেনি
+  key: string; // ক্যাম্পেইন ID, "other" (অন্য Ad Account) বা "none" (মেলেনি)
+  campaignId: string | null; // null = এই অ্যাকাউন্টের কোনো ক্যাম্পেইন নয়
   name: string;
   spend: number;
 };
@@ -193,23 +211,30 @@ export function deliveryRate(c: OutcomeCounts) {
   return settled > 0 ? c.delivered / settled : null;
 }
 
-export async function loadOrders(
-  supabase: SupabaseClient,
-  userId: string,
-  accountId: string,
-  range: { since: string; until: string },
-) {
-  const { data } = await supabase
-    .from("orders")
-    .select("id, external_id, order_date, campaign_id, campaign_name, amount, status, source, courier, tracking_code")
-    .eq("user_id", userId)
-    .eq("ad_account_id", accountId)
-    .gte("order_date", range.since)
-    .lte("order_date", range.until)
-    .order("order_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(20000);
-  return (data ?? []).map((o) => ({ ...o, amount: Number(o.amount) || 0 })) as OrderRow[];
+// ব্যবহারকারীর সব অর্ডার (যেকোনো Ad Account বা দোকান থেকে), কারণ একটা দোকানের অর্ডার কয়েকটা Ad Account-এর
+// বিজ্ঞাপন থেকে আসে। কোন অর্ডার কোন অ্যাকাউন্টের, সেটা ক্যাম্পেইন দেখে ঠিক হয়।
+// Supabase এক বারে ১,০০০ সারি দেয়, তাই পাতায় পাতায় আনা হয়।
+const ORDER_PAGE = 1000;
+const MAX_ORDERS = 50_000;
+
+export async function loadOrders(supabase: SupabaseClient, userId: string, range: { since: string; until: string }) {
+  const all: OrderRow[] = [];
+  for (let from = 0; from < MAX_ORDERS; from += ORDER_PAGE) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, external_id, order_date, campaign_id, campaign_name, amount, status, source, courier, tracking_code")
+      .eq("user_id", userId)
+      .gte("order_date", range.since)
+      .lte("order_date", range.until)
+      .order("order_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + ORDER_PAGE - 1);
+    if (error) throw new Error(`orders load failed: ${error.message}`);
+    all.push(...(data ?? []).map((o) => ({ ...o, amount: Number(o.amount) || 0 }) as OrderRow));
+    if (!data || data.length < ORDER_PAGE) break;
+  }
+  return all;
 }
 
 // অর্ডারের তারিখ ধরে: এই সময়ে আসা অর্ডারগুলোর এখনকার অবস্থা, পাশে একই সময়ের বিজ্ঞাপন খরচ
@@ -219,35 +244,47 @@ export async function campaignOutcomes(
   accountId: string,
   range: { since: string; until: string },
   orders: OrderRow[],
+  // এই Ad Account-এর ক্যাম্পেইন (Hook-এ ডাটা আছে এমন সব)
+  accountCampaigns: KnownCampaign[],
   tr: Tr = enTr,
 ) {
   const spend = await spendByCampaign(supabase, userId, accountId, range);
   const rows = new Map<string, CampaignOutcome>();
-  const keyOf = (id: string | null) => id ?? "__none__";
+  const names = new Map(accountCampaigns.map((c) => [c.id, c.name]));
+  for (const id of spend.keys()) if (!names.has(id)) names.set(id, spend.get(id)!.name);
 
   for (const [id, s] of spend) {
-    rows.set(id, { ...emptyCounts(), campaignId: id, name: s.name, spend: s.spend });
+    rows.set(id, { ...emptyCounts(), key: id, campaignId: id, name: s.name, spend: s.spend });
   }
   const total = emptyCounts();
   for (const o of orders) {
-    const key = keyOf(o.campaign_id);
+    const id = o.campaign_id;
+    const key = id ? (names.has(id) ? id : "other") : "none";
     let row = rows.get(key);
     if (!row) {
       row = {
         ...emptyCounts(),
-        campaignId: o.campaign_id,
-        name: o.campaign_id ? (o.campaign_name ?? o.campaign_id) : tr("Not linked to a campaign", "কোনো ক্যাম্পেইনের সাথে মেলেনি"),
+        key,
+        campaignId: key === id ? id : null,
+        name:
+          key === "other"
+            ? tr("Other ad accounts", "অন্য Ad Account")
+            : key === "none"
+              ? tr("Not linked to a campaign", "কোনো ক্যাম্পেইনের সাথে মেলেনি")
+              : (names.get(key) ?? o.campaign_name ?? key),
         spend: 0,
       };
       rows.set(key, row);
     }
     addOrder(row, o);
-    addOrder(total, o);
+    // অন্য অ্যাকাউন্টের অর্ডার এই অ্যাকাউন্টের মোট হিসাবে ধরা হয় না (খরচও এই অ্যাকাউন্টের)
+    if (key !== "other") addOrder(total, o);
   }
 
+  const order = (r: CampaignOutcome) => (r.key === "none" ? 2 : r.key === "other" ? 1 : 0);
   const list = [...rows.values()]
     .filter((r) => r.orders > 0 || r.spend > 0)
-    .sort((a, b) => (a.campaignId === null ? 1 : b.campaignId === null ? -1 : b.orders - a.orders || b.spend - a.spend));
+    .sort((a, b) => order(a) - order(b) || b.orders - a.orders || b.spend - a.spend);
   const totalSpend = [...spend.values()].reduce((s, x) => s + x.spend, 0);
   return { rows: list, total: { ...total, spend: totalSpend } };
 }

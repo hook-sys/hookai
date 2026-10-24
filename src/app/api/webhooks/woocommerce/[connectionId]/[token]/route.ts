@@ -29,8 +29,11 @@ export async function POST(
   if (!/^order\.(created|updated)$/.test(topic)) return NextResponse.json({ ok: true, ignored: true });
 
   let order;
+  let rawStatus = "";
   try {
-    order = fromWooOrder(JSON.parse(raw));
+    const body = JSON.parse(raw);
+    rawStatus = typeof body.status === "string" ? body.status : "";
+    order = fromWooOrder(body);
   } catch {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
@@ -49,6 +52,8 @@ export async function POST(
     p_campaign_name: numeric ? "" : order.utmCampaign,
     p_courier: order.courier ?? "",
     p_tracking_code: order.tracking_code ?? "",
+    // দোকানের সেটিং অনুযায়ী "processing" ডাটাবেসে ঠিক হয়
+    p_raw_status: rawStatus,
   });
   if (error) {
     if (error.code === "28000") return NextResponse.json({ error: "unauthorized" }, { status: 401 });

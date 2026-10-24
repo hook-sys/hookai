@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
-import { normalizeStatus } from "@/lib/orders";
+import { normalizeStatus, type OrderStatus } from "@/lib/orders";
 import { courierFrom, dhakaDate, orderNumber, type ShopOrder } from "./shopify";
 
 // WooCommerce (WordPress) REST API v3। দোকানদার WooCommerce → Settings → Advanced → REST API-তে
@@ -87,7 +87,8 @@ type WooOrder = {
 const ATTR = "_wc_order_attribution_";
 
 // WooCommerce-এর নিজের order attribution (utm_id, utm_campaign, ক্রেতা যে পাতায় নেমেছিল) থেকে ক্যাম্পেইন
-export function fromWooOrder(o: WooOrder): ShopOrder | null {
+// processingStatus: দোকানে "Processing" মানে নতুন অর্ডার (pending) নাকি কনফার্ম (confirmed)
+export function fromWooOrder(o: WooOrder, processingStatus: OrderStatus = "pending"): ShopOrder | null {
   const number = o.number ?? o.id;
   if (number === undefined || !o.date_created_gmt) return null;
   const meta = new Map<string, string>();
@@ -116,7 +117,7 @@ export function fromWooOrder(o: WooOrder): ShopOrder | null {
     updated_at: gmt(o.date_modified_gmt ?? o.date_created_gmt),
     amount: Number(o.total) || 0,
     // processing/on-hold = নতুন, completed = ডেলিভারি, refunded = রিটার্ন; নিজের বানানো অবস্থাও চেনে
-    status: normalizeStatus(o.status ?? "") ?? "pending",
+    status: /^(wc-)?processing$/i.test(o.status ?? "") ? processingStatus : (normalizeStatus(o.status ?? "") ?? "pending"),
     utmId: utmId.trim(),
     utmCampaign: utmCampaign.trim(),
     courier: courierFrom(meta.get("_tracking_provider") ?? meta.get("tracking_provider")),
@@ -125,7 +126,13 @@ export function fromWooOrder(o: WooOrder): ShopOrder | null {
 }
 
 // নির্দিষ্ট সময়ের পরে বদলানো অর্ডার (প্রতি পাতায় ১০০টি, সর্বোচ্চ maxPages পাতা), পুরনো থেকে নতুন
-export async function fetchWooOrders(site: string, c: WooCredentials, modifiedAfter: string, maxPages = 20) {
+export async function fetchWooOrders(
+  site: string,
+  c: WooCredentials,
+  modifiedAfter: string,
+  processingStatus: OrderStatus = "pending",
+  maxPages = 20,
+) {
   const orders: ShopOrder[] = [];
   for (let page = 1; page <= maxPages; page++) {
     const { data, totalPages } = await wooGet<WooOrder[]>(site, c, "/orders", {
@@ -137,7 +144,7 @@ export async function fetchWooOrders(site: string, c: WooCredentials, modifiedAf
       order: "asc",
     });
     for (const o of Array.isArray(data) ? data : []) {
-      const mapped = fromWooOrder(o);
+      const mapped = fromWooOrder(o, processingStatus);
       if (mapped) orders.push(mapped);
     }
     if (page >= totalPages) return { orders, complete: true };
