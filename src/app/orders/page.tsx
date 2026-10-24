@@ -6,6 +6,7 @@ import { decrypt } from "@/lib/crypto";
 import { ensureCoverage } from "@/lib/insights/sync";
 import { listConnections } from "@/lib/couriers";
 import { listShops } from "@/lib/shops";
+import { campaignDirectory } from "@/lib/campaignDirectory";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { addDays, formatRange, resolveRange, todayIn } from "@/lib/dates";
@@ -18,6 +19,7 @@ import {
   deliveryRate,
   knownCampaigns,
   loadOrders,
+  outcomeKey,
   statusLabel,
   type OrderStatus,
 } from "@/lib/orders";
@@ -142,10 +144,25 @@ export default async function OrdersPage({ searchParams }: Props) {
     listConnections(supabase, user.id),
     listShops(supabase, user.id),
   ]);
-  const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, campaigns, tr);
+  // অন্য Ad Account-এর ক্যাম্পেইনের নাম Meta থেকে (দরকার হলে) এনে রাখা, যাতে নম্বরের বদলে নাম দেখায়
+  const accountIds = new Set(campaigns.map((c) => c.id));
+  const foreignIds = orders.map((o) => o.campaign_id).filter((id): id is string => Boolean(id) && !accountIds.has(id!));
+  let metaToken: string | null = null;
+  try {
+    metaToken = expired ? null : decrypt(connection.access_token_encrypted);
+  } catch {
+    metaToken = null;
+  }
+  const directory = await campaignDirectory(supabase, user.id, metaToken, foreignIds);
+  const { rows, total } = await campaignOutcomes(supabase, user.id, accountId, { since, until }, orders, campaigns, tr, directory);
   const accountCampaignIds = new Set(rows.filter((r) => r.campaignId).map((r) => r.key));
   for (const c of campaigns) accountCampaignIds.add(c.id);
-  const keyOfOrder = (id: string | null) => (id ? (accountCampaignIds.has(id) ? id : "other") : "none");
+  for (const [id, e] of directory) if (e.accountId === accountId) accountCampaignIds.add(id);
+  const keyOfOrder = (id: string | null) => outcomeKey(id, accountCampaignIds, directory);
+  const campaignLabel = (o: { campaign_id: string | null; campaign_name: string | null }) =>
+    (o.campaign_id && (campaigns.find((c) => c.id === o.campaign_id)?.name ?? directory.get(o.campaign_id)?.name)) ||
+    o.campaign_name ||
+    o.campaign_id;
 
   const filter = params.campaign;
   const listed = orders
@@ -384,8 +401,8 @@ export default async function OrdersPage({ searchParams }: Props) {
                   <tr key={o.id}>
                     <td className="px-5 py-2.5 font-mono text-xs">{o.external_id}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{formatRange(o.order_date, o.order_date)}</td>
-                    <td className="max-w-60 truncate px-3 py-2.5" title={o.campaign_name ?? undefined}>
-                      {o.campaign_name ?? <span className="text-zinc-400">—</span>}
+                    <td className="max-w-60 truncate px-3 py-2.5" title={campaignLabel(o) ?? undefined}>
+                      {campaignLabel(o) ?? <span className="text-zinc-400">—</span>}
                       {o.campaign_name && !o.campaign_id && (
                         <span className="ml-1">
                           <Badge tone="warning">{tr("not matched", "মেলেনি")}</Badge>

@@ -262,6 +262,24 @@ export async function loadOrders(supabase: SupabaseClient, userId: string, range
   return all;
 }
 
+// টেবিলের সারি: এই অ্যাকাউন্টের ক্যাম্পেইন ID, "other:<অ্যাকাউন্ট>" (অন্য Ad Account), বা "none" (মেলেনি)
+export function outcomeKey(
+  id: string | null,
+  accountCampaignIds: { has(id: string): boolean },
+  directory: Map<string, { accountId: string }>,
+) {
+  if (!id) return "none";
+  if (accountCampaignIds.has(id)) return id;
+  const account = directory.get(id)?.accountId;
+  return account ? `other:${account}` : "other";
+}
+
+function otherLabel(entry: { accountId: string; accountName: string | null } | undefined, tr: Tr) {
+  if (!entry) return tr("Other ad accounts", "অন্য Ad Account");
+  const name = entry.accountName ?? entry.accountId;
+  return tr(`${name} (other ad account)`, `${name} (অন্য Ad Account)`);
+}
+
 // অর্ডারের তারিখ ধরে: এই সময়ে আসা অর্ডারগুলোর এখনকার অবস্থা, পাশে একই সময়ের বিজ্ঞাপন খরচ
 export async function campaignOutcomes(
   supabase: SupabaseClient,
@@ -272,11 +290,15 @@ export async function campaignOutcomes(
   // এই Ad Account-এর ক্যাম্পেইন (Hook-এ ডাটা আছে এমন সব)
   accountCampaigns: KnownCampaign[],
   tr: Tr = enTr,
+  // সব Ad Account-এর ক্যাম্পেইনের নাম (অন্য অ্যাকাউন্টের অর্ডার অ্যাকাউন্ট ধরে ভাগ করতে)
+  directory: Map<string, { name: string; accountId: string; accountName: string | null }> = new Map(),
 ) {
   const spend = await spendByCampaign(supabase, userId, accountId, range);
   const rows = new Map<string, CampaignOutcome>();
   const names = new Map(accountCampaigns.map((c) => [c.id, c.name]));
   for (const id of spend.keys()) if (!names.has(id)) names.set(id, spend.get(id)!.name);
+  // এই অ্যাকাউন্টের পুরনো ক্যাম্পেইন (Hook-এ খরচের ডাটা নেই) Meta-র তালিকা থেকে
+  for (const [id, e] of directory) if (e.accountId === accountId && !names.has(id)) names.set(id, e.name);
 
   for (const [id, s] of spend) {
     rows.set(id, { ...emptyCounts(), key: id, campaignId: id, name: s.name, spend: s.spend });
@@ -284,29 +306,28 @@ export async function campaignOutcomes(
   const total = emptyCounts();
   for (const o of orders) {
     const id = o.campaign_id;
-    const key = id ? (names.has(id) ? id : "other") : "none";
+    const key = outcomeKey(id, names, directory);
     let row = rows.get(key);
     if (!row) {
       row = {
         ...emptyCounts(),
         key,
         campaignId: key === id ? id : null,
-        name:
-          key === "other"
-            ? tr("Other ad accounts", "অন্য Ad Account")
-            : key === "none"
-              ? tr("Not linked to a campaign", "কোনো ক্যাম্পেইনের সাথে মেলেনি")
-              : (names.get(key) ?? o.campaign_name ?? key),
+        name: key.startsWith("other")
+          ? otherLabel(id ? directory.get(id) : undefined, tr)
+          : key === "none"
+            ? tr("Not linked to a campaign", "কোনো ক্যাম্পেইনের সাথে মেলেনি")
+            : (names.get(key) ?? directory.get(key)?.name ?? o.campaign_name ?? key),
         spend: 0,
       };
       rows.set(key, row);
     }
     addOrder(row, o);
     // অন্য অ্যাকাউন্টের অর্ডার এই অ্যাকাউন্টের মোট হিসাবে ধরা হয় না (খরচও এই অ্যাকাউন্টের)
-    if (key !== "other") addOrder(total, o);
+    if (!key.startsWith("other")) addOrder(total, o);
   }
 
-  const order = (r: CampaignOutcome) => (r.key === "none" ? 2 : r.key === "other" ? 1 : 0);
+  const order = (r: CampaignOutcome) => (r.key === "none" ? 2 : r.key.startsWith("other") ? 1 : 0);
   const list = [...rows.values()]
     .filter((r) => r.orders > 0 || r.spend > 0)
     .sort((a, b) => order(a) - order(b) || b.orders - a.orders || b.spend - a.spend);
