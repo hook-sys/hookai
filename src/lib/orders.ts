@@ -64,6 +64,23 @@ const STATUS_WORDS: Record<string, OrderStatus> = {
   dispatched: "shipped",
   fulfilled: "shipped",
   "কুরিয়ারে": "shipped",
+  // অর্ডার ম্যানেজমেন্ট অ্যাপ (যেমন Bizmation) ওয়েবসাইটে যেসব অবস্থা বসায়
+  "in-courier": "shipped",
+  courier: "shipped",
+  "on-courier": "shipped",
+  "sent-to-courier": "shipped",
+  "courier-assigned": "shipped",
+  "handed-over": "shipped",
+  "out-for-delivery": "shipped",
+  "pending-delivery": "shipped",
+  "order-confirmed": "confirmed",
+  "ready-to-ship": "confirmed",
+  packed: "confirmed",
+  packing: "confirmed",
+  hold: "pending",
+  "follow-up": "pending",
+  followup: "pending",
+  "no-response": "pending",
   delivered: "delivered",
   completed: "delivered",
   complete: "delivered",
@@ -83,11 +100,19 @@ const STATUS_WORDS: Record<string, OrderStatus> = {
   refunded: "returned",
   "return_received": "returned",
   "রিটার্ন": "returned",
+  "pending-return": "returned",
+  "return-pending": "returned",
+  "returned-to-merchant": "returned",
+  "partial-return": "delivered",
+  "partial-delivered": "delivered",
+  "delivery-done": "delivered",
+  paid: "delivered",
 };
 
+// "In Courier", "in_courier", "wc-in-courier" সব একই ধরা হয়
 export function normalizeStatus(raw: string): OrderStatus | null {
   const key = raw.trim().toLowerCase().replace(/^wc-/, "");
-  return STATUS_WORDS[key] ?? null;
+  return STATUS_WORDS[key] ?? STATUS_WORDS[key.replace(/[\s_]+/g, "-")] ?? null;
 }
 
 // ---------- ক্যাম্পেইনের তালিকা ও খরচ ----------
