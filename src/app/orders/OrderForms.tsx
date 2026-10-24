@@ -7,6 +7,7 @@ import { buttonClass, inputClass } from "@/components/ui";
 import { COURIERS, COURIER_NAMES, CSV_TEMPLATE, ORDER_STATUSES, statusLabel, type KnownCampaign, type OrderStatus } from "@/lib/orders";
 import { addOrder, importOrders, updateOrderStatus, type OrderFormState } from "./actions";
 import { connectCourier, saveCarrybeeSecret } from "./courier-actions";
+import { connectWooCommerce } from "./shop-actions";
 import type { CourierId } from "@/lib/couriers/common";
 
 function Result({ state }: { state: OrderFormState }) {
@@ -254,5 +255,28 @@ export function CopyText({ text, secret = false }: { text: string; secret?: bool
         {copied ? tr("Copied", "কপি হয়েছে") : tr("Copy", "কপি")}
       </button>
     </div>
+  );
+}
+
+export function WooConnectForm() {
+  const tr = useTr();
+  const [state, formAction, pending] = useActionState<OrderFormState, FormData>(connectWooCommerce, null);
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <Field label={tr("Website address", "ওয়েবসাইটের ঠিকানা")}>
+        <input name="site" required placeholder="myshop.com" autoComplete="off" spellCheck={false} className={inputClass} />
+      </Field>
+      <Field label="Consumer key">
+        <input name="consumer_key" required placeholder="ck_…" autoComplete="off" spellCheck={false} className={inputClass} />
+      </Field>
+      <Field label="Consumer secret">
+        <input name="consumer_secret" type="password" required placeholder="cs_…" autoComplete="off" className={inputClass} />
+      </Field>
+      <Result state={state} />
+      <button type="submit" disabled={pending} className={buttonClass("primary", "self-start")}>
+        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {pending ? tr("Connecting and importing…", "কানেক্ট করে অর্ডার আনা হচ্ছে…") : tr("Connect WooCommerce", "WooCommerce কানেক্ট করো")}
+      </button>
+    </form>
   );
 }

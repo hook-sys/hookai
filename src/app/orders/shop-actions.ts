@@ -1,12 +1,16 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/plans";
-import { listShops, syncShop } from "@/lib/shops";
+import { decrypt, encrypt } from "@/lib/crypto";
+import { getTr } from "@/lib/i18n-server";
+import { SHOP_COLUMNS, listShops, syncShop, type ShopConnection } from "@/lib/shops";
+import { WooError, checkWoo, normalizeWooSite, type WooCredentials } from "@/lib/shops/woocommerce";
+import type { OrderFormState } from "./actions";
 import { authorizeUrl, normalizeShopDomain, shopifyConfig } from "@/lib/shops/shopify";
 
 const SHOPIFY_STATE_COOKIE = "shopify_oauth_state";
@@ -82,4 +86,92 @@ export async function disconnectShop(formData: FormData) {
   }
   revalidatePath("/orders");
   redirect("/orders?shop=disconnected#shops");
+}
+
+// WooCommerce: দোকানের ঠিকানা আর Read অনুমতির REST API key নিয়ে মিলিয়ে দেখে, সেভ করে, প্রথম সিঙ্ক করে
+export async function connectWooCommerce(_prev: OrderFormState, formData: FormData): Promise<OrderFormState> {
+  const tr = await getTr();
+  const { supabase, user } = await session();
+  const plan = await getUserPlan(supabase, user.id);
+  if (!plan.courierSync) {
+    return { ok: false, error: tr(`Store connections aren't included in the ${plan.name} plan.`, `${plan.name} প্ল্যানে দোকানের সংযোগ নেই।`) };
+  }
+  const site = normalizeWooSite(String(formData.get("site") ?? ""));
+  const consumerKey = String(formData.get("consumer_key") ?? "").trim();
+  const consumerSecret = String(formData.get("consumer_secret") ?? "").trim();
+  if (!site) return { ok: false, error: tr("Enter your website address, like myshop.com.", "ওয়েবসাইটের ঠিকানা লেখো, যেমন myshop.com।") };
+  if (!/^ck_[a-f0-9]{20,64}$/i.test(consumerKey) || !/^cs_[a-f0-9]{20,64}$/i.test(consumerSecret)) {
+    return { ok: false, error: tr("Paste the Consumer key (ck_…) and Consumer secret (cs_…).", "Consumer key (ck_…) আর Consumer secret (cs_…) বসাও।") };
+  }
+
+  const { data: meta } = await supabase.from("meta_connections").select("selected_ad_account_id").eq("user_id", user.id).maybeSingle();
+  if (!meta?.selected_ad_account_id) return { ok: false, error: tr("Pick an ad account in Settings first.", "আগে সেটিংস থেকে Ad Account বেছে নাও।") };
+
+  try {
+    await checkWoo(site, { consumerKey, consumerSecret });
+  } catch (err) {
+    const status = err instanceof WooError ? err.status : undefined;
+    console.error("woocommerce check failed", err instanceof Error ? err.message : err);
+    return {
+      ok: false,
+      error:
+        status === 401 || status === 403
+          ? tr("WooCommerce didn't accept these keys. Check they have Read permission.", "WooCommerce এই key গ্রহণ করেনি। key-তে Read অনুমতি আছে কিনা দেখো।")
+          : tr(
+              "Couldn't reach the WooCommerce REST API on this site. Check the address and that the site uses https.",
+              "এই সাইটে WooCommerce REST API-তে পৌঁছানো যায়নি। ঠিকানা ঠিক আছে কিনা আর সাইট https কিনা দেখো।",
+            ),
+    };
+  }
+
+  // আবার কানেক্ট করলে webhook secret একই থাকে, যাতে WooCommerce-এ বসানো webhook কাজ করে
+  const { data: existing } = await supabase
+    .from("shop_connections")
+    .select(SHOP_COLUMNS)
+    .eq("user_id", user.id)
+    .eq("platform", "woocommerce")
+    .eq("shop_domain", site)
+    .maybeSingle();
+  let webhookToken = randomBytes(32).toString("hex");
+  if (existing) {
+    try {
+      webhookToken = (JSON.parse(decrypt(existing.credentials_encrypted)) as WooCredentials).webhookToken || webhookToken;
+    } catch {
+      // পুরনো তথ্য পড়া না গেলে নতুন secret
+    }
+  }
+  const fields = {
+    credentials_encrypted: encrypt(JSON.stringify({ consumerKey, consumerSecret, webhookToken } satisfies WooCredentials)),
+    webhook_token_hash: createHash("sha256").update(webhookToken).digest("hex"),
+    ad_account_id: meta.selected_ad_account_id,
+  };
+  const saved = existing
+    ? await supabase.from("shop_connections").update(fields).eq("id", existing.id).eq("user_id", user.id).select(SHOP_COLUMNS).single()
+    : await supabase
+        .from("shop_connections")
+        .insert({ ...fields, user_id: user.id, platform: "woocommerce", shop_domain: site })
+        .select(SHOP_COLUMNS)
+        .single();
+  if (saved.error || !saved.data) {
+    console.error("woocommerce save failed", saved.error?.message);
+    return { ok: false, error: tr("Couldn't save the connection. Try again.", "সংযোগ সেভ করা যায়নি। আবার চেষ্টা করো।") };
+  }
+
+  revalidatePath("/orders");
+  try {
+    const r = await syncShop(supabase, user.id, saved.data as ShopConnection, plan);
+    return {
+      ok: true,
+      message: tr(
+        `WooCommerce connected: ${r.added} orders from the last 60 days imported. Now add the webhooks below for live updates.`,
+        `WooCommerce কানেক্ট হয়েছে: গত ৬০ দিনের ${r.added}টি অর্ডার এসেছে। লাইভ আপডেটের জন্য এবার নিচের webhook বসাও।`,
+      ),
+    };
+  } catch (err) {
+    console.error("woocommerce first sync failed", err instanceof Error ? err.message : err);
+    return {
+      ok: true,
+      message: tr("WooCommerce connected, but the first import didn't finish. Press Sync now.", "WooCommerce কানেক্ট হয়েছে, কিন্তু প্রথম অর্ডার আনা শেষ হয়নি। Sync now চাপো।"),
+    };
+  }
 }

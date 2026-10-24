@@ -3,10 +3,11 @@ import { decrypt } from "@/lib/crypto";
 import { knownCampaigns, matchCampaign, type OrderStatus } from "@/lib/orders";
 import type { Plan } from "@/lib/plans";
 import { fetchShopifyOrders } from "./shopify";
+import { fetchWooOrders, type WooCredentials } from "./woocommerce";
 
 export type ShopConnection = {
   id: string;
-  platform: "shopify";
+  platform: "shopify" | "woocommerce";
   shop_domain: string;
   ad_account_id: string;
   credentials_encrypted: string;
@@ -21,7 +22,8 @@ export async function listShops(supabase: SupabaseClient, userId: string) {
   return (data ?? []) as ShopConnection[];
 }
 
-// প্রথমবার কতদিন আগের অর্ডার আনা হবে (Shopify read_orders দিয়ে ৬০ দিনের বেশি পুরনো অর্ডার দেয় না)
+// প্রথমবার কতদিন আগের অর্ডার আনা হবে (Shopify read_orders দিয়ে ৬০ দিনের বেশি পুরনো অর্ডার দেয় না;
+// WooCommerce-এও একই রাখা, যাতে প্রথম সিঙ্ক দ্রুত হয়)
 const FIRST_SYNC_DAYS = 60;
 
 const RANK: Record<OrderStatus, number> = { pending: 0, confirmed: 1, shipped: 2, delivered: 3, cancelled: 3, returned: 3 };
@@ -36,14 +38,17 @@ export async function syncShop(
   shop: ShopConnection,
   plan: Plan,
 ): Promise<ShopSyncResult> {
-  const { accessToken } = JSON.parse(decrypt(shop.credentials_encrypted)) as { accessToken: string };
+  const credentials = JSON.parse(decrypt(shop.credentials_encrypted));
   // শেষ সিঙ্কের ৫ মিনিট আগে থেকে, যাতে মাঝামাঝি সময়ের বদল বাদ না পড়ে
   const since = shop.last_synced_at
     ? new Date(new Date(shop.last_synced_at).getTime() - 5 * 60 * 1000).toISOString()
     : new Date(Date.now() - FIRST_SYNC_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const startedAt = new Date().toISOString();
 
-  const { orders, complete } = await fetchShopifyOrders(shop.shop_domain, accessToken, since);
+  const { orders, complete } =
+    shop.platform === "woocommerce"
+      ? await fetchWooOrders(shop.shop_domain, credentials as WooCredentials, since)
+      : await fetchShopifyOrders(shop.shop_domain, (credentials as { accessToken: string }).accessToken, since);
   const result: ShopSyncResult = { fetched: orders.length, added: 0, updated: 0, skippedByLimit: 0, complete };
 
   if (orders.length > 0) {
@@ -88,7 +93,7 @@ export async function syncShop(
         external_id: o.external_id,
         order_date: o.order_date,
         amount: o.amount,
-        source: "shopify",
+        source: shop.platform,
         status: advance ? o.status : old!.status,
         status_updated_at: advance ? startedAt : old!.status_updated_at,
         campaign_id: old?.campaign_id ?? campaign.campaign_id,
