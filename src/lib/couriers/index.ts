@@ -8,6 +8,7 @@ import { carrybeeStatus, type CarrybeeCredentials } from "./carrybee";
 export type CourierConnection = {
   id: string;
   courier: CourierId;
+  client_id: string | null;
   credentials_encrypted: string;
   webhook_token_encrypted: string | null;
   webhook_setup_until: string | null;
@@ -16,7 +17,7 @@ export type CourierConnection = {
 };
 
 export const CONNECTION_COLUMNS =
-  "id, courier, credentials_encrypted, webhook_token_encrypted, webhook_setup_until, last_synced_at, last_webhook_at";
+  "id, courier, client_id, credentials_encrypted, webhook_token_encrypted, webhook_setup_until, last_synced_at, last_webhook_at";
 
 export const COURIER_LABELS: Record<CourierId, string> = { steadfast: "Steadfast", pathao: "Pathao", carrybee: "CarryBee" };
 
@@ -28,8 +29,10 @@ export function sealCredentials(credentials: object) {
   return encrypt(JSON.stringify(credentials));
 }
 
-export async function listConnections(supabase: SupabaseClient, userId: string) {
-  const { data } = await supabase.from("courier_connections").select(CONNECTION_COLUMNS).eq("user_id", userId);
+export async function listConnections(supabase: SupabaseClient, userId: string, clientId?: string | null) {
+  let query = supabase.from("courier_connections").select(CONNECTION_COLUMNS).eq("user_id", userId);
+  if (clientId) query = query.eq("client_id", clientId);
+  const { data } = await query;
   return (data ?? []) as CourierConnection[];
 }
 
@@ -90,6 +93,8 @@ export async function syncCouriers(supabase: SupabaseClient, userId: string, con
       .select("id, external_id, tracking_code, status, courier")
       .eq("user_id", userId)
       .in("status", ["confirmed", "shipped"]);
+    // কুরিয়ার শুধু নিজের ক্লায়েন্টের অর্ডার দেখে
+    if (conn.client_id) query = query.eq("client_id", conn.client_id);
     query = FINDS_BY_ORDER_NUMBER.includes(courier)
       ? query.or(`courier.eq.${courier},courier.is.null`)
       : query.eq("courier", courier);

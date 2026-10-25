@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient } from "@/lib/clients";
 import { getTr } from "@/lib/i18n-server";
 import { getUserPlan } from "@/lib/plans";
 import {
@@ -33,7 +34,8 @@ async function orderContext() {
     .select("selected_ad_account_id")
     .eq("user_id", user.id)
     .maybeSingle();
-  return { supabase, user, accountId: connection?.selected_ad_account_id ?? null };
+  const { client } = await currentClient(supabase, user.id);
+  return { supabase, user, accountId: connection?.selected_ad_account_id ?? null, clientId: client?.id ?? null };
 }
 
 type Ctx = Awaited<ReturnType<typeof orderContext>>;
@@ -75,6 +77,7 @@ async function saveOrders(ctx: Ctx, accountId: string, orders: ParsedOrder[], so
   const rows = orders.map((o) => ({
     ...o,
     user_id: ctx.user.id,
+    client_id: ctx.clientId,
     ad_account_id: accountId,
     source,
     status_updated_at: now,

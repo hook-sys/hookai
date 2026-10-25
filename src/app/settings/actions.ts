@@ -16,8 +16,56 @@ function revalidateAppPages() {
   revalidatePath("/", "layout");
 }
 
-// ব্যবহারকারী যে Ad Account নিয়ে কাজ করবে সেটি সংরক্ষণ করে।
-// শুধু সেই Ad Account গ্রহণ করা হয় যা Meta এই ব্যবহারকারীর তালিকায় দেখায়।
+// Ad Account বেছে নেওয়া: শুধু সেই Ad Account গ্রহণ করা হয় যা Meta এই ব্যবহারকারীর তালিকায় দেখায়।
+// অ্যাকাউন্টটা কোনো ক্লায়েন্টের হলে সেই ক্লায়েন্টও বেছে নেওয়া হয়।
+async function applyAdAccount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  accountId: string,
+  clientId?: string | null,
+) {
+  const { data: connection } = await supabase
+    .from("meta_connections")
+    .select("access_token_encrypted, selected_ad_account_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!connection) return false;
+
+  let account;
+  try {
+    const accounts = await getAdAccounts(decrypt(connection.access_token_encrypted));
+    account = accounts.find((acc) => acc.id === accountId);
+  } catch (err) {
+    console.error("ad account verification failed", err instanceof Error ? err.message : err);
+    return false;
+  }
+  if (!account) return false;
+
+  const owner =
+    clientId === undefined
+      ? ((await supabase.from("client_ad_accounts").select("client_id").eq("user_id", userId).eq("ad_account_id", accountId).maybeSingle())
+          .data?.client_id ?? null)
+      : clientId;
+  const changed = connection.selected_ad_account_id !== accountId;
+
+  await supabase
+    .from("meta_connections")
+    .update({
+      selected_ad_account_id: account.id,
+      selected_ad_account_name: account.name,
+      selected_ad_account_currency: account.currency,
+      selected_ad_account_timezone: account.timezone_name,
+      ...(owner ? { selected_client_id: owner } : {}),
+      // নতুন Ad Account হলে ড্যাশবোর্ড খোলার সময় নতুন করে ডাটা আনবে
+      ...(changed
+        ? { insights_synced_at: null, insights_today_synced_at: null, insights_synced_from: null }
+        : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+  return true;
+}
+
 export async function selectAdAccount(formData: FormData) {
   const accountId = String(formData.get("accountId") ?? "");
   if (!AD_ACCOUNT_ID_PATTERN.test(accountId)) return;
@@ -28,45 +76,33 @@ export async function selectAdAccount(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const { data: connection } = await supabase
-    .from("meta_connections")
-    .select("access_token_encrypted, selected_ad_account_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!connection) return;
+  if (await applyAdAccount(supabase, user.id, accountId)) revalidateAppPages();
+}
 
-  let account;
-  try {
-    const accounts = await getAdAccounts(
-      decrypt(connection.access_token_encrypted),
-    );
-    account = accounts.find((acc) => acc.id === accountId);
-  } catch (err) {
-    console.error(
-      "ad account verification failed",
-      err instanceof Error ? err.message : err,
-    );
-    return;
+// ক্লায়েন্ট বেছে নেওয়া। এখনকার Ad Account অন্য ক্লায়েন্টের হলে এই ক্লায়েন্টের প্রথম Ad Account-এ যায়।
+export async function selectClient(formData: FormData) {
+  const clientId = String(formData.get("clientId") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const [{ data: client }, { data: accounts }, { data: conn }] = await Promise.all([
+    supabase.from("clients").select("id").eq("id", clientId).eq("user_id", user.id).maybeSingle(),
+    supabase.from("client_ad_accounts").select("ad_account_id").eq("user_id", user.id).eq("client_id", clientId).order("created_at"),
+    supabase.from("meta_connections").select("selected_ad_account_id").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (!client) return;
+
+  const ids = (accounts ?? []).map((a) => a.ad_account_id);
+  if (ids.length > 0 && !ids.includes(conn?.selected_ad_account_id ?? "")) {
+    await applyAdAccount(supabase, user.id, ids[0], clientId);
+  } else {
+    await supabase.from("meta_connections").update({ selected_client_id: clientId }).eq("user_id", user.id);
   }
-  if (!account) return;
-
-  const changed = connection.selected_ad_account_id !== accountId;
-
-  await supabase
-    .from("meta_connections")
-    .update({
-      selected_ad_account_id: account.id,
-      selected_ad_account_name: account.name,
-      selected_ad_account_currency: account.currency,
-      selected_ad_account_timezone: account.timezone_name,
-      // নতুন Ad Account হলে ড্যাশবোর্ড খোলার সময় নতুন করে ডাটা আনবে
-      ...(changed
-        ? { insights_synced_at: null, insights_today_synced_at: null, insights_synced_from: null }
-        : {}),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id);
-
   revalidateAppPages();
 }
 

@@ -8,6 +8,7 @@ import { fetchWooOrders, type WooCredentials } from "./woocommerce";
 export type ShopConnection = {
   id: string;
   platform: "shopify" | "woocommerce";
+  client_id: string | null;
   processing_status: "pending" | "confirmed";
   shop_domain: string;
   ad_account_id: string;
@@ -16,10 +17,12 @@ export type ShopConnection = {
   last_webhook_at: string | null;
 };
 
-export const SHOP_COLUMNS = "id, platform, shop_domain, ad_account_id, processing_status, credentials_encrypted, last_synced_at, last_webhook_at";
+export const SHOP_COLUMNS = "id, platform, client_id, shop_domain, ad_account_id, processing_status, credentials_encrypted, last_synced_at, last_webhook_at";
 
-export async function listShops(supabase: SupabaseClient, userId: string) {
-  const { data } = await supabase.from("shop_connections").select(SHOP_COLUMNS).eq("user_id", userId);
+export async function listShops(supabase: SupabaseClient, userId: string, clientId?: string | null) {
+  let query = supabase.from("shop_connections").select(SHOP_COLUMNS).eq("user_id", userId);
+  if (clientId) query = query.eq("client_id", clientId);
+  const { data } = await query;
   return (data ?? []) as ShopConnection[];
 }
 
@@ -98,6 +101,7 @@ export async function syncShop(
       const advance = !old || storeStatusWins(o.status, old.status);
       rows.push({
         user_id: userId,
+        client_id: shop.client_id,
         ad_account_id: shop.ad_account_id,
         external_id: o.external_id,
         order_date: o.order_date,

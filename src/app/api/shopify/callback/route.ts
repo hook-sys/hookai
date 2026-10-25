@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getUserPlan } from "@/lib/plans";
+import { currentClient } from "@/lib/clients";
 import { SHOP_COLUMNS, syncShop, type ShopConnection } from "@/lib/shops";
 import { exchangeCode, normalizeShopDomain, registerShopifyWebhooks, shopifyConfig, verifyOAuthQuery } from "@/lib/shops/shopify";
 
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
     .eq("user_id", user.id)
     .maybeSingle();
   if (!meta?.selected_ad_account_id) return back("no_account");
+  const { client } = await currentClient(supabase, user.id);
+  if (!client) return back("no_client");
 
   let accessToken: string;
   try {
@@ -73,6 +76,7 @@ export async function GET(request: NextRequest) {
     credentials_encrypted: encrypt(JSON.stringify({ accessToken, webhookToken })),
     webhook_token_hash: createHash("sha256").update(webhookToken).digest("hex"),
     ad_account_id: meta.selected_ad_account_id,
+    client_id: client.id,
   };
   const saved = existing
     ? await supabase.from("shop_connections").update(fields).eq("id", existing.id).eq("user_id", user.id).select(SHOP_COLUMNS).single()

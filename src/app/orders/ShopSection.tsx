@@ -34,6 +34,8 @@ function noticeFor(p: Params, tr: Tr): { text: string; tone: "success" | "warnin
       return { tone: "danger", text: tr("Enter your store address, like my-store.myshopify.com.", "দোকানের ঠিকানা লেখো, যেমন my-store.myshopify.com।") };
     case "denied":
       return { tone: "danger", text: tr("Shopify didn't confirm the connection. Try again.", "Shopify সংযোগ নিশ্চিত করেনি। আবার চেষ্টা করো।") };
+    case "no_client":
+      return { tone: "warning", text: tr("Create a client first (Clients page).", "আগে একটা ক্লায়েন্ট বানাও (ক্লায়েন্ট পাতা)।") };
     case "no_account":
       return { tone: "warning", text: tr("Pick an ad account in Settings first.", "আগে সেটিংস থেকে Ad Account বেছে নাও।") };
     case "plan":

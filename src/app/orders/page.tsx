@@ -6,6 +6,7 @@ import { decrypt } from "@/lib/crypto";
 import { ensureCoverage } from "@/lib/insights/sync";
 import { listConnections } from "@/lib/couriers";
 import { listShops } from "@/lib/shops";
+import { currentClient } from "@/lib/clients";
 import { campaignDirectory } from "@/lib/campaignDirectory";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
@@ -103,6 +104,24 @@ export default async function OrdersPage({ searchParams }: Props) {
   }
 
   const accountId = connection.selected_ad_account_id;
+  // বেছে রাখা ক্লায়েন্ট: এই পাতার অর্ডার, দোকান আর কুরিয়ার শুধু তার
+  const { client } = await currentClient(supabase, user.id);
+  if (!client) {
+    return (
+      <AppShell active="orders">
+        <PageHeader title={tr("Orders", "অর্ডার")} />
+        <EmptyState
+          icon={Link2Off}
+          title={tr("Create a client first", "আগে একটা ক্লায়েন্ট বানাও")}
+          text={tr(
+            "Orders, websites and couriers belong to a client. Create one and tick its ad accounts.",
+            "অর্ডার, ওয়েবসাইট আর কুরিয়ার একটা ক্লায়েন্টের হয়। একটা ক্লায়েন্ট বানিয়ে তার Ad Account গুলোতে টিক দাও।",
+          )}
+          action={<Link href="/clients" className={buttonClass("primary")}>{tr("Go to Clients", "ক্লায়েন্ট পাতায় যাও")}</Link>}
+        />
+      </AppShell>
+    );
+  }
   const currency = connection.selected_ad_account_currency;
   const timeZone = connection.selected_ad_account_timezone;
   const today = todayIn(timeZone);
@@ -140,11 +159,11 @@ export default async function OrdersPage({ searchParams }: Props) {
   }
 
   const [orders, campaigns, connections, shops, bookings] = await Promise.all([
-    loadOrders(supabase, user.id, { since, until }),
+    loadOrders(supabase, user.id, { since, until }, client.id),
     knownCampaigns(supabase, user.id, accountId),
-    listConnections(supabase, user.id),
-    listShops(supabase, user.id),
-    dailyBookings(supabase, user.id, { since, until }),
+    listConnections(supabase, user.id, client.id),
+    listShops(supabase, user.id, client.id),
+    dailyBookings(supabase, user.id, { since, until }, client.id),
   ]);
   const bookedInRange = [...bookings.values()].reduce((s, n) => s + n, 0);
   // প্রতিটি দিন (বুকিং না থাকলেও ০ দেখাতে), নতুন দিন উপরে
@@ -214,7 +233,7 @@ export default async function OrdersPage({ searchParams }: Props) {
   return (
     <AppShell active="orders">
       <PageHeader
-        title={tr("Orders", "অর্ডার")}
+        title={tr(`Orders · ${client.name}`, `অর্ডার · ${client.name}`)}
         description={
           <>
             {connection.selected_ad_account_name ?? accountId} · {range.label}: {formatRange(since, until)}

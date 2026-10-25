@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { encrypt } from "@/lib/crypto";
 import { getTr } from "@/lib/i18n-server";
+import { currentClient } from "@/lib/clients";
 import { getUserPlan } from "@/lib/plans";
 import { isAuthError, isCourierId } from "@/lib/couriers/common";
 import { COURIER_LABELS, listConnections, sealCredentials, syncCouriers } from "@/lib/couriers";
@@ -97,10 +98,13 @@ export async function connectCourier(_prev: OrderFormState, formData: FormData):
     };
   }
 
+  const { client } = await currentClient(supabase, user.id);
+  if (!client) return { ok: false, error: tr("Create a client first (Clients page).", "আগে একটা ক্লায়েন্ট বানাও (ক্লায়েন্ট পাতা)।") };
   const { data: existing } = await supabase
     .from("courier_connections")
     .select("id")
     .eq("user_id", user.id)
+    .eq("client_id", client.id)
     .eq("courier", courier)
     .maybeSingle();
 
@@ -115,6 +119,7 @@ export async function connectCourier(_prev: OrderFormState, formData: FormData):
       ...fields,
       ...(secret ? webhookSecretFields(secret) : {}),
       user_id: user.id,
+      client_id: client.id,
       courier,
     }));
   }
@@ -134,10 +139,13 @@ export async function saveCarrybeeSecret(_prev: OrderFormState, formData: FormDa
   if (!/^[\w-]{8,200}$/.test(secret)) {
     return { ok: false, error: tr("Paste the integration secret CarryBee shows.", "CarryBee-র দেখানো integration secret বসাও।") };
   }
+  const { client } = await currentClient(supabase, user.id);
+  if (!client) return { ok: false, error: tr("Create a client first (Clients page).", "আগে একটা ক্লায়েন্ট বানাও (ক্লায়েন্ট পাতা)।") };
   const { error } = await supabase
     .from("courier_connections")
     .update({ ...webhookSecretFields(secret), webhook_setup_until: new Date(Date.now() + CARRYBEE_SETUP_MS).toISOString() })
     .eq("user_id", user.id)
+    .eq("client_id", client.id)
     .eq("courier", "carrybee");
   if (error) return { ok: false, error: tr("Couldn't save. Try again.", "সেভ করা যায়নি। আবার চেষ্টা করো।") };
   revalidatePath("/orders");
@@ -153,10 +161,12 @@ export async function saveCarrybeeSecret(_prev: OrderFormState, formData: FormDa
 // CarryBee-র webhook যোগ করার পরীক্ষার জন্য আবার ১০ মিনিট সময় খোলা
 export async function openCarrybeeSetup() {
   const { supabase, user } = await session();
+  const { client } = await currentClient(supabase, user.id);
   await supabase
     .from("courier_connections")
     .update({ webhook_setup_until: new Date(Date.now() + CARRYBEE_SETUP_MS).toISOString() })
     .eq("user_id", user.id)
+    .eq("client_id", client?.id ?? "00000000-0000-0000-0000-000000000000")
     .eq("courier", "carrybee")
     .not("webhook_token_hash", "is", null);
   revalidatePath("/orders");
@@ -166,8 +176,9 @@ export async function openCarrybeeSetup() {
 export async function disconnectCourier(formData: FormData) {
   const courier = formData.get("courier");
   const { supabase, user } = await session();
-  if (isCourierId(courier)) {
-    await supabase.from("courier_connections").delete().eq("user_id", user.id).eq("courier", courier);
+  const { client } = await currentClient(supabase, user.id);
+  if (isCourierId(courier) && client) {
+    await supabase.from("courier_connections").delete().eq("user_id", user.id).eq("client_id", client.id).eq("courier", courier);
   }
   revalidatePath("/orders");
   redirect(`/orders?courier=disconnected&which=${isCourierId(courier) ? courier : ""}#couriers`);
@@ -180,7 +191,8 @@ export async function syncCouriersNow(formData: FormData) {
   const join = safeBack.includes("?") ? "&" : "?";
 
   const plan = await getUserPlan(supabase, user.id);
-  const connections = await listConnections(supabase, user.id);
+  const { client } = await currentClient(supabase, user.id);
+  const connections = await listConnections(supabase, user.id, client?.id);
   if (connections.length === 0 || !plan.courierSync) redirect(`${safeBack}${join}courier=missing#couriers`);
 
   let query: string;

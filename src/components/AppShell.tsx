@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
+  Building2,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -22,8 +23,9 @@ import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
+import { currentClient } from "@/lib/clients";
 
-type Section = "dashboard" | "manage" | "orders" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "dashboard" | "manage" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -83,10 +85,23 @@ export default async function AppShell({
     isAdmin,
   ] = await Promise.all([supabase.auth.getUser(), isCurrentUserAdmin(supabase)]);
   // উপরের Ad Account বদলের মেনু (Meta কানেক্ট থাকলে)
-  const accountMenu = user ? await adAccountOptions(supabase, user.id) : null;
+  const [accountMenu, clientInfo] = user
+    ? await Promise.all([adAccountOptions(supabase, user.id), currentClient(supabase, user.id)])
+    : [null, null];
+  const switcherClients = (clientInfo?.clients ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    accountIds: (clientInfo?.accounts ?? []).filter((a) => a.client_id === c.id).map((a) => a.ad_account_id),
+  }));
   const switcher =
     accountMenu && accountMenu.accounts.length > 0 ? (
-      <AccountSwitcher accounts={accountMenu.accounts} selectedId={accountMenu.selectedId} selectedName={accountMenu.selectedName} />
+      <AccountSwitcher
+        accounts={accountMenu.accounts}
+        clients={switcherClients}
+        selectedId={accountMenu.selectedId}
+        selectedName={accountMenu.selectedName}
+        selectedClientId={clientInfo?.client?.id ?? null}
+      />
     ) : null;
 
   const nav: NavItem[] = [
@@ -96,6 +111,7 @@ export default async function AppShell({
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
+    { id: "clients", href: "/clients", label: tr("Clients", "ক্লায়েন্ট"), icon: Building2 },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
   ];
   const adminNav: NavItem[] = [

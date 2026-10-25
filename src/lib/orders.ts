@@ -242,13 +242,21 @@ export function deliveryRate(c: OutcomeCounts) {
 const ORDER_PAGE = 1000;
 const MAX_ORDERS = 50_000;
 
-export async function loadOrders(supabase: SupabaseClient, userId: string, range: { since: string; until: string }) {
+// clientId দিলে শুধু সেই ক্লায়েন্টের অর্ডার
+export async function loadOrders(
+  supabase: SupabaseClient,
+  userId: string,
+  range: { since: string; until: string },
+  clientId?: string | null,
+) {
   const all: OrderRow[] = [];
   for (let from = 0; from < MAX_ORDERS; from += ORDER_PAGE) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("orders")
       .select("id, external_id, order_date, campaign_id, campaign_name, amount, status, source, courier, tracking_code")
-      .eq("user_id", userId)
+      .eq("user_id", userId);
+    if (clientId) query = query.eq("client_id", clientId);
+    const { data, error } = await query
       .gte("order_date", range.since)
       .lte("order_date", range.until)
       .order("order_date", { ascending: false })
@@ -336,13 +344,17 @@ export async function campaignOutcomes(
 }
 
 // দিন অনুযায়ী কয়টা অর্ডার কুরিয়ারে গেল (বুকিং), Dhaka সময়ে। অর্ডার যেদিনই আসুক, কুরিয়ারে যাওয়ার দিন ধরে।
-export async function dailyBookings(supabase: SupabaseClient, userId: string, range: { since: string; until: string }) {
+export async function dailyBookings(
+  supabase: SupabaseClient,
+  userId: string,
+  range: { since: string; until: string },
+  clientId?: string | null,
+) {
   const counts = new Map<string, number>();
   for (let from = 0; from < 50_000; from += 1000) {
-    const { data } = await supabase
-      .from("orders")
-      .select("shipped_at")
-      .eq("user_id", userId)
+    let query = supabase.from("orders").select("shipped_at").eq("user_id", userId);
+    if (clientId) query = query.eq("client_id", clientId);
+    const { data } = await query
       .gte("shipped_at", `${range.since}T00:00:00+06:00`)
       .lte("shipped_at", `${range.until}T23:59:59.999+06:00`)
       .order("shipped_at", { ascending: true })

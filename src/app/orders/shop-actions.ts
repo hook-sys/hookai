@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/plans";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getTr } from "@/lib/i18n-server";
+import { currentClient } from "@/lib/clients";
 import { SHOP_COLUMNS, listShops, syncShop, type ShopConnection } from "@/lib/shops";
 import { WooError, checkWoo, normalizeWooSite, type WooCredentials } from "@/lib/shops/woocommerce";
 import type { OrderFormState } from "./actions";
@@ -54,7 +55,8 @@ export async function syncShopsNow(formData: FormData) {
   const join = safeBack.includes("?") ? "&" : "?";
 
   const plan = await getUserPlan(supabase, user.id);
-  const shops = await listShops(supabase, user.id);
+  const { client } = await currentClient(supabase, user.id);
+  const shops = await listShops(supabase, user.id, client?.id);
   if (shops.length === 0 || !plan.courierSync) redirect(`${safeBack}${join}shop=missing#shops`);
 
   let query = "";
@@ -106,6 +108,8 @@ export async function connectWooCommerce(_prev: OrderFormState, formData: FormDa
 
   const { data: meta } = await supabase.from("meta_connections").select("selected_ad_account_id").eq("user_id", user.id).maybeSingle();
   if (!meta?.selected_ad_account_id) return { ok: false, error: tr("Pick an ad account in Settings first.", "আগে সেটিংস থেকে Ad Account বেছে নাও।") };
+  const { client } = await currentClient(supabase, user.id);
+  if (!client) return { ok: false, error: tr("Create a client first (Clients page).", "আগে একটা ক্লায়েন্ট বানাও (ক্লায়েন্ট পাতা)।") };
 
   try {
     await checkWoo(site, { consumerKey, consumerSecret });
@@ -144,6 +148,7 @@ export async function connectWooCommerce(_prev: OrderFormState, formData: FormDa
     credentials_encrypted: encrypt(JSON.stringify({ consumerKey, consumerSecret, webhookToken } satisfies WooCredentials)),
     webhook_token_hash: createHash("sha256").update(webhookToken).digest("hex"),
     ad_account_id: meta.selected_ad_account_id,
+    client_id: client.id,
   };
   const saved = existing
     ? await supabase.from("shop_connections").update(fields).eq("id", existing.id).eq("user_id", user.id).select(SHOP_COLUMNS).single()

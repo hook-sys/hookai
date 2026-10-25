@@ -10,6 +10,7 @@ import { addDays, todayIn } from "@/lib/dates";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { loadLiveReport, type LiveCampaign } from "@/lib/insights/live";
 import { campaignOutcomes, deliveryRate, knownCampaigns, loadOrders, type CampaignOutcome } from "@/lib/orders";
+import { clientOfAccount, loadClients } from "@/lib/clients";
 import { canManageAds, loadAccountStructure, type ManagedCampaign } from "@/lib/meta/manage";
 import AppShell from "@/components/AppShell";
 import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass, cn } from "@/components/ui";
@@ -55,13 +56,16 @@ export default async function ManagePage() {
   const token = decrypt(connection.access_token_encrypted);
   const today = todayIn(connection.selected_ad_account_timezone);
   const range = { since: addDays(today, -7), until: addDays(today, -1) };
+  // এই Ad Account যে ক্লায়েন্টের, শুধু তার অর্ডার
+  const { accounts: clientAccounts } = await loadClients(supabase, user.id);
+  const ownerClient = clientOfAccount(clientAccounts, accountId);
 
   let structure: ManagedCampaign[] = [];
   let loadError: string | null = null;
   const [allowed, live, orders, campaignsKnown, { data: log }] = await Promise.all([
     canManageAds(token),
     loadLiveReport({ supabase, userId: user.id, token, accountId }, range, today, currency).catch(() => null),
-    loadOrders(supabase, user.id, range).catch(() => []),
+    loadOrders(supabase, user.id, range, ownerClient).catch(() => []),
     knownCampaigns(supabase, user.id, accountId),
     supabase
       .from("ad_change_log")
