@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { History, KeyRound, SlidersHorizontal } from "lucide-react";
+import { Building2, History, KeyRound, SlidersHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { getLocale } from "@/lib/i18n-server";
@@ -13,6 +13,7 @@ import { campaignOutcomes, deliveryRate, knownCampaigns, loadOrders, type Campai
 import { clientOfAccount, loadClients } from "@/lib/clients";
 import { canManageAds, loadAccountStructure, type ManagedCampaign } from "@/lib/meta/manage";
 import AppShell from "@/components/AppShell";
+import { accountInCurrentClient } from "@/lib/clients";
 import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass, cn } from "@/components/ui";
 import { BudgetEditor, StatusSwitch } from "./Controls";
 
@@ -51,6 +52,28 @@ export default async function ManagePage() {
     );
   }
 
+  // ক্লায়েন্ট বাছা থাকলে শুধু তার Ad Account-এর হিসাব দেখায়
+  const scope = await accountInCurrentClient(supabase, user.id, connection.selected_ad_account_id);
+  if (!scope.ok) {
+    return (
+      <AppShell active="manage">
+        <PageHeader title={scope.client?.name ?? ""} />
+        <EmptyState
+          icon={Building2}
+          title={tr("Pick one of this client's ad accounts", "এই ক্লায়েন্টের একটা Ad Account বাছো")}
+          text={tr(
+            "Choose an ad account from the menu at the top. If the client has none yet, assign them in Settings.",
+            "উপরের মেনু থেকে একটা Ad Account বাছো। ক্লায়েন্টে এখনো কোনো Ad Account না থাকলে সেটিংস থেকে যোগ করো।",
+          )}
+          action={
+            <Link href="/settings#clients" className={buttonClass("primary")}>
+              {tr("Open Settings", "সেটিংস খোলো")}
+            </Link>
+          }
+        />
+      </AppShell>
+    );
+  }
   const accountId = connection.selected_ad_account_id;
   const currency = connection.selected_ad_account_currency;
   const token = decrypt(connection.access_token_encrypted);

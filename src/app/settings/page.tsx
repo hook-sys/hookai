@@ -11,6 +11,7 @@ import { disconnectMeta } from "./actions";
 import AdAccountPicker from "./AdAccountPicker";
 import DeleteAccount from "./DeleteAccount";
 import PlanCard from "./PlanCard";
+import ClientsManager from "@/app/clients/ClientsManager";
 import { getUserPlan } from "@/lib/plans";
 
 export async function generateMetadata() {
@@ -73,6 +74,9 @@ export default async function SettingsPage({ searchParams }: Props) {
   }
 
   const notice = meta ? MESSAGES[meta] : undefined;
+  // ক্লায়েন্ট থাকলে Ad Account বাছা হয় উপরের মেনু থেকে, আর কোন অ্যাকাউন্ট কোন ক্লায়েন্টের তা নিচের ক্লায়েন্ট অংশে
+  const { count: clientCount } = await supabase.from("clients").select("id", { count: "exact", head: true }).eq("user_id", user.id);
+  const hasClients = (clientCount ?? 0) > 0;
   const expiresOn = connection?.token_expires_at
     ? new Date(connection.token_expires_at).toLocaleDateString("en-GB")
     : null;
@@ -178,6 +182,7 @@ export default async function SettingsPage({ searchParams }: Props) {
           </Card>
         </div>
 
+        {hasClients ? null : (
         <Card>
           <CardHeader
             icon={Wallet}
@@ -199,7 +204,14 @@ export default async function SettingsPage({ searchParams }: Props) {
             )}
           </div>
         </Card>
+        )}
       </div>
+
+      {connection && !expired && (
+        <div className="mt-8">
+          <ClientsManager supabase={supabase} userId={user.id} tr={tr} />
+        </div>
+      )}
     </AppShell>
   );
 }

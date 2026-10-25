@@ -30,3 +30,11 @@ export async function currentClient(supabase: SupabaseClient, userId: string) {
     null;
   return { client: chosen as Client | null, clients, accounts };
 }
+
+// বেছে রাখা Ad Account কি বেছে রাখা ক্লায়েন্টের? ক্লায়েন্ট না থাকলে সবই চলে।
+export async function accountInCurrentClient(supabase: SupabaseClient, userId: string, accountId: string | null) {
+  const { client, clients, accounts } = await currentClient(supabase, userId);
+  if (clients.length === 0) return { ok: true, client: null };
+  const ok = Boolean(client && accountId && accounts.some((a) => a.client_id === client.id && a.ad_account_id === accountId));
+  return { ok, client };
+}

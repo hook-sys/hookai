@@ -77,5 +77,5 @@ export async function deleteClient(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (UUID.test(id)) await supabase.from("clients").delete().eq("id", id).eq("user_id", user.id);
   revalidatePath("/", "layout");
-  redirect("/clients?deleted=1");
+  redirect("/settings#clients");
 }

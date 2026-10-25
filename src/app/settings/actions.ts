@@ -46,6 +46,11 @@ async function applyAdAccount(
       ? ((await supabase.from("client_ad_accounts").select("client_id").eq("user_id", userId).eq("ad_account_id", accountId).maybeSingle())
           .data?.client_id ?? null)
       : clientId;
+  // ক্লায়েন্ট থাকলে কোনো ক্লায়েন্টে না থাকা Ad Account বাছা যায় না (আগে সেটিংসে কোনো ক্লায়েন্টে যোগ করতে হয়)
+  if (!owner) {
+    const { count } = await supabase.from("clients").select("id", { count: "exact", head: true }).eq("user_id", userId);
+    if ((count ?? 0) > 0) return false;
+  }
   const changed = connection.selected_ad_account_id !== accountId;
 
   await supabase

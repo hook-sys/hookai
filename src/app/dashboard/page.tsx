@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, Link2Off, ListChecks, RefreshCw, TimerOff } from "lucide-react";
+import { Building2, AlertTriangle, Link2Off, ListChecks, RefreshCw, TimerOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import {
@@ -31,6 +31,7 @@ import {
 import { getLatestSummary } from "@/lib/ai/summary";
 import { getActiveAlerts } from "@/lib/alerts/store";
 import AppShell from "@/components/AppShell";
+import { accountInCurrentClient } from "@/lib/clients";
 import { getUserPlan, planMinDate } from "@/lib/plans";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
@@ -154,6 +155,28 @@ export default async function DashboardPage({ searchParams }: Props) {
     );
   }
 
+  // ক্লায়েন্ট বাছা থাকলে শুধু তার Ad Account-এর হিসাব দেখায়
+  const scope = await accountInCurrentClient(supabase, user.id, connection.selected_ad_account_id);
+  if (!scope.ok) {
+    return (
+      <AppShell active="dashboard">
+        <PageHeader title={scope.client?.name ?? ""} />
+        <EmptyState
+          icon={Building2}
+          title={tr("Pick one of this client's ad accounts", "এই ক্লায়েন্টের একটা Ad Account বাছো")}
+          text={tr(
+            "Choose an ad account from the menu at the top. If the client has none yet, assign them in Settings.",
+            "উপরের মেনু থেকে একটা Ad Account বাছো। ক্লায়েন্টে এখনো কোনো Ad Account না থাকলে সেটিংস থেকে যোগ করো।",
+          )}
+          action={
+            <Link href="/settings#clients" className={buttonClass("primary")}>
+              {tr("Open Settings", "সেটিংস খোলো")}
+            </Link>
+          }
+        />
+      </AppShell>
+    );
+  }
   const accountId = connection.selected_ad_account_id;
   let currency = connection.selected_ad_account_currency;
   let accountName = connection.selected_ad_account_name;

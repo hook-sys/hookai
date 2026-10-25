@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
-  Building2,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -22,6 +21,7 @@ import { getTr } from "@/lib/i18n-server";
 import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import AccountSwitcher from "@/components/AccountSwitcher";
+import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
@@ -88,19 +88,35 @@ export default async function AppShell({
   const [accountMenu, clientInfo] = user
     ? await Promise.all([adAccountOptions(supabase, user.id), currentClient(supabase, user.id)])
     : [null, null];
-  const switcherClients = (clientInfo?.clients ?? []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    accountIds: (clientInfo?.accounts ?? []).filter((a) => a.client_id === c.id).map((a) => a.ad_account_id),
-  }));
-  const switcher =
-    accountMenu && accountMenu.accounts.length > 0 ? (
-      <AccountSwitcher
-        accounts={accountMenu.accounts}
-        clients={switcherClients}
-        selectedId={accountMenu.selectedId}
-        selectedName={accountMenu.selectedName}
-        selectedClientId={clientInfo?.client?.id ?? null}
+  const clientList = clientInfo?.clients ?? [];
+  const selectedClient = clientInfo?.client ?? null;
+  // ক্লায়েন্ট থাকলে শুধু তার Ad Account; কোনো ক্লায়েন্ট না থাকলে সব
+  const clientAccountIds = new Set(
+    (clientInfo?.accounts ?? []).filter((a) => a.client_id === selectedClient?.id).map((a) => a.ad_account_id),
+  );
+  const menuAccounts =
+    clientList.length > 0
+      ? [...clientAccountIds].map(
+          (id) =>
+            accountMenu?.accounts.find((a) => a.id === id) ?? {
+              id,
+              name: clientInfo?.accounts.find((a) => a.ad_account_id === id)?.ad_account_name ?? id,
+              active: true,
+            },
+        )
+      : (accountMenu?.accounts ?? []);
+  const switcher = accountMenu ? (
+    <AccountSwitcher accounts={menuAccounts} selectedId={accountMenu.selectedId} selectedName={accountMenu.selectedName} />
+  ) : null;
+  const clientSwitcher =
+    clientList.length > 0 ? (
+      <ClientSwitcher
+        clients={clientList.map((c) => ({
+          id: c.id,
+          name: c.name,
+          count: (clientInfo?.accounts ?? []).filter((a) => a.client_id === c.id).length,
+        }))}
+        selectedId={selectedClient?.id ?? null}
       />
     ) : null;
 
@@ -111,7 +127,6 @@ export default async function AppShell({
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
-    { id: "clients", href: "/clients", label: tr("Clients", "ক্লায়েন্ট"), icon: Building2 },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
   ];
   const adminNav: NavItem[] = [
@@ -131,7 +146,8 @@ export default async function AppShell({
         <div className="px-2">
           <Logo />
         </div>
-        <nav aria-label={menuLabel} className="mt-8 flex flex-col gap-1">
+        {clientSwitcher && <div className="mt-5">{clientSwitcher}</div>}
+        <nav aria-label={menuLabel} className={clientSwitcher ? "mt-5 flex flex-col gap-1" : "mt-8 flex flex-col gap-1"}>
           {items.map((item) => (
             <NavLink key={item.id} item={item} active={item.id === active} />
           ))}
@@ -155,7 +171,12 @@ export default async function AppShell({
             <LogoutButton label={logout} withLabel={false} />
           </div>
         </div>
-        {switcher && <div className="px-4 pb-2">{switcher}</div>}
+        {(clientSwitcher || switcher) && (
+          <div className="grid grid-cols-2 gap-2 px-4 pb-2">
+            {clientSwitcher}
+            {switcher}
+          </div>
+        )}
         <nav aria-label={menuLabel} className="flex gap-1 overflow-x-auto px-3 pb-2">
           {items.map((item) => (
             <NavLink key={item.id} item={item} active={item.id === active} />
