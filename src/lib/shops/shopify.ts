@@ -127,6 +127,25 @@ export function courierFrom(company: string | null | undefined): Courier | null 
   return hit ? hit[1] : isCourier(company.toLowerCase()) ? (company.toLowerCase() as Courier) : "other";
 }
 
+// COD ফর্ম অ্যাপগুলো (যেমন mt_cod_form) Shopify-র ভিজিটের তথ্য রাখে না, নিজের "attribute"-এ রাখে।
+// সেখানে utm_id / utm_campaign থাকলে, বা কোনো লিংকে থাকলে, সেখান থেকে ক্যাম্পেইন নেওয়া হয়।
+export function utmFromAttributes(attrs: { key: string; value: string | null }[] | null | undefined) {
+  const out = { utmId: "", utmCampaign: "" };
+  for (const a of attrs ?? []) {
+    const key = a.key.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const value = (a.value ?? "").trim();
+    if (!value) continue;
+    if (!out.utmId && (key === "utm_id" || key === "campaign_id" || key === "fb_campaign_id")) out.utmId = value;
+    else if (!out.utmCampaign && (key === "utm_campaign" || key === "campaign")) out.utmCampaign = value;
+    else if (/utm_/.test(value) && /^(https?:\/\/|\/|\?)/.test(value)) {
+      const fromUrl = utmFrom(value);
+      out.utmId ||= fromUrl.utmId;
+      out.utmCampaign ||= fromUrl.utmCampaign;
+    }
+  }
+  return out;
+}
+
 // Shopify জানে বাতিল, ফেরত টাকা আর পাঠানো হয়েছে কিনা; ডেলিভারির খবর আসে কুরিয়ার থেকে
 export function shopifyStatus(o: { cancelled: boolean; financial: string; fulfillment: string }): OrderStatus {
   const financial = o.financial.toUpperCase();
@@ -152,6 +171,7 @@ type GqlOrder = {
   displayFinancialStatus: string | null;
   displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: { amount: string } } | null;
+  customAttributes?: { key: string; value: string | null }[];
   customerJourneySummary: {
     lastVisit: { landingPage: string | null } | null;
     firstVisit: { landingPage: string | null } | null;
@@ -163,7 +183,8 @@ function fromGraphql(o: GqlOrder): ShopOrder {
   const journey = o.customerJourneySummary;
   // শেষ ভিজিটে UTM না থাকলে প্রথম ভিজিট দেখা হয়
   const last = utmFrom(journey?.lastVisit?.landingPage);
-  const utm = last.utmId || last.utmCampaign ? last : utmFrom(journey?.firstVisit?.landingPage);
+  const journeyUtm = last.utmId || last.utmCampaign ? last : utmFrom(journey?.firstVisit?.landingPage);
+  const utm = journeyUtm.utmId || journeyUtm.utmCampaign ? journeyUtm : utmFromAttributes(o.customAttributes);
   const tracking = o.fulfillments.flatMap((f) => f.trackingInfo).find((t) => t.number);
   return {
     external_id: orderNumber(o.name),
@@ -198,6 +219,7 @@ query Orders($cursor: String, $query: String) {
         firstVisit { landingPage }
       }
       fulfillments(first: 5) { trackingInfo(first: 1) { number company } }
+      customAttributes { key value }
     }
   }
 }`;
@@ -234,7 +256,13 @@ export function fromWebhook(body: Record<string, unknown>): ShopOrder | null {
       financial: String(body.financial_status ?? ""),
       fulfillment: String(body.fulfillment_status ?? ""),
     }),
-    ...utmFrom(typeof body.landing_site === "string" ? body.landing_site : null),
+    ...(() => {
+      const fromLanding = utmFrom(typeof body.landing_site === "string" ? body.landing_site : null);
+      if (fromLanding.utmId || fromLanding.utmCampaign) return fromLanding;
+      // REST webhook-এ COD ফর্মের তথ্য note_attributes-এ থাকে
+      const notes = Array.isArray(body.note_attributes) ? (body.note_attributes as { name?: unknown; value?: unknown }[]) : [];
+      return utmFromAttributes(notes.map((n) => ({ key: String(n.name ?? ""), value: n.value == null ? null : String(n.value) })));
+    })(),
     courier: courierFrom(typeof tracked?.tracking_company === "string" ? tracked.tracking_company : null),
     tracking_code: typeof tracked?.tracking_number === "string" ? tracked.tracking_number.slice(0, 100) : null,
   };
