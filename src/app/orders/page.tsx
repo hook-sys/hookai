@@ -176,12 +176,21 @@ export default async function OrdersPage({ searchParams }: Props) {
   const rate = deliveryRate(total);
   const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
   const open = total.orders - total.delivered - total.cancelled - total.returned;
+  // মোট অর্ডারের মধ্যে কয়টা ক্যানসেল
+  const cancelRate = (c: { orders: number; cancelled: number }) => (c.orders ? pct(c.cancelled / c.orders) : "—");
 
   const kpis = [
     { k: tr("Orders", "অর্ডার"), v: formatNumber(total.orders), sub: taka(total.orderValue) },
     { k: tr("Confirmed", "কনফার্ম"), v: formatNumber(total.confirmed), sub: total.orders ? pct(total.confirmed / total.orders) : "—" },
     { k: tr("Delivered", "ডেলিভারি"), v: formatNumber(total.delivered), sub: taka(total.deliveredValue) },
-    { k: tr("Cancelled", "ক্যানসেল"), v: formatNumber(total.cancelled), sub: tr(`${total.returned} returned`, `${total.returned}টি রিটার্ন`) },
+    {
+      k: tr("Cancelled", "ক্যানসেল"),
+      v: formatNumber(total.cancelled),
+      sub: tr(
+        `${cancelRate(total)} cancel rate · ${total.returned} returned`,
+        `ক্যানসেল রেট ${cancelRate(total)} · ${total.returned}টি রিটার্ন`,
+      ),
+    },
     { k: tr("Delivery rate", "ডেলিভারি রেট"), v: pct(rate), sub: tr(`${open} still open`, `${open}টি এখনো চলমান`) },
     {
       k: tr("Cost per delivered", "প্রতি ডেলিভারি খরচ"),
@@ -241,7 +250,7 @@ export default async function OrdersPage({ searchParams }: Props) {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[56rem] text-sm">
+            <table className="w-full min-w-[62rem] text-sm">
               <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-2.5 font-medium">{tr("Campaign", "ক্যাম্পেইন")}</th>
@@ -250,6 +259,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Confirmed", "কনফার্ম")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Delivered", "ডেলিভারি")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Cancelled", "ক্যানসেল")}</th>
+                  <th className="px-3 py-2.5 text-right font-medium">{tr("Cancel rate", "ক্যানসেল রেট")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Returned", "রিটার্ন")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Delivery rate", "ডেলিভারি রেট")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Cost / delivered", "খরচ / ডেলিভারি")}</th>
@@ -276,6 +286,14 @@ export default async function OrdersPage({ searchParams }: Props) {
                       <td className="px-3 py-3 text-right tabular-nums">{formatNumber(r.confirmed)}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-emerald-700 dark:text-emerald-400">{formatNumber(r.delivered)}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{formatNumber(r.cancelled)}</td>
+                      <td
+                        className={cn(
+                          "px-3 py-3 text-right tabular-nums",
+                          r.orders === 0 ? "text-zinc-400" : r.cancelled / r.orders >= 0.3 ? "font-medium text-red-600 dark:text-red-400" : "text-zinc-700 dark:text-zinc-300",
+                        )}
+                      >
+                        {cancelRate(r)}
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{formatNumber(r.returned)}</td>
                       <td
                         className={cn(
