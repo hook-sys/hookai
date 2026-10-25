@@ -28,6 +28,11 @@ export async function listShops(supabase: SupabaseClient, userId: string) {
 const FIRST_SYNC_DAYS = 60;
 
 const RANK: Record<OrderStatus, number> = { pending: 0, confirmed: 1, shipped: 2, delivered: 3, cancelled: 3, returned: 3 };
+// দোকানের অবস্থাই আসল (Hold-এ ফেরা, বাতিল, আবার চালু হওয়া সব মানা হয়)। শুধু কুরিয়ারে যাওয়া, ডেলিভারি বা
+// রিটার্ন হওয়া অর্ডারকে দোকানের পেছনের অবস্থা (যেমন Processing) আর পেছনে নেয় না।
+const PROTECTED: OrderStatus[] = ["shipped", "delivered", "returned"];
+const storeStatusWins = (next: OrderStatus, old: OrderStatus) =>
+  next !== old && !(PROTECTED.includes(old) && RANK[next] < RANK[old]);
 
 export type ShopSyncResult = { fetched: number; added: number; updated: number; skippedByLimit: number; complete: boolean };
 
@@ -90,7 +95,7 @@ export async function syncShop(
         room -= 1;
       }
       const campaign = matchCampaign(o.utmId, o.utmCampaign, campaigns);
-      const advance = !old || RANK[o.status] > RANK[old.status];
+      const advance = !old || storeStatusWins(o.status, old.status);
       rows.push({
         user_id: userId,
         ad_account_id: shop.ad_account_id,
