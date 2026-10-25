@@ -70,6 +70,11 @@ export default async function OrdersPage({ searchParams }: Props) {
   const locale = await getLocale();
   const tr = makeTr(locale);
   const params = await searchParams;
+  // Shopify-তে ইনস্টলের পর Shopify এই পাতা খোলে: তখন সংযোগ শেষ করতে অনুমতির ধাপে পাঠানো
+  const raw = params as Record<string, string | undefined>;
+  if (raw.shop && raw.hmac && raw.host) {
+    redirect(`/api/shopify/start?${new URLSearchParams(Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"))}`);
+  }
   const supabase = await createClient();
   const {
     data: { user },
