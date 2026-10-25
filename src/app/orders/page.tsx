@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Link2, Link2Off, PackageCheck, Plus, Trash2, Upload } from "lucide-react";
+import { Link2, Link2Off, PackageCheck, Plus, Trash2, Truck, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { ensureCoverage } from "@/lib/insights/sync";
@@ -19,6 +19,7 @@ import {
   deliveryRate,
   knownCampaigns,
   loadOrders,
+  dailyBookings,
   outcomeKey,
   statusLabel,
   type OrderStatus,
@@ -138,12 +139,18 @@ export default async function OrdersPage({ searchParams }: Props) {
     }
   }
 
-  const [orders, campaigns, connections, shops] = await Promise.all([
+  const [orders, campaigns, connections, shops, bookings] = await Promise.all([
     loadOrders(supabase, user.id, { since, until }),
     knownCampaigns(supabase, user.id, accountId),
     listConnections(supabase, user.id),
     listShops(supabase, user.id),
+    dailyBookings(supabase, user.id, { since, until }),
   ]);
+  const bookedInRange = [...bookings.values()].reduce((s, n) => s + n, 0);
+  // প্রতিটি দিন (বুকিং না থাকলেও ০ দেখাতে), নতুন দিন উপরে
+  const bookingDays: { day: string; n: number }[] = [];
+  for (let d = until; d >= since && bookingDays.length < 62; d = addDays(d, -1)) bookingDays.push({ day: d, n: bookings.get(d) ?? 0 });
+  const maxBooking = Math.max(1, ...bookingDays.map((b) => b.n));
   // অন্য Ad Account-এর ক্যাম্পেইনের নাম Meta থেকে (দরকার হলে) এনে রাখা, যাতে নম্বরের বদলে নাম দেখায়
   const accountIds = new Set(campaigns.map((c) => c.id));
   const foreignIds = orders.map((o) => o.campaign_id).filter((id): id is string => Boolean(id) && !accountIds.has(id!));
@@ -182,6 +189,11 @@ export default async function OrdersPage({ searchParams }: Props) {
   const kpis = [
     { k: tr("Orders", "অর্ডার"), v: formatNumber(total.orders), sub: taka(total.orderValue) },
     { k: tr("Confirmed", "কনফার্ম"), v: formatNumber(total.confirmed), sub: total.orders ? pct(total.confirmed / total.orders) : "—" },
+    {
+      k: tr("In courier", "কুরিয়ারে"),
+      v: formatNumber(total.shipped),
+      sub: tr(`${bookedInRange} booked in this period`, `এই সময়ে ${bookedInRange}টি বুকিং`),
+    },
     { k: tr("Delivered", "ডেলিভারি"), v: formatNumber(total.delivered), sub: taka(total.deliveredValue) },
     {
       k: tr("Cancelled", "ক্যানসেল"),
@@ -225,7 +237,7 @@ export default async function OrdersPage({ searchParams }: Props) {
 
       {spendWarning && <Notice tone="warning">{spendWarning}</Notice>}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {kpis.map((x) => (
           <Card key={x.k} className="p-4">
             <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{x.k}</p>
@@ -250,13 +262,14 @@ export default async function OrdersPage({ searchParams }: Props) {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[62rem] text-sm">
+            <table className="w-full min-w-[68rem] text-sm">
               <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-2.5 font-medium">{tr("Campaign", "ক্যাম্পেইন")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Spend", "খরচ")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Orders", "অর্ডার")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Confirmed", "কনফার্ম")}</th>
+                  <th className="px-3 py-2.5 text-right font-medium">{tr("In courier", "কুরিয়ারে")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Delivered", "ডেলিভারি")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Cancelled", "ক্যানসেল")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Cancel rate", "ক্যানসেল রেট")}</th>
@@ -284,6 +297,7 @@ export default async function OrdersPage({ searchParams }: Props) {
                       <td className="px-3 py-3 text-right tabular-nums">{r.campaignId ? formatMoney(r.spend, currency) : "—"}</td>
                       <td className="px-3 py-3 text-right font-medium tabular-nums">{formatNumber(r.orders)}</td>
                       <td className="px-3 py-3 text-right tabular-nums">{formatNumber(r.confirmed)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{formatNumber(r.shipped)}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-emerald-700 dark:text-emerald-400">{formatNumber(r.delivered)}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-red-600 dark:text-red-400">{formatNumber(r.cancelled)}</td>
                       <td
@@ -319,6 +333,37 @@ export default async function OrdersPage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
+        )}
+      </Card>
+
+      <Card className="mb-6 overflow-hidden">
+        <CardHeader
+          icon={Truck}
+          title={tr("Courier bookings per day", "প্রতিদিন কুরিয়ারে বুকিং")}
+          description={tr(
+            `Orders that went to the courier each day (by booking date, all ad accounts). ${bookedInRange} in this period.`,
+            `প্রতিদিন কয়টা অর্ডার কুরিয়ারে গেল (কুরিয়ারে যাওয়ার দিন ধরে, সব Ad Account)। এই সময়ে মোট ${bookedInRange}টি।`,
+          )}
+        />
+        {bookedInRange === 0 ? (
+          <p className="px-5 py-6 text-sm text-zinc-500">
+            {tr(
+              "No bookings recorded yet. Hook starts counting from when an order's status first changes to In Courier.",
+              "এখনো কোনো বুকিং গোনা হয়নি। কোনো অর্ডারের অবস্থা প্রথমবার In Courier হলে তখন থেকে গোনা শুরু হয়।",
+            )}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1.5 px-5 py-4 text-sm">
+            {bookingDays.map((b) => (
+              <li key={b.day} className="grid grid-cols-[6.5rem_1fr_2.5rem] items-center gap-3">
+                <span className="text-xs text-zinc-500 tabular-nums">{formatRange(b.day, b.day)}</span>
+                <span className="h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <span className="block h-2.5 rounded-full bg-amber-500" style={{ width: `${(b.n / maxBooking) * 100}%` }} />
+                </span>
+                <span className="text-right font-medium tabular-nums">{b.n}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 

@@ -335,6 +335,27 @@ export async function campaignOutcomes(
   return { rows: list, total: { ...total, spend: totalSpend } };
 }
 
+// দিন অনুযায়ী কয়টা অর্ডার কুরিয়ারে গেল (বুকিং), Dhaka সময়ে। অর্ডার যেদিনই আসুক, কুরিয়ারে যাওয়ার দিন ধরে।
+export async function dailyBookings(supabase: SupabaseClient, userId: string, range: { since: string; until: string }) {
+  const counts = new Map<string, number>();
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data } = await supabase
+      .from("orders")
+      .select("shipped_at")
+      .eq("user_id", userId)
+      .gte("shipped_at", `${range.since}T00:00:00+06:00`)
+      .lte("shipped_at", `${range.until}T23:59:59.999+06:00`)
+      .order("shipped_at", { ascending: true })
+      .range(from, from + 999);
+    for (const r of data ?? []) {
+      const day = new Date(r.shipped_at).toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+    if (!data || data.length < 1000) break;
+  }
+  return counts;
+}
+
 // ---------- CSV ----------
 
 // সাধারণ CSV (উদ্ধৃতি চিহ্নের ভেতরে কমা ও নতুন লাইন চলে)
