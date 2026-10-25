@@ -11,9 +11,9 @@ import {
   revokePermissions,
 } from "@/lib/meta/graph";
 
+// অ্যাকাউন্ট বদলালে সব পাতা (ড্যাশবোর্ড, নিয়ন্ত্রণ, অর্ডার, রিপোর্ট) নতুন করে আসে
 function revalidateAppPages() {
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 // ব্যবহারকারী যে Ad Account নিয়ে কাজ করবে সেটি সংরক্ষণ করে।

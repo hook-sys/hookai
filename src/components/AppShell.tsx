@@ -20,6 +20,8 @@ import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { getTr } from "@/lib/i18n-server";
 import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
+import AccountSwitcher from "@/components/AccountSwitcher";
+import { adAccountOptions } from "@/lib/meta/accountsCache";
 
 type Section = "dashboard" | "manage" | "orders" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
@@ -80,6 +82,12 @@ export default async function AppShell({
     },
     isAdmin,
   ] = await Promise.all([supabase.auth.getUser(), isCurrentUserAdmin(supabase)]);
+  // উপরের Ad Account বদলের মেনু (Meta কানেক্ট থাকলে)
+  const accountMenu = user ? await adAccountOptions(supabase, user.id) : null;
+  const switcher =
+    accountMenu && accountMenu.accounts.length > 0 ? (
+      <AccountSwitcher accounts={accountMenu.accounts} selectedId={accountMenu.selectedId} selectedName={accountMenu.selectedName} />
+    ) : null;
 
   const nav: NavItem[] = [
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
@@ -131,6 +139,7 @@ export default async function AppShell({
             <LogoutButton label={logout} withLabel={false} />
           </div>
         </div>
+        {switcher && <div className="px-4 pb-2">{switcher}</div>}
         <nav aria-label={menuLabel} className="flex gap-1 overflow-x-auto px-3 pb-2">
           {items.map((item) => (
             <NavLink key={item.id} item={item} active={item.id === active} />
@@ -140,7 +149,8 @@ export default async function AppShell({
 
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:p-0">
         {/* বড় স্ক্রিনে ভাষা বদলের বোতাম উপরের ডান কোণে */}
-        <div className="mx-auto mb-2 hidden max-w-6xl justify-end lg:flex print:!hidden">
+        <div className="mx-auto mb-2 hidden max-w-6xl items-center justify-end gap-2 lg:flex print:!hidden">
+          {switcher}
           <LanguageSwitch />
         </div>
         <div className="mx-auto max-w-6xl">{children}</div>
