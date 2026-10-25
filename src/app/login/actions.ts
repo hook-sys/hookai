@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTr } from "@/lib/i18n-server";
+import { SIGNUP_OPEN } from "@/lib/site";
 import type { Tr } from "@/lib/i18n";
 
 export type AuthState = { error?: string; message?: string } | null;
@@ -66,6 +67,7 @@ export async function signUp(
   formData: FormData,
 ): Promise<AuthState> {
   const tr = await getTr();
+  if (!SIGNUP_OPEN) return { error: tr("New sign-ups are closed.", "নতুন অ্যাকাউন্ট খোলা এখন বন্ধ।") };
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 

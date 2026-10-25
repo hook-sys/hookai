@@ -5,8 +5,9 @@ const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 // Meta ধীর হলে পেজ যেন অনির্দিষ্টকাল আটকে না থাকে
 const REQUEST_TIMEOUT_MS = 10_000;
 
-// এখনকার জন্য শুধু পড়ার অনুমতি; বিজ্ঞাপন বদলানোর অনুমতি ধাপ ৭-এ যুক্ত হবে
-export const META_SCOPES = ["ads_read"];
+// পড়া আর বিজ্ঞাপন চালু-বন্ধ ও বাজেট বদল (ads_management)। অ্যাপ Development mode-এ থাকায়
+// শুধু অ্যাপের মালিক/রোলধারীরা এই অনুমতি দিতে পারে।
+export const META_SCOPES = ["ads_read", "ads_management"];
 
 export class MetaApiError extends Error {}
 
@@ -17,17 +18,19 @@ function requireEnv(name: string): string {
 }
 
 type GraphOptions = {
-  method?: "GET" | "DELETE";
+  method?: "GET" | "DELETE" | "POST";
   params?: Record<string, string>;
   // টোকেন URL-এ না দিয়ে Authorization header-এ পাঠানো হয়, যাতে লগে না আসে
   token?: string;
 };
 
-async function graphRequest<T>(path: string, options: GraphOptions = {}) {
+export async function graphRequest<T>(path: string, options: GraphOptions = {}) {
   const url = new URL(`${GRAPH_BASE}${path}`);
-  Object.entries(options.params ?? {}).forEach(([k, v]) =>
-    url.searchParams.set(k, v),
-  );
+  // POST-এ প্যারামিটার বডিতে যায়, URL-এ নয়
+  const isPost = options.method === "POST";
+  if (!isPost) {
+    Object.entries(options.params ?? {}).forEach(([k, v]) => url.searchParams.set(k, v));
+  }
 
   let res: Response;
   try {
@@ -36,6 +39,7 @@ async function graphRequest<T>(path: string, options: GraphOptions = {}) {
       headers: options.token
         ? { Authorization: `Bearer ${options.token}` }
         : undefined,
+      body: isPost ? new URLSearchParams(options.params ?? {}) : undefined,
       cache: "no-store",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -57,6 +61,8 @@ export function buildAuthUrl(state: string): string {
   url.searchParams.set("state", state);
   url.searchParams.set("scope", META_SCOPES.join(","));
   url.searchParams.set("response_type", "code");
+  // আগে কোনো অনুমতি না দিয়ে থাকলে (যেমন নতুন যোগ করা ads_management) আবার জিজ্ঞাসা করে
+  url.searchParams.set("auth_type", "rerequest");
   return url.toString();
 }
 

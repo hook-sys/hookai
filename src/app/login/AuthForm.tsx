@@ -1,5 +1,6 @@
 "use client";
 
+import { SIGNUP_OPEN } from "@/lib/site";
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Logo, buttonClass, inputClass } from "@/components/ui";
@@ -125,6 +126,7 @@ export default function AuthForm({ initialMode = "signin" }: { initialMode?: "si
             </p>
           )}
 
+          {SIGNUP_OPEN && (
           <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
             {mode === "signin" ? tr("New here?", "নতুন?") : tr("Already have an account?", "আগে থেকেই অ্যাকাউন্ট আছে?")}{" "}
             <button
@@ -135,6 +137,7 @@ export default function AuthForm({ initialMode = "signin" }: { initialMode?: "si
               {mode === "signin" ? tr("Create an account", "অ্যাকাউন্ট তৈরি করো") : tr("Log in", "লগইন করো")}
             </button>
           </p>
+          )}
         </section>
       </main>
     </div>

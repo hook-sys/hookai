@@ -8,6 +8,7 @@ import {
   PackageCheck,
   PenLine,
   Settings,
+  SlidersHorizontal,
   ShieldCheck,
   Users,
   Workflow,
@@ -20,7 +21,7 @@ import { getTr } from "@/lib/i18n-server";
 import { Logo, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 
-type Section = "dashboard" | "orders" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "dashboard" | "manage" | "orders" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -82,6 +83,7 @@ export default async function AppShell({
 
   const nav: NavItem[] = [
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
+    { id: "manage", href: "/manage", label: tr("Ads control", "বিজ্ঞাপন নিয়ন্ত্রণ"), icon: SlidersHorizontal },
     { id: "orders", href: "/orders", label: tr("Orders", "অর্ডার"), icon: PackageCheck },
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
