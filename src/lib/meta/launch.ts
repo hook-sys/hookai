@@ -106,8 +106,15 @@ export async function startVideoUpload(token: string, accountId: string, fileUrl
 }
 
 export async function videoState(token: string, videoId: string) {
-  const res = await get<{ status?: { video_status?: string }; picture?: string }>(token, `/${videoId}`, { fields: "status,picture" });
-  return { status: res.status?.video_status ?? "processing", thumbnail: res.picture ?? null };
+  const res = await get<{
+    status?: { video_status?: string };
+    picture?: string;
+    thumbnails?: { data: { uri: string; is_preferred?: boolean }[] };
+  }>(token, `/${videoId}`, { fields: "status,picture,thumbnails{uri,is_preferred}" });
+  // picture মাত্র ১৬০px; বিজ্ঞাপনের জন্য Meta-র পূর্ণ মাপের (পছন্দের) থাম্বনেইল নেওয়া হয়
+  const thumbs = res.thumbnails?.data ?? [];
+  const best = thumbs.find((t) => t.is_preferred) ?? thumbs[0];
+  return { status: res.status?.video_status ?? "processing", thumbnail: best?.uri ?? res.picture ?? null };
 }
 
 export async function pageInstagram(token: string, pageId: string) {
