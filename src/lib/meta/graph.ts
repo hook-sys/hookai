@@ -22,6 +22,8 @@ type GraphOptions = {
   params?: Record<string, string>;
   // টোকেন URL-এ না দিয়ে Authorization header-এ পাঠানো হয়, যাতে লগে না আসে
   token?: string;
+  // ছবি/ভিডিও আপলোডে বেশি সময় লাগে
+  timeoutMs?: number;
 };
 
 export async function graphRequest<T>(path: string, options: GraphOptions = {}) {
@@ -41,7 +43,7 @@ export async function graphRequest<T>(path: string, options: GraphOptions = {}) 
         : undefined,
       body: isPost ? new URLSearchParams(options.params ?? {}) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch {
     throw new MetaApiError("Meta didn't answer in time. Please try again shortly.");
@@ -49,7 +51,8 @@ export async function graphRequest<T>(path: string, options: GraphOptions = {}) 
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.error) {
-    throw new MetaApiError(body?.error?.message ?? "Meta API error");
+    // বিজ্ঞাপন তৈরির ভুলে Meta মানুষের পড়ার মতো বার্তা দেয় (error_user_msg)
+    throw new MetaApiError(body?.error?.error_user_msg ?? body?.error?.message ?? "Meta API error");
   }
   return body as T;
 }

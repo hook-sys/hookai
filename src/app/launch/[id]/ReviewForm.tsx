@@ -1,0 +1,265 @@
+"use client";
+
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { Loader2, Play, Plus, Power, Rocket, Search, X } from "lucide-react";
+import { useTr } from "@/components/I18nProvider";
+import { buttonClass, inputClass } from "@/components/ui";
+import { SALES_CTAS, type LaunchSpec } from "@/lib/meta/launch";
+import { activateLaunch, deleteDraft, launchOnMeta, saveSpec, searchTargeting, type LaunchState } from "../actions";
+
+const CTA_LABELS: Record<string, string> = {
+  SHOP_NOW: "Shop now",
+  ORDER_NOW: "Order now",
+  BUY_NOW: "Buy now",
+  LEARN_MORE: "Learn more",
+  GET_OFFER: "Get offer",
+  SIGN_UP: "Sign up",
+};
+
+function Result({ state }: { state: LaunchState }) {
+  if (!state) return null;
+  return (
+    <p role={state.ok ? "status" : "alert"} className={state.ok ? "text-sm text-emerald-700 dark:text-emerald-400" : "text-sm text-red-600 dark:text-red-400"}>
+      {state.ok ? state.message : state.error}
+    </p>
+  );
+}
+
+type Chip = { key: string; name: string; type: string };
+
+// লোকেশন বা আগ্রহ: চিপ হিসেবে দেখায়, Meta-তে খুঁজে যোগ করা যায়
+function TargetPicker({
+  kind,
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  kind: "location" | "interest";
+  label: string;
+  value: Chip[];
+  onChange: (v: Chip[]) => void;
+  disabled: boolean;
+}) {
+  const tr = useTr();
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<Chip[]>([]);
+  const [searching, startSearch] = useTransition();
+
+  useEffect(() => {
+    if (q.trim().length < 2) return setHits([]);
+    const t = setTimeout(() => {
+      startSearch(async () => setHits(await searchTargeting(kind, q)));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [q, kind]);
+
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      <span className="font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {value.map((c) => (
+          <span key={c.key} className="inline-flex items-center gap-1 rounded-full glass-chip px-2.5 py-1 text-xs">
+            {c.name}
+            {!disabled && (
+              <button type="button" aria-label={tr("Remove", "সরাও")} onClick={() => onChange(value.filter((v) => v.key !== c.key))} className="text-zinc-400 hover:text-red-600">
+                <X className="size-3" aria-hidden />
+              </button>
+            )}
+          </span>
+        ))}
+        {value.length === 0 && (
+          <span className="text-xs text-zinc-400">{kind === "interest" ? tr("Broad (no interests)", "সবাই (কোনো আগ্রহ নেই)") : "Bangladesh"}</span>
+        )}
+      </div>
+      {!disabled && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-zinc-400" aria-hidden />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={kind === "location" ? tr("Search a city or division", "শহর বা বিভাগ খোঁজো") : tr("Search an interest", "আগ্রহ খোঁজো")}
+            className={inputClass + " pl-8"}
+          />
+          {searching && <Loader2 className="absolute top-2.5 right-2.5 size-4 animate-spin text-zinc-400" aria-hidden />}
+          {hits.length > 0 && (
+            <ul className="absolute z-20 mt-1 w-full glass-popover rounded-xl p-1">
+              {hits.map((h) => (
+                <li key={h.key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // দেশ বাছলে বাকি লোকেশন বাদ; শহর বাছলে "Bangladesh" বাদ
+                      const rest = h.type === "country" ? [] : value.filter((v) => v.type !== "country");
+                      if (!rest.some((v) => v.key === h.key)) onChange([...rest, h]);
+                      setQ("");
+                      setHits([]);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Plus className="size-3.5 text-zinc-400" aria-hidden />
+                    <span className="flex-1">{h.name}</span>
+                    <span className="text-[11px] text-zinc-400">{h.type}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ReviewForm({
+  id,
+  spec,
+  currency,
+  editable,
+}: {
+  id: string;
+  spec: LaunchSpec;
+  currency: string | null;
+  editable: boolean;
+}) {
+  const tr = useTr();
+  const [state, action, pending] = useActionState<LaunchState, FormData>(saveSpec, null);
+  const [locations, setLocations] = useState<Chip[]>(spec.locations);
+  const [interests, setInterests] = useState<Chip[]>(spec.interests.map((i) => ({ key: i.id, name: i.name, type: "interest" })));
+  const field = (label: string, child: React.ReactNode, hint?: string) => (
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className="font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
+      {child}
+      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
+    </label>
+  );
+
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="locations" value={JSON.stringify(locations)} />
+      <input type="hidden" name="interests" value={JSON.stringify(interests.map((i) => ({ id: i.key, name: i.name })))} />
+      <fieldset disabled={!editable} className="flex flex-col gap-4">
+        {field(tr("Campaign name", "ক্যাম্পেইনের নাম"), <input name="name" required maxLength={120} defaultValue={spec.name} className={inputClass} />)}
+        <div className="grid gap-4 sm:grid-cols-4">
+          {field(
+            tr(`Daily budget (${currency ?? ""})`, `দৈনিক বাজেট (${currency ?? ""})`),
+            <input name="daily_budget" inputMode="decimal" required defaultValue={spec.daily_budget} className={inputClass} />,
+          )}
+          {field(tr("Age from", "বয়স থেকে"), <input name="age_min" type="number" min={18} max={65} defaultValue={spec.age_min} className={inputClass} />)}
+          {field(tr("Age to", "বয়স পর্যন্ত"), <input name="age_max" type="number" min={18} max={65} defaultValue={spec.age_max} className={inputClass} />, tr("65 = 65+", "৬৫ = ৬৫+"))}
+          {field(
+            tr("Gender", "লিঙ্গ"),
+            <select name="gender" defaultValue={spec.gender} className={inputClass}>
+              <option value="all">{tr("All", "সবাই")}</option>
+              <option value="male">{tr("Men", "পুরুষ")}</option>
+              <option value="female">{tr("Women", "নারী")}</option>
+            </select>,
+          )}
+        </div>
+        <TargetPicker kind="location" label={tr("Locations", "লোকেশন")} value={locations} onChange={setLocations} disabled={!editable} />
+        <TargetPicker kind="interest" label={tr("Interests", "আগ্রহ")} value={interests} onChange={setInterests} disabled={!editable} />
+        {spec.objective === "sales" &&
+          field(tr("Website link", "ওয়েবসাইট লিংক"), <input name="link" type="url" required defaultValue={spec.link ?? ""} className={inputClass} />)}
+        {field(
+          tr("Primary text", "মূল লেখা"),
+          <textarea name="primary_text" required rows={5} maxLength={2000} defaultValue={spec.primary_text} className={inputClass} />,
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {field(tr("Headline", "হেডলাইন"), <input name="headline" required maxLength={80} defaultValue={spec.headline} className={inputClass} />)}
+          {field(tr("Description", "বিবরণ"), <input name="description" maxLength={60} defaultValue={spec.description ?? ""} className={inputClass} />)}
+        </div>
+        {spec.objective === "sales"
+          ? field(
+              tr("Button", "বাটন"),
+              <select name="cta" defaultValue={spec.cta} className={inputClass}>
+                {SALES_CTAS.map((c) => (
+                  <option key={c} value={c}>
+                    {CTA_LABELS[c] ?? c}
+                  </option>
+                ))}
+              </select>,
+            )
+          : <input type="hidden" name="cta" value="MESSAGE_PAGE" />}
+        {field(
+          tr("Rules (optional)", "নিয়ম (ইচ্ছা হলে)"),
+          <input name="rules" maxLength={500} defaultValue={spec.rules ?? ""} className={inputClass} />,
+        )}
+        <p className="text-xs text-zinc-500">
+          {tr(`${spec.media.length} media: `, `${spec.media.length}টি মিডিয়া: `)}
+          {spec.media.map((m) => m.name).join(", ")}
+        </p>
+      </fieldset>
+      <Result state={state} />
+      {editable && (
+        <button type="submit" disabled={pending} className={buttonClass("secondary", "self-start")}>
+          {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          {tr("Save changes", "পরিবর্তন সংরক্ষণ")}
+        </button>
+      )}
+    </form>
+  );
+}
+
+export function LaunchButtons({ id, status, canDelete, disabled }: { id: string; status: string; canDelete: boolean; disabled: boolean }) {
+  const tr = useTr();
+  const [launchState, launch, launching] = useActionState<LaunchState, FormData>(launchOnMeta, null);
+  const [activeState, activate, activating] = useActionState<LaunchState, FormData>(activateLaunch, null);
+
+  return (
+    <div className="flex flex-col gap-2">
+      {(status === "draft" || status === "failed") && (
+        <form
+          action={launch}
+          onSubmit={(e) => {
+            if (!window.confirm(tr("Create this on Meta, turned off? Save your edits first.", "Meta-তে বন্ধ অবস্থায় তৈরি করবে? আগে বদলগুলো সংরক্ষণ করে নাও।"))) e.preventDefault();
+          }}
+        >
+          <input type="hidden" name="id" value={id} />
+          <button type="submit" disabled={launching || disabled} className={buttonClass("primary", "w-full")}>
+            {launching ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Rocket className="size-4" aria-hidden />}
+            {status === "failed" ? tr("Try again", "আবার চেষ্টা করো") : tr("Approve: make on Meta (off)", "অনুমোদন: Meta-তে তৈরি (বন্ধ)")}
+          </button>
+        </form>
+      )}
+      {(status === "waiting_video" || status === "creating") && (
+        <form action={launch}>
+          <input type="hidden" name="id" value={id} />
+          <button type="submit" disabled={launching || disabled} className={buttonClass("primary", "w-full")}>
+            {launching ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Play className="size-4" aria-hidden />}
+            {status === "creating" ? tr("Creating…", "তৈরি হচ্ছে…") : tr("Finish", "শেষ করো")}
+          </button>
+        </form>
+      )}
+      {status === "paused" && (
+        <form
+          action={activate}
+          onSubmit={(e) => {
+            if (!window.confirm(tr("Turn this on? It will start spending once Meta approves it.", "চালু করবে? Meta অনুমোদন দিলেই খরচ শুরু হবে।"))) e.preventDefault();
+          }}
+        >
+          <input type="hidden" name="id" value={id} />
+          <button type="submit" disabled={activating || disabled} className={buttonClass("primary", "w-full")}>
+            {activating ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Power className="size-4" aria-hidden />}
+            {tr("Turn on", "চালু করো")}
+          </button>
+        </form>
+      )}
+      <Result state={launchState} />
+      <Result state={activeState} />
+      {canDelete && (
+        <form
+          action={deleteDraft}
+          onSubmit={(e) => {
+            if (!window.confirm(tr("Delete this draft?", "খসড়াটা মুছবে?"))) e.preventDefault();
+          }}
+        >
+          <input type="hidden" name="id" value={id} />
+          <button type="submit" className={buttonClass("danger", "px-0 text-xs")}>
+            {tr("Delete draft", "খসড়া মুছো")}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}

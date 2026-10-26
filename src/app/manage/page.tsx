@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Building2, History, KeyRound, SlidersHorizontal } from "lucide-react";
+import { Building2, History, KeyRound, Rocket, SlidersHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { getLocale } from "@/lib/i18n-server";
@@ -132,6 +132,12 @@ export default async function ManagePage() {
           `${connection.selected_ad_account_name ?? accountId} · numbers are for the last 7 days (excluding today)`,
           `${connection.selected_ad_account_name ?? accountId} · হিসাব গত ৭ দিনের (আজ বাদে)`,
         )}
+        actions={
+          <Link href="/launch" className={buttonClass("primary")}>
+            <Rocket className="size-4" aria-hidden />
+            {tr("New ad", "নতুন বিজ্ঞাপন")}
+          </Link>
+        }
       />
 
       {!allowed && (
