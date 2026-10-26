@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { LogoMark, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
-import { CASES, RESULTS_PERIOD, TOTALS, WHATSAPP_DISPLAY, type CaseResult } from "@/components/landing/results";
+import { CASES, TOTALS, WHATSAPP_DISPLAY, type CaseResult } from "@/components/landing/results";
 import { WhatsAppButton, WhatsAppIcon } from "@/components/landing/WhatsApp";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
@@ -28,11 +28,16 @@ export const metadata = {
     "Hook runs your full Meta sales funnel: content, ads, advanced retargeting and order tracking to delivery. 2,524 website orders for our clients in the last 30 days.",
 };
 
-function Glass({ children, className }: { children: ReactNode; className?: string }) {
+// মাউস নিলে দেয়াল থেকে একটু উপরে উঠে আসে (ছায়া বড় হয়)
+const LIFT =
+  "transition-[translate,box-shadow] duration-300 ease-out motion-safe:hover:-translate-y-1.5 hover:shadow-[0_28px_56px_-24px_rgb(15_23_42/0.32)]";
+
+function Glass({ children, className, lift = true }: { children: ReactNode; className?: string; lift?: boolean }) {
   return (
     <div
       className={cn(
-        "rounded-3xl border border-white bg-white/60 shadow-[inset_0_1px_0_white,0_24px_48px_-28px_rgb(15_23_42/0.28)] backdrop-blur-xl",
+        "rounded-3xl border border-zinc-900/[0.07] bg-white/80 shadow-[inset_0_1px_0_white,0_14px_36px_-24px_rgb(15_23_42/0.25)] backdrop-blur-xl",
+        lift && LIFT,
         className,
       )}
     >
@@ -41,12 +46,20 @@ function Glass({ children, className }: { children: ReactNode; className?: strin
   );
 }
 
-function Eyebrow({ children }: { children: ReactNode }) {
-  return <p className="text-sm font-semibold tracking-wide text-[#3157B0]">{children}</p>;
-}
 
 function H2({ children, className }: { children: ReactNode; className?: string }) {
   return <h2 className={cn("text-3xl leading-tight font-semibold tracking-tight text-zinc-950 sm:text-4xl", className)}>{children}</h2>;
+}
+
+// প্রতিটি অংশের বড় শিরোনাম, মাঝখানে
+function SectionTitle({ title, sub, text }: { title: string; sub: string; text?: string }) {
+  return (
+    <div className="mx-auto max-w-3xl text-center">
+      <h2 className="text-4xl leading-tight font-semibold tracking-tight text-zinc-950 sm:text-5xl">{title}</h2>
+      <p className="mt-3 text-xl font-medium text-zinc-700 sm:text-2xl">{sub}</p>
+      {text && <p className="mt-3 text-zinc-600">{text}</p>}
+    </div>
+  );
 }
 
 // দৈনিক অর্ডারের ছোট বার চার্ট (Hook ড্যাশবোর্ডের মতো)
@@ -82,25 +95,19 @@ function ResultShot({ c, tr, n, money }: { c: CaseResult; tr: (en: string, bn: s
         <span className="size-2.5 rounded-full bg-zinc-300" />
         <span className="size-2.5 rounded-full bg-zinc-300" />
         <span className="size-2.5 rounded-full bg-zinc-300" />
-        <span className="ml-2 truncate text-xs text-zinc-500">
-          Hook · {tr(c.label.en, c.label.bn)} · {tr("Last 30 days", "গত ৩০ দিন")}
-        </span>
         <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-900/10">{c.store}</span>
       </div>
       <div className="p-5 sm:p-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {kpis.map((x) => (
-            <div key={x.k} className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
+            <div key={x.k} className={cn("rounded-2xl border border-zinc-900/[0.06] bg-white px-4 py-3 shadow-sm", LIFT)}>
               <p className="text-xs text-zinc-500">{x.k}</p>
               <p className={cn("mt-1 font-semibold tracking-tight text-zinc-950 tabular-nums", x.strong ? "text-2xl" : "text-lg")}>{x.v}</p>
             </div>
           ))}
         </div>
-        <div className="mt-5 rounded-2xl border border-white bg-white/70 px-4 pt-3 pb-2 shadow-sm">
-          <div className="flex items-baseline justify-between">
-            <p className="text-xs font-medium text-zinc-600">{tr("Orders per day", "প্রতিদিনের অর্ডার")}</p>
-            <p className="text-[11px] text-zinc-400">{tr(RESULTS_PERIOD.en, RESULTS_PERIOD.bn)}</p>
-          </div>
+        <div className="mt-5 rounded-2xl border border-zinc-900/[0.06] bg-white px-4 pt-3 pb-2 shadow-sm">
+          <p className="text-xs font-medium text-zinc-600">{tr("Orders per day", "প্রতিদিনের অর্ডার")}</p>
           <OrdersChart values={c.dailyOrders} label={tr(`Daily orders for the ${c.label.en}`, `${c.label.bn}-এর প্রতিদিনের অর্ডার`)} />
         </div>
       </div>
@@ -213,14 +220,9 @@ export default async function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-zinc-900 [color-scheme:light]">
-      {/* হালকা গ্রিড; কাচের প্যানেলের পেছনে টেক্সচার দেয়, রং যোগ করে না */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_right,rgb(24_24_27/0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgb(24_24_27/0.045)_1px,transparent_1px)] bg-[size:32px_32px]"
-      />
+    <div className="min-h-screen bg-white text-zinc-900 [color-scheme:light]">
 
-      <header className="sticky top-0 z-30 border-b border-white/80 bg-white/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-zinc-900/[0.06] bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/" aria-label={tr("Hook home", "Hook হোম")}>
             {/* ডার্ক মোডেও পেজ সাদা থাকে, তাই লোগোর লেখা নিজে রং ঠিক করে */}
@@ -250,10 +252,6 @@ export default async function LandingPage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
           <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-white bg-white/70 px-3 py-1 text-xs font-medium text-zinc-600 shadow-sm backdrop-blur">
-              <span className="size-1.5 rounded-full bg-[#1fa855]" />
-              {tr(`${n(TOTALS.orders)} website orders for our clients in the last 30 days`, `গত ৩০ দিনে ক্লায়েন্টদের ${n(TOTALS.orders)}টি ওয়েবসাইট অর্ডার`)}
-            </p>
             <h1 className="mt-5 text-4xl leading-[1.08] font-semibold tracking-tight text-zinc-950 sm:text-5xl lg:text-[3.4rem]">
               {tr("Stop paying for likes. Get orders from Meta ads.", "লাইক নয়, Meta বিজ্ঞাপন থেকে অর্ডার আনুন।")}
             </h1>
@@ -265,32 +263,28 @@ export default async function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <WhatsAppButton message={msg}>{cta}</WhatsAppButton>
-              <a href="#results" className="inline-flex items-center rounded-xl border border-white bg-white/70 px-5 py-3.5 text-base font-semibold text-zinc-800 shadow-sm backdrop-blur hover:bg-white">
+              <a href="#results" className={cn("inline-flex items-center rounded-xl border border-zinc-900/10 bg-white px-5 py-3.5 text-base font-semibold text-zinc-800 shadow-sm", LIFT)}>
                 {tr("See results", "ফলাফল দেখুন")}
               </a>
             </div>
-            <p className="mt-4 text-sm text-zinc-500">
-              {tr(`Free account check · WhatsApp ${WHATSAPP_DISPLAY}`, `ফ্রি অ্যাকাউন্ট চেক · WhatsApp ${WHATSAPP_DISPLAY}`)}
-            </p>
           </div>
 
           <Glass className="p-6 sm:p-7">
-            <p className="text-sm font-medium text-zinc-500">{tr("Two clients · last 30 days", "দুইজন ক্লায়েন্ট · গত ৩০ দিন")}</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { i: ShoppingCart, k: tr("Website orders", "ওয়েবসাইট অর্ডার"), v: n(TOTALS.orders) },
                 { i: Target, k: tr("Avg. cost per order", "গড়ে প্রতি অর্ডারে খরচ"), v: money(TOTALS.spendUsd / TOTALS.orders) },
                 { i: MousePointerClick, k: tr("Ad impressions", "বার বিজ্ঞাপন দেখানো"), v: n(TOTALS.impressions) },
                 { i: WhatsAppIcon, k: tr("Inbox conversations", "ইনবক্স মেসেজ"), v: n(TOTALS.messages) },
               ].map((x) => (
-                <div key={x.k} className="rounded-2xl border border-white bg-white/75 p-4 shadow-sm">
+                <div key={x.k} className={cn("rounded-2xl border border-zinc-900/[0.06] bg-white p-4 shadow-sm", LIFT)}>
                   <x.i className="size-4 text-[#3157B0]" />
                   <p className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950 tabular-nums">{x.v}</p>
                   <p className="mt-0.5 text-xs text-zinc-500">{x.k}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 rounded-2xl border border-white bg-white/75 px-4 pt-3 pb-1 shadow-sm">
+            <div className="mt-3 rounded-2xl border border-zinc-900/[0.06] bg-white px-4 pt-3 pb-1 shadow-sm">
               <p className="text-xs font-medium text-zinc-600">{tr("Orders per day, both clients", "প্রতিদিনের অর্ডার, দুই ক্লায়েন্ট মিলে")}</p>
               <OrdersChart
                 values={CASES[0].dailyOrders.map((v, i) => v + (CASES[1].dailyOrders[i] ?? 0))}
@@ -301,24 +295,22 @@ export default async function LandingPage() {
         </section>
 
         {/* Results */}
-        <section id="results" className="scroll-mt-20 border-y border-white bg-white/40 py-20 backdrop-blur-sm">
+        <section id="results" className="scroll-mt-20 py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="max-w-2xl">
-              <Eyebrow>{tr("Real results", "আসল ফলাফল")}</Eyebrow>
-              <H2 className="mt-2">{tr("What our clients got in the last 30 days", "গত ৩০ দিনে আমাদের ক্লায়েন্টরা যা পেয়েছে")}</H2>
-              <p className="mt-3 text-zinc-600">
-                {tr(
-                  `${RESULTS_PERIOD.en}. Ad numbers from Meta Ads Manager, orders from each client's own website. Brand names hidden for privacy.`,
-                  `${RESULTS_PERIOD.bn}। বিজ্ঞাপনের হিসাব Meta Ads Manager থেকে, অর্ডার ক্লায়েন্টের নিজের ওয়েবসাইট থেকে। গোপনীয়তার জন্য ব্র্যান্ডের নাম দেখানো হয়নি।`,
-                )}
-              </p>
-            </div>
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            <SectionTitle
+              title={tr("Real results", "আসল ফলাফল")}
+              sub={tr("What our clients got in the last 30 days", "গত ৩০ দিনে আমাদের ক্লায়েন্টরা যা পেয়েছে")}
+              text={tr(
+                "Ad numbers from Meta Ads Manager, orders from each client's own website. Brand names hidden for privacy.",
+                "বিজ্ঞাপনের হিসাব Meta Ads Manager থেকে, অর্ডার ক্লায়েন্টের নিজের ওয়েবসাইট থেকে। গোপনীয়তার জন্য ব্র্যান্ডের নাম দেখানো হয়নি।",
+              )}
+            />
+            <div className="mt-12 grid gap-6 lg:grid-cols-2">
               {CASES.map((c) => (
                 <ResultShot key={c.id} c={c} tr={tr} n={n} money={money} />
               ))}
             </div>
-            <div className="mt-10 flex flex-wrap items-center gap-4">
+            <div className="mt-10 flex flex-col items-center gap-3 text-center">
               <WhatsAppButton message={msg}>{tr("I want results like this", "আমিও এমন ফলাফল চাই")}</WhatsAppButton>
               <p className="text-sm text-zinc-500">{tr("Results differ by product and budget; we'll tell you honestly what to expect.", "পণ্য আর বাজেট অনুযায়ী ফলাফল আলাদা হয়; কী আশা করা যায়, সৎভাবে জানাব।")}</p>
             </div>
@@ -327,17 +319,15 @@ export default async function LandingPage() {
 
         {/* Funnel */}
         <section id="funnel" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
-          <div className="max-w-2xl">
-            <Eyebrow>{tr("Full sales funnel", "পুরো সেলস ফানেল")}</Eyebrow>
-            <H2 className="mt-2">{tr("One ad rarely sells. A funnel does.", "একটা বিজ্ঞাপনে বিক্রি কম হয়। ফানেলে হয়।")}</H2>
-            <p className="mt-3 text-zinc-600">
-              {tr(
-                "Most buyers need to see you a few times before they order. We plan every step, from the first video to the delivered parcel.",
-                "বেশিরভাগ ক্রেতা অর্ডারের আগে কয়েকবার আপনাকে দেখে। প্রথম ভিডিও থেকে ডেলিভারি হওয়া পার্সেল পর্যন্ত প্রতিটি ধাপ আমরা সাজাই।",
-              )}
-            </p>
-          </div>
-          <ol className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <SectionTitle
+            title={tr("Full sales funnel", "পুরো সেলস ফানেল")}
+            sub={tr("One ad rarely sells. A funnel does.", "একটা বিজ্ঞাপনে বিক্রি কম হয়। ফানেলে হয়।")}
+            text={tr(
+              "Most buyers need to see you a few times before they order. We plan every step, from the first video to the delivered parcel.",
+              "বেশিরভাগ ক্রেতা অর্ডারের আগে কয়েকবার আপনাকে দেখে। প্রথম ভিডিও থেকে ডেলিভারি হওয়া পার্সেল পর্যন্ত প্রতিটি ধাপ আমরা সাজাই।",
+            )}
+          />
+          <ol className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {funnel.map((f) => (
               <li key={f.t}>
                 <Glass className="h-full p-6">
@@ -354,20 +344,17 @@ export default async function LandingPage() {
         </section>
 
         {/* Services */}
-        <section id="services" className="scroll-mt-20 border-y border-white bg-white/40 py-20 backdrop-blur-sm">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.6fr]">
-            <div>
-              <Eyebrow>{tr("What we do for you", "আমরা যা করি")}</Eyebrow>
-              <H2 className="mt-2">{tr("Result-driven, not report-driven.", "রিপোর্ট নয়, ফলাফলের জন্য কাজ।")}</H2>
-              <p className="mt-3 text-zinc-600">
-                {tr(
-                  "We judge every taka by the orders it brings back. If an ad doesn't sell, it's off. If it sells, we scale it carefully.",
-                  "প্রতিটি টাকা কত অর্ডার আনল, সেটা দিয়েই বিচার। বিজ্ঞাপন বিক্রি না আনলে বন্ধ, আনলে সাবধানে বাড়ানো।",
-                )}
-              </p>
-              <WhatsAppButton message={msg} className="mt-6">{cta}</WhatsAppButton>
-            </div>
-            <ul className="grid gap-4 sm:grid-cols-2">
+        <section id="services" className="scroll-mt-20 py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <SectionTitle
+              title={tr("What we do for you", "আমরা যা করি")}
+              sub={tr("Result-driven, not report-driven.", "রিপোর্ট নয়, ফলাফলের জন্য কাজ।")}
+              text={tr(
+                "We judge every taka by the orders it brings back. If an ad doesn't sell, it's off. If it sells, we scale it carefully.",
+                "প্রতিটি টাকা কত অর্ডার আনল, সেটা দিয়েই বিচার। বিজ্ঞাপন বিক্রি না আনলে বন্ধ, আনলে সাবধানে বাড়ানো।",
+              )}
+            />
+            <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {services.map((s) => (
                 <li key={s.t}>
                   <Glass className="flex h-full gap-4 p-5">
@@ -380,14 +367,19 @@ export default async function LandingPage() {
                 </li>
               ))}
             </ul>
+            <div className="mt-10 flex justify-center">
+              <WhatsAppButton message={msg}>{cta}</WhatsAppButton>
+            </div>
           </div>
         </section>
 
         {/* Steps */}
         <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <Eyebrow>{tr("Getting started", "শুরু করা সহজ")}</Eyebrow>
-          <H2 className="mt-2">{tr("Four steps to your first orders", "প্রথম অর্ডার পর্যন্ত চারটি ধাপ")}</H2>
-          <ol className="mt-10 grid gap-4 md:grid-cols-4">
+          <SectionTitle
+            title={tr("Getting started", "শুরু করা সহজ")}
+            sub={tr("Four steps to your first orders", "প্রথম অর্ডার পর্যন্ত চারটি ধাপ")}
+          />
+          <ol className="mt-12 grid gap-4 md:grid-cols-4">
             {steps.map((s, i) => (
               <li key={s.t}>
                 <Glass className="h-full p-6">
@@ -402,10 +394,10 @@ export default async function LandingPage() {
 
         {/* FAQ */}
         <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-20 sm:px-6">
-          <H2>{tr("Questions", "প্রশ্ন ও উত্তর")}</H2>
+          <H2 className="text-center sm:text-5xl">{tr("Questions", "প্রশ্ন ও উত্তর")}</H2>
           <div className="mt-8 flex flex-col gap-3">
             {faq.map((f) => (
-              <details key={f.q} className="group rounded-2xl border border-white bg-white/60 px-5 py-4 shadow-sm backdrop-blur-xl">
+              <details key={f.q} className={cn("group rounded-2xl border border-zinc-900/[0.07] bg-white px-5 py-4 shadow-sm", LIFT)}>
                 <summary className="cursor-pointer list-none font-semibold text-zinc-950 marker:hidden">
                   <span className="flex items-center justify-between gap-4">
                     {f.q}
@@ -437,14 +429,13 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="relative border-t border-white bg-white/60 backdrop-blur-xl">
+      <footer className="relative border-t border-zinc-900/[0.06] bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-zinc-500 sm:px-6">
           <span>© {new Date().getFullYear()} Hook · hook.com.bd</span>
           <nav aria-label={tr("Legal", "আইনি")} className="flex flex-wrap gap-5">
             <Link href="/blog" className="hover:text-zinc-900">{tr("Blog", "ব্লগ")}</Link>
             <Link href="/privacy" className="hover:text-zinc-900">{tr("Privacy", "প্রাইভেসি")}</Link>
             <Link href="/terms" className="hover:text-zinc-900">{tr("Terms", "শর্তাবলি")}</Link>
-            <Link href="/login" className="hover:text-zinc-900">{tr("Client login", "ক্লায়েন্ট লগইন")}</Link>
           </nav>
         </div>
       </footer>
