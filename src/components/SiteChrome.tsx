@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo, LogoMark, buttonClass, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import { getTr } from "@/lib/i18n-server";
+import { WhatsAppButton } from "@/components/landing/WhatsApp";
 
 // Header and footer for the public pages (landing, blog, legal)
 
@@ -15,9 +16,9 @@ export async function SiteHeader({ loggedIn = false, tone = "paper" }: { loggedI
   const tr = await getTr();
   const ink = tone === "ink";
   const nav = [
-    { href: "/#tour", label: tr("Product", "প্রোডাক্ট") },
-    { href: "/#how", label: tr("How it works", "কীভাবে কাজ করে") },
-    { href: "/#pricing", label: tr("Pricing", "দাম") },
+    { href: "/#results", label: tr("Results", "ফলাফল") },
+    { href: "/#funnel", label: tr("How we work", "কীভাবে কাজ করি") },
+    { href: "/#services", label: tr("Services", "সার্ভিস") },
     { href: "/blog", label: tr("Blog", "ব্লগ") },
     { href: "/#faq", label: "FAQ" },
   ];
@@ -72,16 +73,15 @@ export async function SiteHeader({ loggedIn = false, tone = "paper" }: { loggedI
               {tr("Log in", "লগইন")}
             </Link>
           )}
-          <Link
-            href={loggedIn ? "/dashboard" : "/signup"}
-            className={
-              ink
-                ? "inline-flex items-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-zinc-100"
-                : buttonClass("primary", "rounded-lg")
-            }
-          >
-            {loggedIn ? tr("Dashboard", "ড্যাশবোর্ড") : tr("Start free", "ফ্রি শুরু করো")}
-          </Link>
+          {loggedIn ? (
+            <Link href="/dashboard" className={ink ? "inline-flex items-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-zinc-100" : buttonClass("primary", "rounded-lg")}>
+              {tr("Dashboard", "ড্যাশবোর্ড")}
+            </Link>
+          ) : (
+            <WhatsAppButton size="sm" message={tr("Hi Hook, I want more orders from Meta ads for my business.", "হ্যালো Hook, আমার ব্যবসার জন্য Meta বিজ্ঞাপনে আরও অর্ডার চাই।")}>
+              {tr("Contact us", "যোগাযোগ")}
+            </WhatsAppButton>
+          )}
         </div>
       </div>
     </header>
@@ -94,10 +94,9 @@ export async function SiteFooter() {
     {
       title: tr("Product", "প্রোডাক্ট"),
       links: [
-        { href: "/#tour", label: tr("Tour", "ট্যুর") },
-        { href: "/#pricing", label: tr("Pricing", "দাম") },
-        { href: "/signup", label: tr("Create account", "অ্যাকাউন্ট খোলো") },
-        { href: "/login", label: tr("Log in", "লগইন") },
+        { href: "/#results", label: tr("Results", "ফলাফল") },
+        { href: "/#services", label: tr("Services", "সার্ভিস") },
+        { href: "/login", label: tr("Client login", "ক্লায়েন্ট লগইন") },
       ],
     },
     {

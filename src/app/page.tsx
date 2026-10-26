@@ -1,379 +1,458 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Eye, KeyRound, Lock, ShieldCheck, Trash2, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { cn } from "@/components/ui";
-import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
-import PricingSection from "@/components/PricingSection";
-import ProductTour from "@/components/landing/ProductTour";
-import { BrowserFrame, DashboardMock } from "@/components/landing/Mocks";
-import { getTr } from "@/lib/i18n-server";
+import {
+  BadgeCheck,
+  Camera,
+  ChartNoAxesColumn,
+  Crosshair,
+  MousePointerClick,
+  PackageCheck,
+  Repeat2,
+  ShoppingCart,
+  Target,
+  Truck,
+} from "lucide-react";
+import { LogoMark, cn } from "@/components/ui";
+import LanguageSwitch from "@/components/LanguageSwitch";
+import { CASES, RESULTS_PERIOD, TOTALS, WHATSAPP_DISPLAY, type CaseResult } from "@/components/landing/results";
+import { WhatsAppButton, WhatsAppIcon } from "@/components/landing/WhatsApp";
+import { getLocale } from "@/lib/i18n-server";
+import { makeTr } from "@/lib/i18n";
 
-// The public landing page. One promise, the real product on screen, honest proof,
-// and the same call to action at every natural stopping point.
+// Hook-এর সার্ভিস পেজ: Meta বিজ্ঞাপনে পুরো সেলস ফানেল আমরা চালাই। আসল ফলাফল দেখিয়ে
+// অনলাইন ব্যবসার মালিককে WhatsApp-এ কথা বলতে আনা। সাদা কাচের মতো, কোনো গ্রেডিয়েন্ট নেই।
 
-function H2({ children, dark = false, className }: { children: ReactNode; dark?: boolean; className?: string }) {
+export const metadata = {
+  title: "Hook — Meta ads that bring orders",
+  description:
+    "Hook runs your full Meta sales funnel: content, ads, advanced retargeting and order tracking to delivery. 2,524 website orders for our clients in the last 30 days.",
+};
+
+function Glass({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h2
+    <div
       className={cn(
-        "text-3xl leading-[1.12] font-semibold tracking-[-0.03em] sm:text-[2.6rem]",
-        dark ? "text-white" : "text-zinc-950 dark:text-white",
+        "rounded-3xl border border-white bg-white/60 shadow-[inset_0_1px_0_white,0_24px_48px_-28px_rgb(15_23_42/0.28)] backdrop-blur-xl",
         className,
       )}
     >
       {children}
-    </h2>
+    </div>
   );
 }
 
-function PrimaryCta({ href, children, onDark = false }: { href: string; children: ReactNode; onDark?: boolean }) {
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <p className="text-sm font-semibold tracking-wide text-[#3157B0]">{children}</p>;
+}
+
+function H2({ children, className }: { children: ReactNode; className?: string }) {
+  return <h2 className={cn("text-3xl leading-tight font-semibold tracking-tight text-zinc-950 sm:text-4xl", className)}>{children}</h2>;
+}
+
+// দৈনিক অর্ডারের ছোট বার চার্ট (Hook ড্যাশবোর্ডের মতো)
+function OrdersChart({ values, label }: { values: number[]; label: string }) {
+  const max = Math.max(...values);
+  const w = 300;
+  const h = 84;
+  const gap = 2;
+  const bw = (w - gap * (values.length - 1)) / values.length;
   return (
-    <Link
-      href={href}
-      className={cn(
-        "group inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold transition-colors",
-        onDark ? "bg-white text-zinc-950 hover:bg-zinc-100" : "bg-[#3157B0] text-white hover:bg-[#2a4a96]",
-      )}
-    >
-      {children}
-      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-    </Link>
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} className="h-24 w-full" preserveAspectRatio="none">
+      {values.map((v, i) => {
+        const bh = Math.max(2, (v / max) * (h - 4));
+        return <rect key={i} x={i * (bw + gap)} y={h - bh} width={bw} height={bh} rx={1.5} fill="#3157B0" opacity={i === values.length - 1 ? 1 : 0.78} />;
+      })}
+    </svg>
+  );
+}
+
+function ResultShot({ c, tr, n, money }: { c: CaseResult; tr: (en: string, bn: string) => string; n: (v: number) => string; money: (v: number) => string }) {
+  const kpis = [
+    { k: tr("Website orders", "ওয়েবসাইট অর্ডার"), v: n(c.orders), strong: true },
+    { k: tr("Cost per order", "প্রতি অর্ডারে খরচ"), v: money(c.spendUsd / c.orders), strong: true },
+    { k: tr("Ad spend", "বিজ্ঞাপন খরচ"), v: money(c.spendUsd) },
+    { k: tr("Add to cart", "কার্টে যোগ"), v: n(c.addToCart) },
+    { k: tr("Link clicks", "লিংক ক্লিক"), v: n(c.clicks) },
+    { k: tr("Inbox conversations", "ইনবক্স মেসেজ"), v: n(c.messages) },
+  ];
+  return (
+    <Glass className="overflow-hidden">
+      {/* ড্যাশবোর্ড স্ক্রিনশটের মতো উপরের বার */}
+      <div className="flex items-center gap-2 border-b border-zinc-900/[0.06] bg-white/50 px-5 py-3">
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+        <span className="ml-2 truncate text-xs text-zinc-500">
+          Hook · {tr(c.label.en, c.label.bn)} · {tr("Last 30 days", "গত ৩০ দিন")}
+        </span>
+        <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-900/10">{c.store}</span>
+      </div>
+      <div className="p-5 sm:p-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {kpis.map((x) => (
+            <div key={x.k} className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
+              <p className="text-xs text-zinc-500">{x.k}</p>
+              <p className={cn("mt-1 font-semibold tracking-tight text-zinc-950 tabular-nums", x.strong ? "text-2xl" : "text-lg")}>{x.v}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 rounded-2xl border border-white bg-white/70 px-4 pt-3 pb-2 shadow-sm">
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-medium text-zinc-600">{tr("Orders per day", "প্রতিদিনের অর্ডার")}</p>
+            <p className="text-[11px] text-zinc-400">{tr(RESULTS_PERIOD.en, RESULTS_PERIOD.bn)}</p>
+          </div>
+          <OrdersChart values={c.dailyOrders} label={tr(`Daily orders for the ${c.label.en}`, `${c.label.bn}-এর প্রতিদিনের অর্ডার`)} />
+        </div>
+      </div>
+    </Glass>
   );
 }
 
 export default async function LandingPage() {
-  const tr = await getTr();
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const locale = await getLocale();
+  const tr = makeTr(locale);
+  const fmt = new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-US");
+  const n = (v: number) => fmt.format(Math.round(v));
+  // ডলারের চিহ্ন আগে, সংখ্যা ভাষা অনুযায়ী
+  const money = (v: number) =>
+    "$" + new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-US", { maximumFractionDigits: v < 10 ? 2 : 0, minimumFractionDigits: v < 10 ? 2 : 0 }).format(v);
+  const msg = tr("Hi Hook, I want more orders from Meta ads for my business.", "হ্যালো Hook, আমার ব্যবসার জন্য Meta বিজ্ঞাপনে আরও অর্ডার চাই।");
+  const cta = tr("Talk on WhatsApp", "WhatsApp-এ কথা বলুন");
 
-  // Logged-in visitors go straight to their dashboard
-  const ctaHref = user ? "/dashboard" : "/signup";
-  const ctaLabel = user ? tr("Open your dashboard", "ড্যাশবোর্ডে যাও") : tr("Start free with your ad account", "তোমার Ad Account দিয়ে ফ্রি শুরু করো");
-
-  const proof = [
-    { v: tr("To the cent", "হুবহু"), k: tr("Numbers match Ads Manager, in your time zone", "Ads Manager-এর সাথে মেলে, তোমার timezone-এ") },
-    { v: "7", k: tr("Breakdowns: age, gender, region, placement, device, hour, weekday", "ব্রেকডাউন: বয়স, লিঙ্গ, এলাকা, প্লেসমেন্ট, ডিভাইস, ঘণ্টা, বার") },
-    { v: tr("2 min", "২ মিনিট"), k: tr("From sign-up to your first report", "অ্যাকাউন্ট খোলা থেকে প্রথম রিপোর্ট") },
-    { v: "EN · বাং", k: tr("Every screen and report in either language", "প্রতিটি পর্দা আর রিপোর্ট দুই ভাষায়") },
+  const funnel = [
+    {
+      i: Camera,
+      stage: tr("1 · Attention", "১ · নজর কাড়া"),
+      t: tr("Content that stops the scroll", "স্ক্রল থামানো কনটেন্ট"),
+      d: tr(
+        "Video and image ideas with a strong first 3 seconds, made for your product and your buyer.",
+        "প্রথম ৩ সেকেন্ডেই আটকে রাখা ভিডিও আর ছবি, আপনার পণ্য আর ক্রেতার কথা ভেবে।",
+      ),
+    },
+    {
+      i: Target,
+      stage: tr("2 · Right buyers", "২ · সঠিক ক্রেতা"),
+      t: tr("Sales campaigns on the right audience", "সঠিক অডিয়েন্সে সেলস ক্যাম্পেইন"),
+      d: tr(
+        "Campaigns optimised for purchases, tested by age, area and creative, budget moved to what sells.",
+        "Purchase-এর জন্য সাজানো ক্যাম্পেইন; বয়স, এলাকা আর ক্রিয়েটিভ টেস্ট করে যেটা বিক্রি আনে সেখানে বাজেট।",
+      ),
+    },
+    {
+      i: Repeat2,
+      stage: tr("3 · Bring them back", "৩ · ফিরিয়ে আনা"),
+      t: tr("Advanced retargeting", "অ্যাডভান্সড রিটার্গেটিং"),
+      d: tr(
+        "Visitors, add-to-carts, video viewers and inbox chats see the right next ad until they order.",
+        "যারা সাইট দেখেছে, কার্টে রেখেছে, ভিডিও দেখেছে বা মেসেজ দিয়েছে, অর্ডার না করা পর্যন্ত তাদের পরের ধাপের বিজ্ঞাপন।",
+      ),
+    },
+    {
+      i: Truck,
+      stage: tr("4 · Delivered", "৪ · ডেলিভারি পর্যন্ত"),
+      t: tr("Orders tracked to delivery", "ডেলিভারি পর্যন্ত অর্ডার ট্র্যাক"),
+      d: tr(
+        "We match every order to its campaign and follow it through confirm, courier and delivery, so we scale what really pays.",
+        "প্রতিটি অর্ডার কোন ক্যাম্পেইনের তা মিলিয়ে কনফার্ম, কুরিয়ার আর ডেলিভারি পর্যন্ত দেখি, তাই যেটা সত্যি লাভ আনে সেটাই বাড়াই।",
+      ),
+    },
   ];
 
-  const compare = [
-    {
-      before: tr("40+ columns and you still don't know what to do", "৪০টার বেশি কলাম, তবু বোঝা যায় না কী করতে হবে"),
-      after: tr("Seven numbers and a plain-language next step", "সাতটা সংখ্যা আর সহজ ভাষায় পরের পদক্ষেপ"),
-    },
-    {
-      before: tr("You find wasted spend days later, if at all", "টাকা নষ্ট হচ্ছে, টের পাও কয়েক দিন পরে, নয়তো কখনোই না"),
-      after: tr("An alert the morning it starts", "যেদিন শুরু, সেদিন সকালেই অ্যালার্ট"),
-    },
-    {
-      before: tr("Breakdowns hidden three menus deep", "ব্রেকডাউন তিনটা মেনুর ভেতরে লুকানো"),
-      after: tr("Best and worst audience picked out for each campaign", "প্রতিটি ক্যাম্পেইনের সেরা আর দুর্বল অডিয়েন্স আলাদা করে দেখানো"),
-    },
-    {
-      before: tr("A broken pixel quietly inflates your ROAS", "ভুল Pixel চুপচাপ ROAS বাড়িয়ে দেখায়"),
-      after: tr("Tracking problems flagged before you trust the number", "সংখ্যা বিশ্বাস করার আগেই ট্র্যাকিং সমস্যা ধরিয়ে দেয়"),
-    },
+  const services = [
+    { i: Camera, t: tr("Ad content plan", "বিজ্ঞাপনের কনটেন্ট প্ল্যান"), d: tr("Hooks, scripts and creative tests every week.", "প্রতি সপ্তাহে নতুন হুক, স্ক্রিপ্ট আর ক্রিয়েটিভ টেস্ট।") },
+    { i: Crosshair, t: tr("Pixel and tracking setup", "Pixel আর ট্র্যাকিং সেটআপ"), d: tr("Purchase, add to cart and checkout tracked correctly.", "Purchase, Add to cart, Checkout ঠিকভাবে ট্র্যাক।") },
+    { i: Repeat2, t: tr("Retargeting funnels", "রিটার্গেটিং ফানেল"), d: tr("Separate audiences for every step of the buying journey.", "কেনার প্রতিটি ধাপের জন্য আলাদা অডিয়েন্স।") },
+    { i: ChartNoAxesColumn, t: tr("Daily optimisation", "প্রতিদিন অপটিমাইজেশন"), d: tr("Losing ads off, winners scaled step by step.", "লস করা বিজ্ঞাপন বন্ধ, ভালোগুলো ধাপে ধাপে বাড়ানো।") },
+    { i: PackageCheck, t: tr("Order and courier view", "অর্ডার আর কুরিয়ার হিসাব"), d: tr("Confirmed, cancelled, in courier and delivered per campaign.", "প্রতিটি ক্যাম্পেইনের কনফার্ম, ক্যানসেল, কুরিয়ার আর ডেলিভারি।") },
+    { i: BadgeCheck, t: tr("Clear reports", "পরিষ্কার রিপোর্ট"), d: tr("What we spent, what came back, what we do next.", "কত খরচ, কত এল, এরপর কী করব।") },
   ];
 
   const steps = [
-    { n: "01", t: tr("Create your account", "অ্যাকাউন্ট খোলো"), d: tr("Email and password. No card.", "ইমেইল আর পাসওয়ার্ড। কার্ড লাগবে না।"), time: tr("30 sec", "৩০ সেকেন্ড") },
-    { n: "02", t: tr("Connect Facebook", "Facebook কানেক্ট করো"), d: tr("Approve read-only access and pick an ad account.", "শুধু পড়ার অনুমতি দাও, একটা Ad Account বেছে নাও।"), time: tr("1 min", "১ মিনিট") },
-    { n: "03", t: tr("Read your first report", "প্রথম রিপোর্ট পড়ো"), d: tr("Dashboard, alerts and AI advice are ready right away.", "ড্যাশবোর্ড, অ্যালার্ট আর AI পরামর্শ সাথে সাথে তৈরি।"), time: tr("Instant", "সাথে সাথে") },
-  ];
-
-  const audiences = [
-    {
-      t: tr("Shop owners", "দোকান ও পেজের মালিক"),
-      d: tr("You boost posts and run sales campaigns yourself. Hook tells you which ones pay for themselves.", "নিজেই পোস্ট বুস্ট করো আর সেলস ক্যাম্পেইন চালাও। Hook বলে কোনগুলো আসলে লাভ আনছে।"),
-      plan: "Free · Solo",
-    },
-    {
-      t: tr("Freelance marketers", "ফ্রিল্যান্স মার্কেটার"),
-      d: tr("You run ads for a few clients. One place to check every account and a report you can send.", "কয়েকজন ক্লায়েন্টের বিজ্ঞাপন চালাও। সব অ্যাকাউন্ট এক জায়গায়, আর পাঠানোর মতো রিপোর্ট।"),
-      plan: "Pro Marketer",
-    },
-    {
-      t: tr("Agencies", "এজেন্সি"),
-      d: tr("Dozens of accounts, a team, and clients who want answers. Hook does the first read for you.", "অনেক অ্যাকাউন্ট, টিম, আর উত্তর চাওয়া ক্লায়েন্ট। প্রথম বিশ্লেষণটা Hook করে দেয়।"),
-      plan: "Agency",
-    },
-  ];
-
-  const trust = [
-    { i: Eye, t: tr("Read-only", "শুধু পড়ে"), d: tr("Hook can't change, pause or create ads.", "Hook বিজ্ঞাপন বদলাতে, বন্ধ করতে বা বানাতে পারে না।") },
-    { i: KeyRound, t: tr("Encrypted token", "এনক্রিপ্টেড token"), d: tr("Your Meta token is stored with AES-256.", "Meta token AES-256 দিয়ে এনক্রিপ্ট করা।") },
-    { i: Lock, t: tr("Only yours", "শুধু তোমার"), d: tr("Each account sees only its own data.", "প্রতিটি অ্যাকাউন্ট শুধু নিজের ডাটা দেখে।") },
-    { i: Trash2, t: tr("Delete anytime", "যখন খুশি মুছে ফেলো"), d: tr("Disconnect or delete everything in one click.", "এক ক্লিকে বিচ্ছিন্ন বা সব মুছে ফেলো।") },
+    { t: tr("Message us on WhatsApp", "WhatsApp-এ মেসেজ দিন"), d: tr("Tell us your product, website and current results.", "আপনার পণ্য, ওয়েবসাইট আর এখনকার ফলাফল জানান।") },
+    { t: tr("Free account check", "ফ্রি অ্যাকাউন্ট চেক"), d: tr("We look at your ads, pixel and funnel and show where orders are lost.", "আপনার বিজ্ঞাপন, Pixel আর ফানেল দেখে বলি কোথায় অর্ডার হারাচ্ছে।") },
+    { t: tr("Plan and launch", "প্ল্যান আর লঞ্চ"), d: tr("Content, campaigns and retargeting set up for your goal.", "আপনার লক্ষ্য অনুযায়ী কনটেন্ট, ক্যাম্পেইন আর রিটার্গেটিং সাজানো।") },
+    { t: tr("Scale what works", "যেটা কাজ করে, সেটা বাড়ানো"), d: tr("Weekly review with real orders, not just clicks.", "শুধু ক্লিক নয়, আসল অর্ডার দেখে প্রতি সপ্তাহে রিভিউ।") },
   ];
 
   const faq = [
     {
-      q: tr("Is my ad account safe?", "আমার Ad Account কি নিরাপদ?"),
+      q: tr("Who is Hook for?", "Hook কাদের জন্য?"),
       a: tr(
-        "Yes. Hook asks Meta for read-only access (ads_read). It can't edit campaigns or budgets. Your access token is encrypted with AES-256, and disconnecting removes the permission and the stored data.",
-        "হ্যাঁ। Hook Meta-র কাছে শুধু পড়ার অনুমতি (ads_read) চায়। campaign বা budget বদলাতে পারে না। access token AES-256 দিয়ে এনক্রিপ্ট করা, আর disconnect করলে অনুমতি ও সংরক্ষিত ডাটা মুছে যায়।",
+        "Online businesses in Bangladesh that sell through a website (Shopify, WooCommerce or custom) or a Facebook page and want more paying orders from Meta ads.",
+        "বাংলাদেশের অনলাইন ব্যবসা, যারা ওয়েবসাইট (Shopify, WooCommerce বা নিজস্ব) বা Facebook পেজ দিয়ে বিক্রি করেন এবং Meta বিজ্ঞাপন থেকে আরও অর্ডার চান।",
       ),
     },
     {
-      q: tr("Will the numbers match Ads Manager?", "সংখ্যা কি Ads Manager-এর সাথে মিলবে?"),
+      q: tr("Where do these results come from?", "এই ফলাফল কোথা থেকে?"),
       a: tr(
-        "They should, to the cent. Results, reach and frequency come straight from Meta, and days are counted in your ad account's time zone, just like Ads Manager does.",
-        "হ্যাঁ, হুবহু। Result, Reach, Frequency সরাসরি Meta থেকে আসে, আর দিন গোনা হয় তোমার Ad Account-এর timezone ধরে, Ads Manager যেভাবে গোনে।",
+        "From two of our current clients over the last 30 days. Ad numbers are from Meta Ads Manager and orders are from their own websites. We hide brand names for privacy.",
+        "আমাদের দুইজন বর্তমান ক্লায়েন্টের গত ৩০ দিনের হিসাব। বিজ্ঞাপনের সংখ্যা Meta Ads Manager থেকে, অর্ডার তাদের নিজের ওয়েবসাইট থেকে। গোপনীয়তার জন্য ব্র্যান্ডের নাম দেখাইনি।",
       ),
     },
     {
-      q: tr("Does the AI make up numbers?", "AI কি নিজে থেকে সংখ্যা বানায়?"),
+      q: tr("Do you make the ad content too?", "বিজ্ঞাপনের কনটেন্টও কি আপনারা বানান?"),
       a: tr(
-        "No. Every figure is calculated in code from Meta's data. The AI only explains what the numbers mean and suggests what to do, and every suggestion shows the numbers behind it.",
-        "না। প্রতিটি সংখ্যা Meta-র ডাটা থেকে কোডে হিসাব করা। AI শুধু সংখ্যার মানে বোঝায় আর পরামর্শ দেয়, প্রতিটি পরামর্শের সাথে কারণ হিসেবে সংখ্যাও থাকে।",
+        "Yes. We plan the hooks, scripts and creative tests. Content is what makes the funnel work, so we treat it as part of the job.",
+        "হ্যাঁ। হুক, স্ক্রিপ্ট আর ক্রিয়েটিভ টেস্ট আমরা প্ল্যান করি। ফানেল কাজ করে কনটেন্টের জোরে, তাই এটা আমাদের কাজেরই অংশ।",
       ),
     },
     {
-      q: tr("Which campaign types work?", "কোন ধরনের campaign চলে?"),
+      q: tr("How do I know which ads bring real orders?", "কোন বিজ্ঞাপন আসল অর্ডার আনছে, বুঝব কীভাবে?"),
       a: tr(
-        "Sales, leads, messages, traffic, engagement and video views. Each campaign's result is counted by its own objective.",
-        "Sales, Leads, Messages, Traffic, Engagement আর Video views। প্রতিটি campaign-এর result তার objective অনুযায়ী গোনা হয়।",
+        "We connect your website and courier, so every order is matched to its campaign and followed until delivery. You see orders, cancels and deliveries per campaign.",
+        "আপনার ওয়েবসাইট আর কুরিয়ার যুক্ত করি, তাই প্রতিটি অর্ডার তার ক্যাম্পেইনের সাথে মেলে আর ডেলিভারি পর্যন্ত দেখা যায়। প্রতিটি ক্যাম্পেইনের অর্ডার, ক্যানসেল আর ডেলিভারি আপনি দেখবেন।",
       ),
     },
     {
-      q: tr("Can I read it in Bangla?", "বাংলায় পড়া যাবে?"),
+      q: tr("What does it cost?", "খরচ কত?"),
       a: tr(
-        "Yes. Use the EN / বাং switch at the top. The whole app, including AI reports, follows your choice.",
-        "হ্যাঁ। উপরের EN / বাং বোতাম দিয়ে বদলাও। AI রিপোর্টসহ পুরো অ্যাপ তোমার পছন্দের ভাষায় চলবে।",
-      ),
-    },
-    {
-      q: tr("Do I need a card to start?", "শুরু করতে কি কার্ড লাগবে?"),
-      a: tr(
-        "No. The Free plan needs only an email. Upgrade later if you want more accounts, campaigns or AI reports.",
-        "না। Free প্ল্যানে শুধু ইমেইল লাগে। বেশি অ্যাকাউন্ট, ক্যাম্পেইন বা AI রিপোর্ট লাগলে পরে প্ল্যান বাড়াও।",
+        "It depends on your products, budget and how much content you need. Message us on WhatsApp and we'll suggest a plan after a free check.",
+        "আপনার পণ্য, বাজেট আর কতটা কনটেন্ট লাগবে তার উপর নির্ভর করে। WhatsApp-এ মেসেজ দিন, ফ্রি চেকের পর আমরা প্ল্যান জানাব।",
       ),
     },
   ];
 
   return (
-    <div className={cn("min-h-screen bg-[#f6f5f1] dark:bg-[#0b0d12]", !user && "pb-20 sm:pb-0")}>
-      <SiteHeader loggedIn={Boolean(user)} tone="ink" />
+    <div className="min-h-screen bg-[#f7f8fa] text-zinc-900 [color-scheme:light]">
+      {/* হালকা গ্রিড; কাচের প্যানেলের পেছনে টেক্সচার দেয়, রং যোগ করে না */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_right,rgb(24_24_27/0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgb(24_24_27/0.045)_1px,transparent_1px)] bg-[size:32px_32px]"
+      />
 
-      <main>
+      <header className="sticky top-0 z-30 border-b border-white/80 bg-white/70 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Link href="/" aria-label={tr("Hook home", "Hook হোম")}>
+            {/* ডার্ক মোডেও পেজ সাদা থাকে, তাই লোগোর লেখা নিজে রং ঠিক করে */}
+            <span className="flex items-center gap-2.5">
+              <LogoMark className="size-9 shadow-sm" />
+              <span className="text-sm font-bold tracking-wide text-[#3157B0]">
+                HOOK <span className="text-[#FF5A2C]">AI</span>
+              </span>
+            </span>
+          </Link>
+          <nav aria-label={tr("Main menu", "প্রধান মেনু")} className="hidden items-center gap-7 text-sm text-zinc-600 md:flex">
+            <a href="#results" className="hover:text-zinc-950">{tr("Results", "ফলাফল")}</a>
+            <a href="#funnel" className="hover:text-zinc-950">{tr("How we work", "কীভাবে কাজ করি")}</a>
+            <a href="#services" className="hover:text-zinc-950">{tr("Services", "সার্ভিস")}</a>
+            <a href="#faq" className="hover:text-zinc-950">FAQ</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <LanguageSwitch className="dark:border-zinc-900/10 dark:bg-white/60 [&_button[aria-pressed=false]]:!text-zinc-600 [&_button[aria-pressed=true]]:!bg-zinc-900 [&_button[aria-pressed=true]]:!text-white" />
+            <WhatsAppButton message={msg} size="sm">
+              {tr("Contact us", "যোগাযোগ")}
+            </WhatsAppButton>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative">
         {/* Hero */}
-        <section className="ink overflow-hidden">
-          <div className="mx-auto max-w-6xl px-4 pt-16 pb-0 text-center sm:px-6 sm:pt-24">
-            <p className="mx-auto inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.06] px-5 py-2 text-sm font-medium text-zinc-200 sm:text-base">
-              <span className="size-2 rounded-full bg-emerald-400" aria-hidden />
-              {tr("For anyone who runs their own Facebook & Instagram ads", "যারা নিজের Facebook ও Instagram বিজ্ঞাপন নিজে চালায়")}
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-white bg-white/70 px-3 py-1 text-xs font-medium text-zinc-600 shadow-sm backdrop-blur">
+              <span className="size-1.5 rounded-full bg-[#1fa855]" />
+              {tr(`${n(TOTALS.orders)} website orders for our clients in the last 30 days`, `গত ৩০ দিনে ক্লায়েন্টদের ${n(TOTALS.orders)}টি ওয়েবসাইট অর্ডার`)}
             </p>
-            <h1 className="hero-title mx-auto mt-6 max-w-4xl text-[2.6rem] leading-[1.04] font-semibold tracking-[-0.04em] text-white sm:text-6xl lg:text-[4.4rem]">
-              {tr("Stop guessing which ads ", "কোন বিজ্ঞাপন টাকা আনছে, ")}
-              <span className="text-[#FF7A4D]">{tr("make you money.", "আর আন্দাজ নয়।")}</span>
+            <h1 className="mt-5 text-4xl leading-[1.08] font-semibold tracking-tight text-zinc-950 sm:text-5xl lg:text-[3.4rem]">
+              {tr("Stop paying for likes. Get orders from Meta ads.", "লাইক নয়, Meta বিজ্ঞাপন থেকে অর্ডার আনুন।")}
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-zinc-600">
               {tr(
-                "Hook reads your Meta ad account and tells you, in plain words, what's working, what's leaking money, and exactly what to change next.",
-                "Hook তোমার Meta Ad Account পড়ে সহজ কথায় বলে দেয় কী কাজ করছে, কোথায় টাকা নষ্ট হচ্ছে, আর এরপর ঠিক কী বদলাতে হবে।",
+                "Hook runs your full sales funnel on Facebook and Instagram: scroll-stopping content, sales campaigns, advanced retargeting, and every order tracked until it's delivered.",
+                "Hook আপনার Facebook আর Instagram-এর পুরো সেলস ফানেল চালায়: স্ক্রল থামানো কনটেন্ট, সেলস ক্যাম্পেইন, অ্যাডভান্সড রিটার্গেটিং, আর প্রতিটি অর্ডার ডেলিভারি পর্যন্ত ট্র্যাক।",
               )}
             </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <PrimaryCta href={ctaHref} onDark>
-                {ctaLabel}
-              </PrimaryCta>
-              <a href="#tour" className="rounded-xl px-5 py-3.5 text-base font-medium text-zinc-300 hover:text-white">
-                {tr("See the product", "প্রোডাক্ট দেখো")}
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <WhatsAppButton message={msg}>{cta}</WhatsAppButton>
+              <a href="#results" className="inline-flex items-center rounded-xl border border-white bg-white/70 px-5 py-3.5 text-base font-semibold text-zinc-800 shadow-sm backdrop-blur hover:bg-white">
+                {tr("See results", "ফলাফল দেখুন")}
               </a>
             </div>
-            <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-400">
-              {[tr("Free plan", "ফ্রি প্ল্যান"), tr("No card needed", "কার্ড লাগবে না"), tr("Read-only access", "শুধু পড়ার অনুমতি")].map((t) => (
-                <li key={t} className="flex items-center gap-1.5">
-                  <Check className="size-4 text-emerald-400" aria-hidden />
-                  {t}
-                </li>
-              ))}
-            </ul>
-
-            <div className="relative mx-auto mt-14 max-w-5xl">
-              <BrowserFrame className="rounded-b-none border-b-0">
-                <DashboardMock />
-              </BrowserFrame>
-            </div>
+            <p className="mt-4 text-sm text-zinc-500">
+              {tr(`Free account check · WhatsApp ${WHATSAPP_DISPLAY}`, `ফ্রি অ্যাকাউন্ট চেক · WhatsApp ${WHATSAPP_DISPLAY}`)}
+            </p>
           </div>
-        </section>
 
-        {/* Honest proof */}
-        <section aria-label={tr("At a glance", "এক নজরে")} className="border-b border-zinc-900/5 bg-white dark:border-white/5 dark:bg-[#0f1219]">
-          <dl className="mx-auto grid max-w-6xl grid-cols-2 divide-zinc-900/5 px-4 sm:px-6 lg:grid-cols-4 lg:divide-x dark:divide-white/5">
-            {proof.map((p) => (
-              <div key={p.k} className="px-2 py-8 lg:px-8">
-                <dt className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">{p.v}</dt>
-                <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{p.k}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        {/* Before / after */}
-        <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-          <div className="max-w-2xl">
-            <H2>{tr("Ads Manager tells you what happened. Hook tells you what to do.", "Ads Manager বলে কী হয়েছে। Hook বলে এখন কী করতে হবে।")}</H2>
-          </div>
-          <div className="mt-12 overflow-hidden rounded-2xl border border-zinc-900/10 bg-white dark:border-white/10 dark:bg-[#12151d]">
-            <div className="grid grid-cols-2 border-b border-zinc-900/10 text-sm font-semibold dark:border-white/10">
-              <p className="px-5 py-3 text-zinc-500">{tr("Ads Manager alone", "শুধু Ads Manager")}</p>
-              <p className="border-l border-zinc-900/10 px-5 py-3 text-[#3157B0] dark:border-white/10 dark:text-[#8fa8e6]">{tr("With Hook", "Hook-এর সাথে")}</p>
-            </div>
-            {compare.map((c) => (
-              <div key={c.after} className="grid grid-cols-2 border-b border-zinc-900/5 last:border-b-0 dark:border-white/5">
-                <p className="flex gap-2.5 px-5 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                  <X className="mt-0.5 size-4 shrink-0 text-zinc-300 dark:text-zinc-600" aria-hidden />
-                  {c.before}
-                </p>
-                <p className="flex gap-2.5 border-l border-zinc-900/10 px-5 py-4 text-sm font-medium text-zinc-900 dark:border-white/10 dark:text-zinc-100">
-                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
-                  {c.after}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Product tour */}
-        <section id="tour" className="scroll-mt-20 border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="mb-10 max-w-2xl">
-              <H2>{tr("Everything you need to decide, nothing you don't.", "সিদ্ধান্ত নিতে যা দরকার সব, বাড়তি কিছু নয়।")}</H2>
-            </div>
-            <ProductTour />
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
-          <div className="max-w-2xl">
-            <H2>{tr("From sign-up to your first answer in about two minutes.", "অ্যাকাউন্ট খোলা থেকে প্রথম উত্তর, মোটামুটি দুই মিনিটে।")}</H2>
-          </div>
-          <ol className="mt-12 grid gap-4 md:grid-cols-3">
-            {steps.map((s) => (
-              <li key={s.n} className="rounded-2xl border border-zinc-900/10 bg-white p-6 dark:border-white/10 dark:bg-[#12151d]">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm text-zinc-400">{s.n}</span>
-                  <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-600 dark:bg-white/10 dark:text-zinc-300">{s.time}</span>
+          <Glass className="p-6 sm:p-7">
+            <p className="text-sm font-medium text-zinc-500">{tr("Two clients · last 30 days", "দুইজন ক্লায়েন্ট · গত ৩০ দিন")}</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {[
+                { i: ShoppingCart, k: tr("Website orders", "ওয়েবসাইট অর্ডার"), v: n(TOTALS.orders) },
+                { i: Target, k: tr("Avg. cost per order", "গড়ে প্রতি অর্ডারে খরচ"), v: money(TOTALS.spendUsd / TOTALS.orders) },
+                { i: MousePointerClick, k: tr("Ad impressions", "বার বিজ্ঞাপন দেখানো"), v: n(TOTALS.impressions) },
+                { i: WhatsAppIcon, k: tr("Inbox conversations", "ইনবক্স মেসেজ"), v: n(TOTALS.messages) },
+              ].map((x) => (
+                <div key={x.k} className="rounded-2xl border border-white bg-white/75 p-4 shadow-sm">
+                  <x.i className="size-4 text-[#3157B0]" />
+                  <p className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950 tabular-nums">{x.v}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{x.k}</p>
                 </div>
-                <h3 className="mt-6 text-lg font-semibold text-zinc-950 dark:text-white">{s.t}</h3>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{s.d}</p>
+              ))}
+            </div>
+            <div className="mt-3 rounded-2xl border border-white bg-white/75 px-4 pt-3 pb-1 shadow-sm">
+              <p className="text-xs font-medium text-zinc-600">{tr("Orders per day, both clients", "প্রতিদিনের অর্ডার, দুই ক্লায়েন্ট মিলে")}</p>
+              <OrdersChart
+                values={CASES[0].dailyOrders.map((v, i) => v + (CASES[1].dailyOrders[i] ?? 0))}
+                label={tr("Daily orders for both clients", "দুই ক্লায়েন্টের প্রতিদিনের অর্ডার")}
+              />
+            </div>
+          </Glass>
+        </section>
+
+        {/* Results */}
+        <section id="results" className="scroll-mt-20 border-y border-white bg-white/40 py-20 backdrop-blur-sm">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-2xl">
+              <Eyebrow>{tr("Real results", "আসল ফলাফল")}</Eyebrow>
+              <H2 className="mt-2">{tr("What our clients got in the last 30 days", "গত ৩০ দিনে আমাদের ক্লায়েন্টরা যা পেয়েছে")}</H2>
+              <p className="mt-3 text-zinc-600">
+                {tr(
+                  `${RESULTS_PERIOD.en}. Ad numbers from Meta Ads Manager, orders from each client's own website. Brand names hidden for privacy.`,
+                  `${RESULTS_PERIOD.bn}। বিজ্ঞাপনের হিসাব Meta Ads Manager থেকে, অর্ডার ক্লায়েন্টের নিজের ওয়েবসাইট থেকে। গোপনীয়তার জন্য ব্র্যান্ডের নাম দেখানো হয়নি।`,
+                )}
+              </p>
+            </div>
+            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              {CASES.map((c) => (
+                <ResultShot key={c.id} c={c} tr={tr} n={n} money={money} />
+              ))}
+            </div>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <WhatsAppButton message={msg}>{tr("I want results like this", "আমিও এমন ফলাফল চাই")}</WhatsAppButton>
+              <p className="text-sm text-zinc-500">{tr("Results differ by product and budget; we'll tell you honestly what to expect.", "পণ্য আর বাজেট অনুযায়ী ফলাফল আলাদা হয়; কী আশা করা যায়, সৎভাবে জানাব।")}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Funnel */}
+        <section id="funnel" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
+          <div className="max-w-2xl">
+            <Eyebrow>{tr("Full sales funnel", "পুরো সেলস ফানেল")}</Eyebrow>
+            <H2 className="mt-2">{tr("One ad rarely sells. A funnel does.", "একটা বিজ্ঞাপনে বিক্রি কম হয়। ফানেলে হয়।")}</H2>
+            <p className="mt-3 text-zinc-600">
+              {tr(
+                "Most buyers need to see you a few times before they order. We plan every step, from the first video to the delivered parcel.",
+                "বেশিরভাগ ক্রেতা অর্ডারের আগে কয়েকবার আপনাকে দেখে। প্রথম ভিডিও থেকে ডেলিভারি হওয়া পার্সেল পর্যন্ত প্রতিটি ধাপ আমরা সাজাই।",
+              )}
+            </p>
+          </div>
+          <ol className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {funnel.map((f) => (
+              <li key={f.t}>
+                <Glass className="h-full p-6">
+                  <span className="flex size-10 items-center justify-center rounded-xl border border-white bg-white shadow-sm">
+                    <f.i className="size-5 text-[#3157B0]" aria-hidden />
+                  </span>
+                  <p className="mt-4 text-xs font-semibold tracking-wide text-zinc-500">{f.stage}</p>
+                  <h3 className="mt-1 text-lg font-semibold text-zinc-950">{f.t}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-600">{f.d}</p>
+                </Glass>
               </li>
             ))}
           </ol>
-          <div className="mt-10">
-            <PrimaryCta href={ctaHref}>{ctaLabel}</PrimaryCta>
-          </div>
         </section>
 
-        {/* Who it's for */}
-        <section className="border-y border-zinc-900/5 bg-white py-24 dark:border-white/5 dark:bg-[#0f1219]">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="max-w-2xl">
-              <H2>{tr("Built for the people who actually press Publish.", "যারা নিজের হাতে Publish চাপে, তাদের জন্য।")}</H2>
-            </div>
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              {audiences.map((a) => (
-                <div key={a.t} className="flex flex-col rounded-2xl border border-zinc-900/10 p-6 dark:border-white/10">
-                  <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">{a.t}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{a.d}</p>
-                  <p className="mt-6 text-xs font-medium text-[#3157B0] dark:text-[#8fa8e6]">{tr("Best plan", "উপযুক্ত প্ল্যান")}: {a.plan}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing */}
-        <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
-          <div className="max-w-2xl">
-            <H2>{tr("Start free. Upgrade when it pays for itself.", "ফ্রি দিয়ে শুরু করো। লাভ দেখলে তবেই প্ল্যান বাড়াও।")}</H2>
-            <p className="mt-4 text-zinc-600 dark:text-zinc-400">
-              {tr(
-                "Every plan reads your ads the same way. Bigger plans cover more accounts, more campaigns and more AI work.",
-                "সব প্ল্যান একইভাবে তোমার বিজ্ঞাপন পড়ে। বড় প্ল্যানে বেশি অ্যাকাউন্ট, বেশি ক্যাম্পেইন আর বেশি AI কাজ।",
-              )}
-            </p>
-          </div>
-          <PricingSection tr={tr} ctaHref={user ? "/settings#plan" : "/signup"} />
-        </section>
-
-        {/* Trust */}
-        <section className="border-y border-zinc-900/5 bg-white dark:border-white/5 dark:bg-[#0f1219]">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+        {/* Services */}
+        <section id="services" className="scroll-mt-20 border-y border-white bg-white/40 py-20 backdrop-blur-sm">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.6fr]">
             <div>
-              <ShieldCheck className="size-8 text-[#3157B0] dark:text-[#8fa8e6]" aria-hidden />
-              <H2 className="mt-4 sm:text-3xl">{tr("Your ad account stays yours.", "তোমার Ad Account তোমারই থাকে।")}</H2>
-              <Link href="/privacy" className="mt-4 inline-block text-sm font-medium text-[#3157B0] hover:underline dark:text-[#8fa8e6]">
-                {tr("Read the privacy policy →", "Privacy policy পড়ো →")}
-              </Link>
+              <Eyebrow>{tr("What we do for you", "আমরা যা করি")}</Eyebrow>
+              <H2 className="mt-2">{tr("Result-driven, not report-driven.", "রিপোর্ট নয়, ফলাফলের জন্য কাজ।")}</H2>
+              <p className="mt-3 text-zinc-600">
+                {tr(
+                  "We judge every taka by the orders it brings back. If an ad doesn't sell, it's off. If it sells, we scale it carefully.",
+                  "প্রতিটি টাকা কত অর্ডার আনল, সেটা দিয়েই বিচার। বিজ্ঞাপন বিক্রি না আনলে বন্ধ, আনলে সাবধানে বাড়ানো।",
+                )}
+              </p>
+              <WhatsAppButton message={msg} className="mt-6">{cta}</WhatsAppButton>
             </div>
-            <ul className="grid gap-6 sm:grid-cols-2">
-              {trust.map(({ i: Icon, t, d }) => (
-                <li key={t}>
-                  <Icon className="size-5 text-zinc-900 dark:text-zinc-100" aria-hidden />
-                  <p className="mt-3 font-semibold text-zinc-950 dark:text-white">{t}</p>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{d}</p>
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {services.map((s) => (
+                <li key={s.t}>
+                  <Glass className="flex h-full gap-4 p-5">
+                    <s.i className="mt-0.5 size-5 shrink-0 text-[#3157B0]" aria-hidden />
+                    <div>
+                      <h3 className="font-semibold text-zinc-950">{s.t}</h3>
+                      <p className="mt-1 text-sm text-zinc-600">{s.d}</p>
+                    </div>
+                  </Glass>
                 </li>
               ))}
             </ul>
           </div>
         </section>
 
+        {/* Steps */}
+        <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <Eyebrow>{tr("Getting started", "শুরু করা সহজ")}</Eyebrow>
+          <H2 className="mt-2">{tr("Four steps to your first orders", "প্রথম অর্ডার পর্যন্ত চারটি ধাপ")}</H2>
+          <ol className="mt-10 grid gap-4 md:grid-cols-4">
+            {steps.map((s, i) => (
+              <li key={s.t}>
+                <Glass className="h-full p-6">
+                  <span className="text-sm font-semibold text-[#3157B0] tabular-nums">{n(i + 1).padStart(2, n(0))}</span>
+                  <h3 className="mt-2 font-semibold text-zinc-950">{s.t}</h3>
+                  <p className="mt-1.5 text-sm text-zinc-600">{s.d}</p>
+                </Glass>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         {/* FAQ */}
-        <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-24 sm:px-6">
-          <H2>{tr("Questions before you connect", "কানেক্ট করার আগে যা জানতে চাও")}</H2>
-          <div className="mt-10 divide-y divide-zinc-900/10 border-y border-zinc-900/10 dark:divide-white/10 dark:border-white/10">
-            {faq.map(({ q, a }) => (
-              <details key={q} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-zinc-950 dark:text-white [&::-webkit-details-marker]:hidden">
-                  {q}
-                  <span className="text-2xl leading-none text-zinc-400 transition-transform group-open:rotate-45" aria-hidden>
-                    +
+        <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-20 sm:px-6">
+          <H2>{tr("Questions", "প্রশ্ন ও উত্তর")}</H2>
+          <div className="mt-8 flex flex-col gap-3">
+            {faq.map((f) => (
+              <details key={f.q} className="group rounded-2xl border border-white bg-white/60 px-5 py-4 shadow-sm backdrop-blur-xl">
+                <summary className="cursor-pointer list-none font-semibold text-zinc-950 marker:hidden">
+                  <span className="flex items-center justify-between gap-4">
+                    {f.q}
+                    <span className="text-zinc-400 transition-transform group-open:rotate-45" aria-hidden>
+                      +
+                    </span>
                   </span>
                 </summary>
-                <p className="mt-3 pr-8 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{a}</p>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600">{f.a}</p>
               </details>
             ))}
           </div>
         </section>
 
-        {/* Closing */}
-        <section className="ink">
-          <div className="mx-auto max-w-4xl px-4 py-24 text-center sm:px-6">
-            <h2 className="text-3xl leading-tight font-semibold tracking-[-0.03em] text-white sm:text-5xl">
-              {tr("Your next taka of ad spend should know where it's going.", "তোমার বিজ্ঞাপনের পরের টাকাটা কোথায় যাচ্ছে, জেনে খরচ করো।")}
-            </h2>
-            <p className="mx-auto mt-5 max-w-xl text-zinc-400">
-              {tr("Connect in two minutes. Free plan, no card, read-only.", "দুই মিনিটে কানেক্ট। ফ্রি প্ল্যান, কার্ড লাগবে না, শুধু পড়ার অনুমতি।")}
+        {/* Final CTA */}
+        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+          <Glass className="flex flex-col items-center px-6 py-14 text-center">
+            <H2 className="max-w-2xl">{tr("Want more orders next month?", "আগামী মাসে আরও অর্ডার চান?")}</H2>
+            <p className="mt-3 max-w-xl text-zinc-600">
+              {tr(
+                "Send us a message. We'll check your ads and tell you where the orders are being lost, free.",
+                "একটা মেসেজ দিন। আপনার বিজ্ঞাপন দেখে কোথায় অর্ডার হারাচ্ছে, ফ্রিতে জানাব।",
+              )}
             </p>
-            <div className="mt-9">
-              <PrimaryCta href={ctaHref} onDark>
-                {ctaLabel}
-              </PrimaryCta>
-            </div>
-          </div>
+            <WhatsAppButton message={msg} className="mt-7">
+              {tr(`WhatsApp ${WHATSAPP_DISPLAY}`, `WhatsApp ${WHATSAPP_DISPLAY}`)}
+            </WhatsAppButton>
+          </Glass>
         </section>
       </main>
 
-      <SiteFooter />
-
-      {/* Mobile: the call to action is always one tap away */}
-      {!user && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-900/10 bg-white/95 p-3 backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#0b0d12]/95">
-          <Link
-            href="/signup"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3157B0] py-3 text-base font-semibold text-white"
-          >
-            {tr("Start free", "ফ্রি শুরু করো")}
-            <ArrowRight className="size-4" aria-hidden />
-          </Link>
+      <footer className="relative border-t border-white bg-white/60 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-zinc-500 sm:px-6">
+          <span>© {new Date().getFullYear()} Hook · hook.com.bd</span>
+          <nav aria-label={tr("Legal", "আইনি")} className="flex flex-wrap gap-5">
+            <Link href="/blog" className="hover:text-zinc-900">{tr("Blog", "ব্লগ")}</Link>
+            <Link href="/privacy" className="hover:text-zinc-900">{tr("Privacy", "প্রাইভেসি")}</Link>
+            <Link href="/terms" className="hover:text-zinc-900">{tr("Terms", "শর্তাবলি")}</Link>
+            <Link href="/login" className="hover:text-zinc-900">{tr("Client login", "ক্লায়েন্ট লগইন")}</Link>
+          </nav>
         </div>
-      )}
+      </footer>
+
+      {/* মোবাইলে সবসময় হাতের কাছে WhatsApp */}
+      <WhatsAppButton message={msg} size="sm" className="fixed right-4 bottom-4 z-40 rounded-full px-4 py-3 sm:hidden">
+        WhatsApp
+      </WhatsAppButton>
     </div>
   );
 }
