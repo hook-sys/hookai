@@ -76,7 +76,7 @@ export default async function AdminBlogPage({ searchParams }: Props) {
             {posts.map((p) => {
               const state = STATE_BADGE[postState(p)];
               return (
-                <li key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <li key={p.id} className="flex items-center gap-4 px-5 py-4 hover:bg-white/50 dark:hover:bg-zinc-800/50">
                   {p.cover_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.cover_image_url} alt="" className="hidden h-12 w-20 shrink-0 rounded-md object-cover sm:block" />

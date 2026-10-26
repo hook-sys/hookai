@@ -50,7 +50,7 @@ export default function ClientSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:hover:bg-zinc-800"
+        className="flex w-full items-center gap-2 glass-chip rounded-xl px-3 py-2 text-left text-sm hover:bg-white/95 dark:hover:bg-white/[0.14]"
       >
         {pending ? (
           <Loader2 className="size-4 shrink-0 animate-spin text-zinc-400" aria-hidden />
@@ -66,7 +66,7 @@ export default function ClientSwitcher({
         <ChevronsUpDown className="size-4 shrink-0 text-zinc-400" aria-hidden />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 w-full min-w-56 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="absolute left-0 z-30 mt-1 w-full min-w-56 glass-popover rounded-xl p-1.5">
           <ul role="listbox" className="max-h-80 overflow-y-auto">
             {clients.map((c) => (
               <li key={c.id}>

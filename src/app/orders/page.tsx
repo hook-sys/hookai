@@ -287,7 +287,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[68rem] text-sm">
-              <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
+              <thead className="bg-white/40 text-left text-xs text-zinc-500 dark:bg-white/[0.03] dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-2.5 font-medium">{tr("Campaign", "ক্যাম্পেইন")}</th>
                   <th className="px-3 py-2.5 text-right font-medium">{tr("Spend", "খরচ")}</th>
@@ -472,7 +472,7 @@ export default async function OrdersPage({ searchParams }: Props) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[48rem] text-sm">
-              <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">
+              <thead className="bg-white/40 text-left text-xs text-zinc-500 dark:bg-white/[0.03] dark:text-zinc-400">
                 <tr>
                   <th className="px-5 py-2.5 font-medium">{tr("Order", "অর্ডার")}</th>
                   <th className="px-3 py-2.5 font-medium">{tr("Date", "তারিখ")}</th>

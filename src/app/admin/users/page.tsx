@@ -39,7 +39,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-zinc-50 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
+            <thead className="bg-white/40 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
               <tr>
                 <th scope="col" className="px-5 py-3">{tr("Email", "ইমেইল")}</th>
                 <th scope="col" className="px-3 py-3">{tr("Joined", "যোগ দিয়েছে")}</th>

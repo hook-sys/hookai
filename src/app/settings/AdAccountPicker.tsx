@@ -63,7 +63,7 @@ export default function AdAccountPicker({
         {visible.map((acc) => (
           <label
             key={acc.id}
-            className="flex cursor-pointer items-center gap-3 border-b border-zinc-100 px-4 py-3 text-sm last:border-b-0 hover:bg-zinc-50 has-[:checked]:bg-indigo-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:has-[:checked]:bg-indigo-950"
+            className="flex cursor-pointer items-center gap-3 border-b border-zinc-100 px-4 py-3 text-sm last:border-b-0 hover:bg-white/50 has-[:checked]:bg-indigo-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:has-[:checked]:bg-indigo-950"
           >
             <input
               type="radio"

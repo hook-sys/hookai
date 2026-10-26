@@ -543,7 +543,7 @@ export function CampaignTable({
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
+          <thead className="bg-white/40 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
             <tr>
               <th scope="col" className="px-5 py-3">{tr("Campaign", "ক্যাম্পেইন")}</th>
               {showResults && (
@@ -570,7 +570,7 @@ export function CampaignTable({
               </tr>
             )}
             {campaigns.map((c, index) => (
-              <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+              <tr key={c.id} className="hover:bg-white/50 dark:hover:bg-zinc-800/50">
                 <td className="max-w-xs truncate px-5 py-3 font-medium text-zinc-900 dark:text-zinc-100" title={c.name}>
                   {c.name}
                 </td>
@@ -614,7 +614,7 @@ export function CampaignTable({
                         `The ${planName} plan analyzes your top ${analysisLimit} campaigns by spend`,
                         `${planName} প্ল্যানে খরচে সবচেয়ে বড় ${analysisLimit}টি ক্যাম্পেইন বিশ্লেষণ করা যায়`,
                       )}
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs whitespace-nowrap text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs whitespace-nowrap text-zinc-500 hover:bg-white/50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                     >
                       <Lock className="size-3.5" aria-hidden />
                       {tr("Upgrade", "প্ল্যান বাড়াও")}
@@ -680,7 +680,7 @@ export function BreakdownSection({
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
+          <thead className="bg-white/40 text-left text-xs font-medium text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
             <tr>
               <th scope="col" className="px-5 py-3">{name(breakdown)}</th>
               <th scope="col" className={TH}>{tr("Spent", "খরচ")}</th>
@@ -703,7 +703,7 @@ export function BreakdownSection({
             {rows.map((r) => {
               const share = pct(r.spend, totalSpend);
               return (
-                <tr key={r.key} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <tr key={r.key} className="hover:bg-white/50 dark:hover:bg-zinc-800/50">
                   <td className="px-5 py-3 font-medium text-zinc-900 dark:text-zinc-100">{r.label}</td>
                   <td className="px-3 py-3 text-right">{formatMoney(r.spend, currency)}</td>
                   <td className="px-3 py-3 text-right">

@@ -60,7 +60,7 @@ export default function AccountSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex max-w-[16rem] items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        className="flex max-w-[16rem] items-center gap-2 rounded-xl border border-white/80 bg-white/70 px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:hover:bg-white/10"
       >
         {pending && <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />}
         <span className="truncate">
@@ -69,7 +69,7 @@ export default function AccountSwitcher({
         <ChevronDown className="size-4 shrink-0 text-zinc-400" aria-hidden />
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="absolute right-0 z-30 mt-1 w-80 max-w-[calc(100vw-2rem)] glass-popover rounded-xl p-2">
           {accounts.length > 6 && (
             <label className="relative mb-1 block">
               <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-zinc-400" aria-hidden />

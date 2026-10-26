@@ -16,7 +16,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
     "bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400",
   secondary:
-    "border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
+    "border border-white/80 bg-white/70 text-zinc-800 shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:hover:bg-white/10",
   ghost:
     "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
   danger:
@@ -28,7 +28,7 @@ export function buttonClass(variant: ButtonVariant = "primary", extra?: string) 
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500";
+  "w-full rounded-lg border border-zinc-900/10 bg-white/75 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.05] dark:placeholder:text-zinc-500";
 
 export function Card({
   children,
@@ -40,7 +40,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900",
+        "glass-panel rounded-2xl",
         className,
       )}
     >
@@ -61,7 +61,7 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+    <div className="flex items-start justify-between gap-4 border-b border-zinc-900/[0.06] px-5 py-4 dark:border-white/[0.07]">
       <div className="flex items-start gap-3">
         {Icon && (
           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">

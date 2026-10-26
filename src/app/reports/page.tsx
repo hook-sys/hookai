@@ -82,7 +82,7 @@ export default async function ReportsPage({ searchParams }: Props) {
                 <li key={`${r.kind}-${r.id}`}>
                   <Link
                     href={`/reports/${r.kind}/${r.id}`}
-                    className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-white/50 dark:hover:bg-zinc-800/50"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
                       <Icon className="size-4" aria-hidden />

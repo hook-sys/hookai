@@ -55,7 +55,7 @@ export default function ClientForm({
         <ul className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           {visible.map((a) => (
             <li key={a.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800">
-              <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+              <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-white/50 dark:hover:bg-zinc-800/50">
                 <input
                   type="checkbox"
                   name="accounts"

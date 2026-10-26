@@ -30,7 +30,7 @@ function SegmentCard({ dim, currency, tr }: { dim: DimensionAnalysis; currency: 
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
-          <thead className="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
+          <thead className="bg-white/40 text-left text-xs text-zinc-500 dark:bg-zinc-950/50 dark:text-zinc-400">
             <tr>
               <th scope="col" className="px-4 py-2">{dim.label}</th>
               <th scope="col" className="px-2 py-2 text-right">{tr("Share of spend", "খরচের ভাগ")}</th>

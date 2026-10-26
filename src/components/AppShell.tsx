@@ -38,8 +38,8 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       className={cn(
         "flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
-          ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-200"
-          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+          ? "glass-chip text-zinc-950 dark:text-white"
+          : "text-zinc-600 hover:bg-white/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100",
       )}
     >
       <Icon className="size-4" aria-hidden />
@@ -49,6 +49,26 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
           {item.soon}
         </span>
       )}
+    </Link>
+  );
+}
+
+// উপরের ট্যাব: মূল চারটা পাতা, স্ক্রল করলেও উপরে থাকে
+function TabLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors",
+        active
+          ? "glass-chip text-zinc-950 dark:text-white"
+          : "text-zinc-600 hover:bg-white/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100",
+      )}
+    >
+      <Icon className="size-4" aria-hidden />
+      {item.label}
     </Link>
   );
 }
@@ -135,14 +155,18 @@ export default async function AppShell({
     { id: "admin-blog", href: "/admin/blog", label: tr("Blog", "ব্লগ"), icon: Newspaper },
   ];
 
+  // মূল চারটা পাতা উপরের ট্যাবে; বাকিগুলো পাশের মেনুতে
+  const TAB_IDS: Section[] = ["dashboard", "orders", "manage", "reports"];
+  const tabs = TAB_IDS.map((id) => nav.find((n) => n.id === id)!).filter(Boolean);
   // অ্যাডমিন লিংক শুধু অ্যাডমিনকে দেখায়; আসল সুরক্ষা পেজ ও action-এর ভেতরে
-  const items = isAdmin ? [...nav, ...adminNav] : nav;
+  const items = (isAdmin ? [...nav, ...adminNav] : nav).filter((n) => !TAB_IDS.includes(n.id));
+  const tabLabel = tr("Main pages", "মূল পাতা");
   const logout = tr("Log out", "লগআউট");
   const menuLabel = tr("Main menu", "প্রধান মেনু");
 
   return (
-    <div className="min-h-screen lg:flex">
-      <aside className="hidden w-64 shrink-0 flex-col print:!hidden border-r border-zinc-200 bg-white px-4 py-5 lg:flex dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-glass-bg min-h-screen lg:flex">
+      <aside className="glass-panel sticky top-0 hidden h-screen w-64 shrink-0 flex-col rounded-none border-y-0 border-l-0 px-4 py-5 print:!hidden lg:flex">
         <div className="px-2">
           <Logo />
         </div>
@@ -152,7 +176,7 @@ export default async function AppShell({
             <NavLink key={item.id} item={item} active={item.id === active} />
           ))}
         </nav>
-        <div className="mt-auto border-t border-zinc-100 pt-4 dark:border-zinc-800">
+        <div className="mt-auto border-t border-zinc-900/10 pt-4 dark:border-white/10">
           <p
             className="truncate px-3 pb-2 text-xs text-zinc-500 dark:text-zinc-400"
             title={user?.email}
@@ -163,7 +187,7 @@ export default async function AppShell({
         </div>
       </aside>
 
-      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur print:hidden lg:hidden dark:border-zinc-800 dark:bg-zinc-900/90">
+      <header className="glass-panel sticky top-0 z-20 rounded-none border-x-0 border-t-0 print:hidden lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Logo />
           <div className="flex items-center gap-1">
@@ -177,20 +201,32 @@ export default async function AppShell({
             {switcher}
           </div>
         )}
-        <nav aria-label={menuLabel} className="flex gap-1 overflow-x-auto px-3 pb-2">
+        <nav aria-label={tabLabel} className="flex gap-1 overflow-x-auto px-3 pb-2">
+          {tabs.map((item) => (
+            <TabLink key={item.id} item={item} active={item.id === active} />
+          ))}
           {items.map((item) => (
             <NavLink key={item.id} item={item} active={item.id === active} />
           ))}
         </nav>
       </header>
 
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8 print:p-0">
-        {/* বড় স্ক্রিনে ভাষা বদলের বোতাম উপরের ডান কোণে */}
-        <div className="mx-auto mb-2 hidden max-w-6xl items-center justify-end gap-2 lg:flex print:!hidden">
-          {switcher}
-          <LanguageSwitch />
+      <main className="min-w-0 flex-1 px-4 pb-6 sm:px-6 lg:px-10 lg:pb-8 print:p-0">
+        {/* বড় স্ক্রিনে উপরের ট্যাব, Ad Account আর ভাষা; স্ক্রল করলেও উপরে থাকে */}
+        <div className="sticky top-0 z-20 -mx-4 hidden px-4 pt-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:block lg:px-10 print:!hidden">
+          <div className="glass-panel mx-auto flex max-w-6xl items-center gap-3 rounded-2xl p-1.5">
+            <nav aria-label={tabLabel} className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+              {tabs.map((item) => (
+                <TabLink key={item.id} item={item} active={item.id === active} />
+              ))}
+            </nav>
+            <div className="flex shrink-0 items-center gap-2 pr-1">
+              {switcher}
+              <LanguageSwitch />
+            </div>
+          </div>
         </div>
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl pt-6 lg:pt-3">{children}</div>
       </main>
     </div>
   );
