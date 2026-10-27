@@ -1,0 +1,55 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { createPublicClient } from "@/lib/supabase/public";
+import { runForUser, type UserSnapshot } from "@/lib/rules/runner";
+
+// প্রতি ঘণ্টায় Supabase pg_cron এখানে POST করে (x-cron-secret header সহ, key আসে Supabase Vault থেকে)।
+// key-এর hash ডাটাবেসে মিলিয়ে দেখা হয়; ভুল হলে ডাটাবেস কোনো ডাটা দেয় না।
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
+export async function POST(request: NextRequest) {
+  const got = request.headers.get("x-cron-secret") ?? "";
+  if (!/^[0-9a-f]{64}$/.test(got)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.rpc("cron_snapshot", { p_secret: got });
+  if (error) {
+    if (/unauthorized/i.test(error.message)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    console.error("cron snapshot failed", error.message);
+    return NextResponse.json({ error: "snapshot" }, { status: 500 });
+  }
+
+  const users = (data ?? []) as UserSnapshot[];
+  const summaries = [];
+  for (const u of users) {
+    try {
+      const s = await runForUser(
+        u,
+        {
+          write: async (events, alerts, ruleIds) => {
+            const { data: fresh, error: wErr } = await supabase.rpc("cron_write", {
+              p_secret: got,
+              p_user: u.user_id,
+              p_events: events,
+              p_alerts: alerts,
+              p_rule_ids: ruleIds,
+            });
+            if (wErr) throw new Error(`write: ${wErr.message}`);
+            return (fresh ?? []) as { id: string; title: string; body: string | null }[];
+          },
+          markSent: async (ids, err) => {
+            await supabase.rpc("cron_mark_sent", { p_secret: got, p_ids: ids, p_error: err });
+          },
+        },
+        { dryRun: false },
+      );
+      // লগে বিজ্ঞাপনের নাম বা টোকেন যায় না, শুধু সংখ্যা
+      summaries.push({ accounts: s.accounts, checked: s.checked, actions: s.actions, alerts: s.alerts, whatsapp: s.whatsapp, errors: s.errors.length });
+      if (s.errors.length) console.error("cron rules errors", s.errors);
+    } catch (err) {
+      console.error("cron rules user failed", err instanceof Error ? err.message : err);
+      summaries.push({ failed: true });
+    }
+  }
+  return NextResponse.json({ ok: true, users: summaries });
+}

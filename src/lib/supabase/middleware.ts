@@ -46,7 +46,9 @@ export async function updateSession(request: NextRequest) {
     pathname === "/signup" ||
     pathname.startsWith("/auth") ||
     // কুরিয়ারের webhook লগইন ছাড়া আসে; নিজের token দিয়ে যাচাই হয়
-    pathname.startsWith("/api/webhooks/");
+    pathname.startsWith("/api/webhooks/") ||
+    // প্রতি ঘণ্টার নিয়ম যাচাই; গোপন key দিয়ে যাচাই হয়
+    pathname === "/api/cron/rules";
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

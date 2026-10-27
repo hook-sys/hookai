@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Users,
   Workflow,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { signOut } from "@/app/login/actions";
@@ -26,7 +27,7 @@ import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
-type Section = "dashboard" | "manage" | "launch" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "dashboard" | "manage" | "launch" | "rules" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -147,6 +148,7 @@ export default async function AppShell({
     { id: "orders", href: "/orders", label: tr("Orders", "অর্ডার"), icon: PackageCheck },
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "launch", href: "/launch", label: tr("New ad", "নতুন বিজ্ঞাপন"), icon: Rocket },
+    { id: "rules", href: "/rules", label: tr("Automatic rules", "স্বয়ংক্রিয় নিয়ম"), icon: Zap },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
