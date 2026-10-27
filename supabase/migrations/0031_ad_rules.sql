@@ -61,8 +61,8 @@ alter table public.rule_events enable row level security;
 create policy "rule events - select own" on public.rule_events for select to authenticated using ((select auth.uid()) = user_id);
 create policy "rule events - insert own" on public.rule_events for insert to authenticated with check ((select auth.uid()) = user_id);
 
--- অ্যালার্ট: একই সমস্যা দিনে একবারই জানানো হয় (dedupe_key)
-create table if not exists public.alerts (
+-- অ্যালার্ট (নাম notifications, কারণ alerts নামে ড্যাশবোর্ডের পুরোনো টেবিল আছে): একই সমস্যা একবারই (dedupe_key)
+create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   ad_account_id text,
@@ -77,12 +77,12 @@ create table if not exists public.alerts (
   created_at timestamptz not null default now(),
   unique (user_id, dedupe_key)
 );
-create index if not exists alerts_user_idx on public.alerts (user_id, created_at desc);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
 
-alter table public.alerts enable row level security;
-create policy "alerts - select own" on public.alerts for select to authenticated using ((select auth.uid()) = user_id);
-create policy "alerts - insert own" on public.alerts for insert to authenticated with check ((select auth.uid()) = user_id);
-create policy "alerts - update own" on public.alerts for update to authenticated
+alter table public.notifications enable row level security;
+create policy "notifications - select own" on public.notifications for select to authenticated using ((select auth.uid()) = user_id);
+create policy "notifications - insert own" on public.notifications for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "notifications - update own" on public.notifications for update to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- WhatsApp আর অ্যালার্টের সেটিং
@@ -210,7 +210,7 @@ begin
   update public.ad_rules set last_run_at = now() where user_id = p_user and id = any (coalesce(p_rule_ids, '{}'));
 
   with ins as (
-    insert into public.alerts (user_id, ad_account_id, kind, severity, title, body, dedupe_key)
+    insert into public.notifications (user_id, ad_account_id, kind, severity, title, body, dedupe_key)
     select p_user, a->>'ad_account_id', a->>'kind', coalesce(a->>'severity', 'warning'), a->>'title', a->>'body', a->>'dedupe_key'
     from jsonb_array_elements(coalesce(p_alerts, '[]'::jsonb)) a
     on conflict (user_id, dedupe_key) do nothing
@@ -230,7 +230,7 @@ set search_path = ''
 as $$
 begin
   perform public.cron_check(p_secret);
-  update public.alerts set sent_at = case when p_error is null then now() else null end, send_error = p_error
+  update public.notifications set sent_at = case when p_error is null then now() else null end, send_error = p_error
   where id = any (coalesce(p_ids, '{}'));
 end;
 $$;

@@ -207,14 +207,14 @@ export async function runRulesNow(dryRun: boolean): Promise<RunState> {
           if (ruleIds.length) await supabase.from("ad_rules").update({ last_run_at: new Date().toISOString() }).in("id", ruleIds).eq("user_id", user.id);
           if (!alerts.length) return [];
           const { data } = await supabase
-            .from("alerts")
+            .from("notifications")
             .upsert(alerts.map((a) => ({ ...a, user_id: user.id })), { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
             .select("id, title, body");
           return (data ?? []) as { id: string; title: string; body: string | null }[];
         },
         markSent: async (ids, err) => {
           if (!ids.length) return;
-          await supabase.from("alerts").update({ sent_at: err ? null : new Date().toISOString(), send_error: err }).in("id", ids).eq("user_id", user.id);
+          await supabase.from("notifications").update({ sent_at: err ? null : new Date().toISOString(), send_error: err }).in("id", ids).eq("user_id", user.id);
         },
       },
       { dryRun, onlyAccount: accountId },
@@ -290,6 +290,6 @@ export async function testWhatsApp(): Promise<RuleState> {
 export async function markAlertsRead() {
   const ctx = await context();
   if ("error" in ctx) return;
-  await ctx.supabase.from("alerts").update({ read_at: new Date().toISOString() }).eq("user_id", ctx.user.id).is("read_at", null);
+  await ctx.supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", ctx.user.id).is("read_at", null);
   revalidatePath("/rules");
 }

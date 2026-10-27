@@ -59,7 +59,7 @@ export default async function RulesPage() {
       .order("created_at", { ascending: false })
       .limit(20),
     supabase
-      .from("alerts")
+      .from("notifications")
       .select("id, title, body, severity, sent_at, send_error, read_at, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
