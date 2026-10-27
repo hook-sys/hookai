@@ -52,6 +52,8 @@ export async function POST(
     p_campaign_name: numeric ? "" : order.utmCampaign,
     p_courier: order.courier ?? "",
     p_tracking_code: order.tracking_code ?? "",
+    p_customer_hash: order.customer_hash,
+    p_fbc: order.fbc ?? "",
     // দোকানের সেটিং অনুযায়ী "processing" ডাটাবেসে ঠিক হয়
     p_raw_status: rawStatus,
   });

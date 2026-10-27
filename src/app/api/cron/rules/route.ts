@@ -1,6 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { runForUser, type UserSnapshot } from "@/lib/rules/runner";
+import { decrypt } from "@/lib/crypto";
+import { buildEvents, sendCapiEvents, type CapiOrder } from "@/lib/capi";
+
+type CapiClient = {
+  client_id: string;
+  pixel_id: string;
+  website_url: string | null;
+  send_confirmed: boolean;
+  send_delivered: boolean;
+  token: string;
+  orders: CapiOrder[];
+};
 
 // প্রতি ঘণ্টায় Supabase pg_cron এখানে POST করে (x-cron-secret header সহ, key আসে Supabase Vault থেকে)।
 // key-এর hash ডাটাবেসে মিলিয়ে দেখা হয়; ভুল হলে ডাটাবেস কোনো ডাটা দেয় না।
@@ -51,5 +63,34 @@ export async function POST(request: NextRequest) {
       summaries.push({ failed: true });
     }
   }
-  return NextResponse.json({ ok: true, users: summaries });
+  // Conversions API: কনফার্ম/ডেলিভারি হওয়া অর্ডার Meta-কে জানানো
+  const capi = [];
+  const { data: pending, error: pErr } = await supabase.rpc("cron_capi_pending", { p_secret: got });
+  if (pErr) console.error("capi pending failed", pErr.message);
+  for (const c of (pending ?? []) as CapiClient[]) {
+    const { events, confirmedIds, deliveredIds } = buildEvents(c.orders, {
+      sendConfirmed: c.send_confirmed,
+      sendDelivered: c.send_delivered,
+      websiteUrl: c.website_url,
+    });
+    let error: string | null = null;
+    let received = 0;
+    if (events.length) {
+      try {
+        received = await sendCapiEvents(decrypt(c.token), c.pixel_id, events);
+      } catch (err) {
+        error = err instanceof Error ? err.message.slice(0, 300) : "send failed";
+      }
+    }
+    await supabase.rpc("cron_capi_mark", {
+      p_secret: got,
+      p_client: c.client_id,
+      p_confirmed: error ? [] : confirmedIds,
+      p_delivered: error ? [] : deliveredIds,
+      p_error: error,
+    });
+    capi.push({ events: events.length, received, failed: Boolean(error) });
+  }
+
+  return NextResponse.json({ ok: true, users: summaries, capi });
 }

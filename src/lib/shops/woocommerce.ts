@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { normalizeStatus, type OrderStatus } from "@/lib/orders";
 import { courierFrom, dhakaDate, orderNumber, type ShopOrder } from "./shopify";
+import { fbcFromUrl, hashCustomer } from "@/lib/capi";
 
 // WooCommerce (WordPress) REST API v3। দোকানদার WooCommerce → Settings → Advanced → REST API-তে
 // "Read" অনুমতির key বানিয়ে দেয়; Hook শুধু অর্ডার পড়ে।
@@ -82,6 +83,8 @@ type WooOrder = {
   date_created_gmt?: string;
   date_modified_gmt?: string;
   meta_data?: WooMeta[];
+  billing?: { phone?: string; email?: string; city?: string; country?: string };
+  shipping?: { phone?: string; city?: string; country?: string };
 };
 
 const ATTR = "_wc_order_attribution_";
@@ -122,6 +125,13 @@ export function fromWooOrder(o: WooOrder, processingStatus: OrderStatus = "pendi
     utmCampaign: utmCampaign.trim(),
     courier: courierFrom(meta.get("_tracking_provider") ?? meta.get("tracking_provider")),
     tracking_code: tracking ? tracking.slice(0, 100) : null,
+    customer_hash: hashCustomer({
+      phone: o.billing?.phone || o.shipping?.phone,
+      email: o.billing?.email,
+      city: o.billing?.city || o.shipping?.city,
+      country: o.billing?.country || o.shipping?.country,
+    }),
+    fbc: fbcFromUrl(entry, new Date(gmt(o.date_created_gmt)).getTime()),
   };
 }
 

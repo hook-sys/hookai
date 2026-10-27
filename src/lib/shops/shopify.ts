@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { OrderStatus } from "@/lib/orders";
 import { isCourier, type Courier } from "@/lib/orders";
+import { fbcFromUrl, hashCustomer, type CustomerHash } from "@/lib/capi";
 
 // Hook-এর Shopify অ্যাপ (Shopify Dev Dashboard-এ তৈরি)। দোকানদার নিজের দোকানে অ্যাপটি ইনস্টল করে
 // অনুমতি দেয় (OAuth), Hook শুধু অর্ডার পড়ে (read_orders)।
@@ -97,6 +98,9 @@ export type ShopOrder = {
   utmCampaign: string;
   courier: Courier | null;
   tracking_code: string | null;
+  // Conversions API-র জন্য: ক্রেতার ফোন/ইমেইল/শহরের hash (আসল তথ্য নয়) আর বিজ্ঞাপন-ক্লিকের fbc
+  customer_hash: CustomerHash | null;
+  fbc: string | null;
 };
 
 // বিজ্ঞাপনের লিংকে বসানো utm_id (ক্যাম্পেইন ID) ও utm_campaign, ক্রেতা যে পাতায় নেমেছিল সেখান থেকে
@@ -172,6 +176,7 @@ type GqlOrder = {
   displayFulfillmentStatus: string | null;
   totalPriceSet: { shopMoney: { amount: string } } | null;
   customAttributes?: { key: string; value: string | null }[];
+  shippingAddress?: { phone: string | null; city: string | null; countryCodeV2: string | null } | null;
   customerJourneySummary: {
     lastVisit: { landingPage: string | null } | null;
     firstVisit: { landingPage: string | null } | null;
@@ -199,6 +204,8 @@ function fromGraphql(o: GqlOrder): ShopOrder {
     ...utm,
     courier: courierFrom(tracking?.company),
     tracking_code: tracking?.number?.slice(0, 100) ?? null,
+    customer_hash: hashCustomer({ phone: o.shippingAddress?.phone, city: o.shippingAddress?.city, country: o.shippingAddress?.countryCodeV2 }),
+    fbc: fbcFromUrl(journey?.lastVisit?.landingPage ?? journey?.firstVisit?.landingPage, new Date(o.createdAt).getTime()),
   };
 }
 
@@ -220,6 +227,7 @@ query Orders($cursor: String, $query: String) {
       }
       fulfillments(first: 5) { trackingInfo(first: 1) { number company } }
       customAttributes { key value }
+      shippingAddress { phone city countryCodeV2 }
     }
   }
 }`;
@@ -265,6 +273,14 @@ export function fromWebhook(body: Record<string, unknown>): ShopOrder | null {
     })(),
     courier: courierFrom(typeof tracked?.tracking_company === "string" ? tracked.tracking_company : null),
     tracking_code: typeof tracked?.tracking_number === "string" ? tracked.tracking_number.slice(0, 100) : null,
+    ...(() => {
+      const ship = (body.shipping_address ?? body.billing_address ?? {}) as Record<string, unknown>;
+      const str = (v: unknown) => (typeof v === "string" ? v : null);
+      return {
+        customer_hash: hashCustomer({ phone: str(ship.phone) ?? str(body.phone), email: str(body.email), city: str(ship.city), country: str(ship.country_code) }),
+        fbc: fbcFromUrl(str(body.landing_site), new Date(createdAt).getTime()),
+      };
+    })(),
   };
 }
 

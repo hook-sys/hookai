@@ -47,6 +47,8 @@ export async function POST(
     p_campaign_name: numeric ? "" : order.utmCampaign,
     p_courier: order.courier ?? "",
     p_tracking_code: order.tracking_code ?? "",
+    p_customer_hash: order.customer_hash,
+    p_fbc: order.fbc ?? "",
   });
   if (error) {
     if (error.code === "28000") return NextResponse.json({ error: "unauthorized" }, { status: 401 });

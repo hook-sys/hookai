@@ -65,12 +65,12 @@ export async function syncShop(
   if (orders.length > 0) {
     // একটা দোকানের অর্ডার কয়েকটা Ad Account-এর বিজ্ঞাপন থেকে আসে, তাই সব অ্যাকাউন্টের ক্যাম্পেইনের সাথে মেলানো
     const campaigns = await allCampaigns(supabase, userId);
-    const existing = new Map<string, { status: OrderStatus; campaign_id: string | null; campaign_name: string | null; courier: string | null; tracking_code: string | null; status_updated_at: string }>();
+    const existing = new Map<string, { status: OrderStatus; campaign_id: string | null; campaign_name: string | null; courier: string | null; tracking_code: string | null; status_updated_at: string; customer_hash: unknown; fbc: string | null }>();
     const ids = [...new Set(orders.map((o) => o.external_id))];
     for (let i = 0; i < ids.length; i += 300) {
       const { data } = await supabase
         .from("orders")
-        .select("external_id, status, campaign_id, campaign_name, courier, tracking_code, status_updated_at")
+        .select("external_id, status, campaign_id, campaign_name, courier, tracking_code, status_updated_at, customer_hash, fbc")
         .eq("user_id", userId)
         .eq("ad_account_id", shop.ad_account_id)
         .in("external_id", ids.slice(i, i + 300));
@@ -113,6 +113,8 @@ export async function syncShop(
         campaign_name: old?.campaign_name ?? campaign.campaign_name,
         courier: old?.courier ?? o.courier,
         tracking_code: old?.tracking_code ?? o.tracking_code,
+        customer_hash: o.customer_hash ?? old?.customer_hash ?? null,
+        fbc: old?.fbc ?? o.fbc,
       });
       if (old) result.updated += advance ? 1 : 0;
       else result.added += 1;
