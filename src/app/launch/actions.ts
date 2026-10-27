@@ -188,6 +188,8 @@ function parseSpecForm(formData: FormData, prev: LaunchSpec, tr: (en: string, bn
 
   let locations: LaunchSpec["locations"] = [];
   let interests: LaunchSpec["interests"] = [];
+  let includeAud: { id: string; name: string }[] = [];
+  let excludeAud: { id: string; name: string }[] = [];
   try {
     locations = (JSON.parse(String(formData.get("locations") ?? "[]")) as LaunchSpec["locations"])
       .filter((l) => typeof l.key === "string" && /^[\w-]{1,30}$/.test(l.key) && ["country", "region", "city"].includes(l.type))
@@ -197,6 +199,13 @@ function parseSpecForm(formData: FormData, prev: LaunchSpec, tr: (en: string, bn
       .filter((i) => ID_PATTERN.test(String(i.id)))
       .slice(0, 25)
       .map((i) => ({ id: String(i.id), name: String(i.name).slice(0, 120) }));
+    const aud = (k: string) =>
+      (JSON.parse(String(formData.get(k) ?? "[]")) as { id: string; name: string }[])
+        .filter((a) => ID_PATTERN.test(String(a.id)))
+        .slice(0, 20)
+        .map((a) => ({ id: String(a.id), name: String(a.name).slice(0, 200) }));
+    includeAud = aud("include_audiences");
+    excludeAud = aud("exclude_audiences").filter((a) => !includeAud.some((i) => i.id === a.id));
   } catch {
     return { error: tr("Invalid targeting.", "ভুল টার্গেটিং।") };
   }
@@ -218,6 +227,8 @@ function parseSpecForm(formData: FormData, prev: LaunchSpec, tr: (en: string, bn
       gender,
       locations: locations.length ? locations : [{ key: "BD", name: "Bangladesh", type: "country" }],
       interests,
+      include_audiences: includeAud,
+      exclude_audiences: excludeAud,
       primary_text: primary,
       headline,
       description,

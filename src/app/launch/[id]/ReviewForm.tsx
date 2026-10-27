@@ -111,21 +111,128 @@ function TargetPicker({
   );
 }
 
+type AudienceOption = { id: string; name: string; subtype: string; size: number | null };
+
+// রিটার্গেটিং: কাদের দেখাবে আর কাদের বাদ দেবে। তৈরি বোতামে Hook-এর রিটার্গেটিং সেট থেকে বসে।
+function AudiencePicker({
+  audiences,
+  include,
+  exclude,
+  setInclude,
+  setExclude,
+  onRetarget,
+  disabled,
+}: {
+  audiences: AudienceOption[];
+  include: string[];
+  exclude: string[];
+  setInclude: (v: string[]) => void;
+  setExclude: (v: string[]) => void;
+  onRetarget: () => void;
+  disabled: boolean;
+}) {
+  const tr = useTr();
+  const buyers = audiences.filter((a) => /Buyers|ক্রেতা|Purchase/i.test(a.name) && a.subtype !== "LOOKALIKE").map((a) => a.id);
+  const hot = audiences.filter((a) => /Added to cart|Started checkout|Viewed a product|Messaged the page/i.test(a.name)).map((a) => a.id);
+  const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  const label = (a: AudienceOption) => `${a.name}${a.size ? ` · ${a.size.toLocaleString("en-US")}` : ""}`;
+
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Audiences (retargeting)", "অডিয়েন্স (রিটার্গেটিং)")}</span>
+      {audiences.length === 0 ? (
+        <span className="text-xs text-zinc-500">
+          {tr("No audiences in this account yet. Make a retargeting set on the Audiences page.", "এই অ্যাকাউন্টে এখনো অডিয়েন্স নেই। অডিয়েন্স পাতা থেকে রিটার্গেটিং সেট বানাও।")}{" "}
+          <a href="/audiences" className="text-indigo-600 underline dark:text-indigo-300">{tr("Audiences", "অডিয়েন্স")}</a>
+        </span>
+      ) : (
+        <>
+          {!disabled && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={hot.length === 0}
+                onClick={() => {
+                  setInclude([...new Set([...include, ...hot])]);
+                  setExclude([...new Set([...exclude, ...buyers])].filter((x) => !hot.includes(x)));
+                  onRetarget();
+                }}
+                className={buttonClass("secondary", "text-xs")}
+              >
+                {tr("Retargeting: cart, checkout, viewers, messages", "রিটার্গেটিং: কার্ট, চেকআউট, ভিউ, মেসেজ")}
+              </button>
+              <button
+                type="button"
+                disabled={buyers.length === 0}
+                onClick={() => setExclude([...new Set([...exclude, ...buyers])].filter((x) => !include.includes(x)))}
+                className={buttonClass("secondary", "text-xs")}
+              >
+                {tr("New customers only (exclude buyers)", "শুধু নতুন ক্রেতা (ক্রেতাদের বাদ)")}
+              </button>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              [tr("Show to", "এদের দেখাও"), include, setInclude, exclude],
+              [tr("Exclude", "এদের বাদ দাও"), exclude, setExclude, include],
+            ] as const).map(([title, list, set, other]) => (
+              <div key={title} className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-zinc-500">{title}</span>
+                <ul className="max-h-40 overflow-y-auto rounded-lg border border-zinc-900/10 dark:border-white/10">
+                  {audiences.map((a) => (
+                    <li key={a.id}>
+                      <label className="flex cursor-pointer items-center gap-2 px-2.5 py-1 text-xs">
+                        <input
+                          type="checkbox"
+                          disabled={disabled || other.includes(a.id)}
+                          checked={list.includes(a.id)}
+                          onChange={() => toggle(list, set, a.id)}
+                          className="accent-indigo-600"
+                        />
+                        <span className="truncate">{label(a)}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {include.length > 0 && (
+            <span className="text-xs text-zinc-500">
+              {tr("With audiences chosen, interests narrow it further; usually leave interests empty for retargeting.", "অডিয়েন্স বাছলে আগ্রহ দিলে দর্শক আরও ছোট হয়; রিটার্গেটিং-এ সাধারণত আগ্রহ খালি রাখো।")}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ReviewForm({
   id,
   spec,
   currency,
   editable,
+  audiences = [],
 }: {
   id: string;
   spec: LaunchSpec;
   currency: string | null;
   editable: boolean;
+  audiences?: AudienceOption[];
 }) {
   const tr = useTr();
   const [state, action, pending] = useActionState<LaunchState, FormData>(saveSpec, null);
   const [locations, setLocations] = useState<Chip[]>(spec.locations);
   const [interests, setInterests] = useState<Chip[]>(spec.interests.map((i) => ({ key: i.id, name: i.name, type: "interest" })));
+  const [include, setInclude] = useState<string[]>((spec.include_audiences ?? []).map((a) => a.id));
+  const [exclude, setExclude] = useState<string[]>((spec.exclude_audiences ?? []).map((a) => a.id));
+  // খসড়ায় থাকা অডিয়েন্স তালিকায় না থাকলেও (মুছে গেলে) নাম দেখাতে
+  const known = new Map<string, string>([
+    ...[...(spec.include_audiences ?? []), ...(spec.exclude_audiences ?? [])].map((a) => [a.id, a.name] as [string, string]),
+    ...audiences.map((a) => [a.id, a.name] as [string, string]),
+  ]);
+  const audJson = (ids: string[]) => JSON.stringify(ids.map((x) => ({ id: x, name: known.get(x) ?? x })));
   const field = (label: string, child: React.ReactNode, hint?: string) => (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
@@ -139,6 +246,8 @@ export default function ReviewForm({
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="locations" value={JSON.stringify(locations)} />
       <input type="hidden" name="interests" value={JSON.stringify(interests.map((i) => ({ id: i.key, name: i.name })))} />
+      <input type="hidden" name="include_audiences" value={audJson(include)} />
+      <input type="hidden" name="exclude_audiences" value={audJson(exclude)} />
       <fieldset disabled={!editable} className="flex flex-col gap-4">
         {field(tr("Campaign name", "ক্যাম্পেইনের নাম"), <input name="name" required maxLength={120} defaultValue={spec.name} className={inputClass} />)}
         <div className="grid gap-4 sm:grid-cols-4">
@@ -159,6 +268,24 @@ export default function ReviewForm({
         </div>
         <TargetPicker kind="location" label={tr("Locations", "লোকেশন")} value={locations} onChange={setLocations} disabled={!editable} />
         <TargetPicker kind="interest" label={tr("Interests", "আগ্রহ")} value={interests} onChange={setInterests} disabled={!editable} />
+        {editable ? (
+          <AudiencePicker
+            audiences={audiences}
+            include={include}
+            exclude={exclude}
+            setInclude={setInclude}
+            setExclude={setExclude}
+            onRetarget={() => setInterests([])}
+            disabled={!editable}
+          />
+        ) : (
+          (include.length > 0 || exclude.length > 0) && (
+            <p className="text-xs text-zinc-500">
+              {include.length > 0 && `${tr("Shown to", "দেখানো হচ্ছে")}: ${include.map((x) => known.get(x)).join(", ")}. `}
+              {exclude.length > 0 && `${tr("Excluded", "বাদ")}: ${exclude.map((x) => known.get(x)).join(", ")}.`}
+            </p>
+          )
+        )}
         {spec.objective === "sales" &&
           field(tr("Website link", "ওয়েবসাইট লিংক"), <input name="link" type="url" required defaultValue={spec.link ?? ""} className={inputClass} />)}
         {field(

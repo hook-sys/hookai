@@ -6,6 +6,8 @@ import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import type { LaunchSpec } from "@/lib/meta/launch";
+import { listAudiences } from "@/lib/meta/audiences";
+import { decrypt } from "@/lib/crypto";
 import type { LaunchMeta } from "@/lib/meta/launchRun";
 import AppShell from "@/components/AppShell";
 import { Card, CardHeader, Notice, PageHeader, buttonClass } from "@/components/ui";
@@ -37,9 +39,14 @@ export default async function LaunchReviewPage({ params }: { params: Promise<{ i
       .eq("id", id)
       .eq("user_id", user.id)
       .maybeSingle(),
-    supabase.from("meta_connections").select("selected_ad_account_id, selected_ad_account_currency").eq("user_id", user.id).maybeSingle(),
+    supabase.from("meta_connections").select("access_token_encrypted, selected_ad_account_id, selected_ad_account_currency").eq("user_id", user.id).maybeSingle(),
   ]);
   if (!row) notFound();
+  // রিটার্গেটিং-এর জন্য এই অ্যাকাউন্টের অডিয়েন্স (খসড়া বদলানো গেলেই লাগে)
+  const audiences =
+    (row.status === "draft" || row.status === "failed") && conn?.access_token_encrypted
+      ? (await listAudiences(decrypt(conn.access_token_encrypted), row.ad_account_id).catch(() => [])).map((a) => ({ id: a.id, name: a.name, subtype: a.subtype, size: a.sizeLow }))
+      : [];
   const spec = row.spec as LaunchSpec & { unmatched?: string[] };
   const meta = (row.meta ?? {}) as LaunchMeta;
   const editable = row.status === "draft" || row.status === "failed";
@@ -98,7 +105,7 @@ export default async function LaunchReviewPage({ params }: { params: Promise<{ i
             description={tr("Your brief:", "তোমার নির্দেশনা:") + " " + row.brief.slice(0, 300) + (row.brief.length > 300 ? "…" : "")}
           />
           <div className="p-5">
-            <ReviewForm id={row.id} spec={spec} currency={conn?.selected_ad_account_currency ?? null} editable={editable} />
+            <ReviewForm id={row.id} spec={spec} currency={conn?.selected_ad_account_currency ?? null} editable={editable} audiences={audiences} />
           </div>
         </Card>
         <Card className="self-start">

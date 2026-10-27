@@ -19,6 +19,9 @@ export type LaunchSpec = {
   age_max: number;
   gender: Gender;
   interests: { id: string; name: string }[];
+  // রিটার্গেটিং: এদের দেখাও / এদের বাদ দাও (যেমন ক্রেতা)
+  include_audiences?: { id: string; name: string }[];
+  exclude_audiences?: { id: string; name: string }[];
   primary_text: string;
   headline: string;
   description?: string;
@@ -142,6 +145,8 @@ function targeting(spec: LaunchSpec) {
     age_max: spec.age_max,
     ...(spec.gender === "male" ? { genders: [1] } : spec.gender === "female" ? { genders: [2] } : {}),
     ...(spec.interests.length ? { flexible_spec: [{ interests: spec.interests.map((i) => ({ id: i.id, name: i.name })) }] } : {}),
+    ...(spec.include_audiences?.length ? { custom_audiences: spec.include_audiences.map((a) => ({ id: a.id })) } : {}),
+    ...(spec.exclude_audiences?.length ? { excluded_custom_audiences: spec.exclude_audiences.map((a) => ({ id: a.id })) } : {}),
     // নিজের দেওয়া টার্গেটিং মানা হয়; Meta নিজে বাড়িয়ে দেবে না
     targeting_automation: { advantage_audience: 0 },
   };
