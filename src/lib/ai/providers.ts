@@ -45,6 +45,8 @@ export type GenerateInput = {
   system: string;
   prompt: string;
   maxTokens?: number;
+  // প্রোভাইডার খরচ জানালে (যেমন fal.ai) এখানে দেয়, ডলারে
+  onUsage?: (u: { inputTokens: number; outputTokens: number; costUsd: number | null }) => void;
 };
 
 // ব্যবহারকারীকে দেখানো যায় এমন ত্রুটি (কী বা কাঁচা উত্তর এতে থাকে না)
@@ -168,6 +170,8 @@ async function generateFal(cfg: AiConfig, input: GenerateInput) {
         system_prompt: input.system,
         prompt: input.prompt,
         max_tokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
+        // Claude 5.x (যেমন Opus 5.5)-এ thinking বন্ধ করা যায় না; fal-কে reasoning চালু রাখতে বলতে হয়
+        ...(/^anthropic\/claude-[a-z]+-5/.test(cfg.model) ? { reasoning: true } : {}),
       },
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -181,8 +185,17 @@ async function generateFal(cfg: AiConfig, input: GenerateInput) {
     );
   }
 
-  const data = result.data as { output?: string; error?: string };
+  const data = result.data as {
+    output?: string;
+    error?: string;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  };
   if (data.error) throw new AiError(`fal.ai error: ${data.error}`);
+  input.onUsage?.({
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+    costUsd: typeof data.usage?.cost === "number" ? data.usage.cost : null,
+  });
   return data.output ?? "";
 }
 

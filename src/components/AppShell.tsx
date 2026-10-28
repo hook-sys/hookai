@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
+  Bot,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -29,7 +30,7 @@ import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
-type Section = "dashboard" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -146,6 +147,7 @@ export default async function AppShell({
 
   const nav: NavItem[] = [
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
+    { id: "assistant", href: "/assistant", label: tr("AI assistant", "AI সহকারী"), icon: Bot },
     { id: "manage", href: "/manage", label: tr("Ads control", "বিজ্ঞাপন নিয়ন্ত্রণ"), icon: SlidersHorizontal },
     { id: "orders", href: "/orders", label: tr("Orders", "অর্ডার"), icon: PackageCheck },
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },

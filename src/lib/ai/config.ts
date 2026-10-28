@@ -35,11 +35,16 @@ export async function getProviderConfig(
 }
 
 // সুপার অ্যাডমিন যে প্রোভাইডার চালু রেখেছে সেটির কনফিগ।
+// task অনুযায়ী মডেল: "assistant" (AI সহকারী) বা "report" (রিপোর্ট, সারসংক্ষেপ, লেখা);
+// সেটিং-এ আলাদা মডেল না থাকলে প্রোভাইডারের সাধারণ মডেল।
 // যেকোনো লগইন-করা ব্যবহারকারীর জন্য কাজ করে (ডাটাবেস ফাংশন শুধু চালু সারিটি দেয়)।
+export type AiTask = "assistant" | "report";
+
 export async function getActiveAiConfig(
   supabase: SupabaseClient,
+  task: AiTask = "report",
 ): Promise<AiConfig> {
-  const { data, error } = await supabase.rpc("get_active_ai_config").maybeSingle<{
+  const { data, error } = await supabase.rpc("get_task_ai_config", { p_task: task }).maybeSingle<{
     provider: string;
     model: string | null;
     api_key_encrypted: string;

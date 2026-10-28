@@ -15,7 +15,7 @@ import {
   cn,
   inputClass,
 } from "@/components/ui";
-import { activateProvider, removeProviderKey, saveProviderConfig } from "./actions";
+import { activateProvider, removeProviderKey, saveProviderConfig, saveTaskModels } from "./actions";
 import TestButton from "./TestButton";
 
 export const metadata = { title: "Super admin" };
@@ -54,7 +54,7 @@ export default async function AdminAiPage({ searchParams }: Props) {
 
   const [{ data: configs }, { data: settings }] = await Promise.all([
     supabase.from("ai_provider_configs").select("provider, api_key_encrypted, model, updated_at"),
-    supabase.from("ai_settings").select("active_provider").eq("id", 1).maybeSingle(),
+    supabase.from("ai_settings").select("active_provider, assistant_model, report_model").eq("id", 1).maybeSingle(),
   ]);
 
   const byProvider = new Map((configs ?? []).map((c) => [c.provider, c]));
@@ -64,7 +64,7 @@ export default async function AdminAiPage({ searchParams }: Props) {
       : null;
   const status = params.status ? STATUS[params.status] : undefined;
   const statusProvider =
-    params.provider && isAiProvider(params.provider) ? AI_PROVIDERS[params.provider].label : null;
+    params.provider === "tasks" ? tr("Models", "মডেল") : params.provider && isAiProvider(params.provider) ? AI_PROVIDERS[params.provider].label : null;
 
   return (
     <AppShell active="admin">
@@ -85,6 +85,23 @@ export default async function AdminAiPage({ searchParams }: Props) {
           {status.text}
         </Notice>
       )}
+
+      {/* কাজ অনুযায়ী মডেল: সহকারীর জন্য শক্তিশালী, রিপোর্টের জন্য সস্তা মডেল রাখা যায় */}
+      <Card className="mb-6">
+        <form action={saveTaskModels} className="grid gap-4 px-5 py-5 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("AI assistant model", "AI সহকারীর মডেল")}</span>
+            <input name="assistant_model" defaultValue={settings?.assistant_model ?? ""} placeholder="anthropic/claude-opus-5.5" className={inputClass} />
+            <span className="text-xs text-zinc-500">{tr("Plans and runs tasks; use a strong model.", "কাজ সাজায় আর চালায়; শক্তিশালী মডেল দাও।")}</span>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Reports & writing model", "রিপোর্ট ও লেখার মডেল")}</span>
+            <input name="report_model" defaultValue={settings?.report_model ?? ""} placeholder="google/gemini-2.5-flash" className={inputClass} />
+            <span className="text-xs text-zinc-500">{tr("Summaries, reports, ad copy, plans. Empty = the provider model below.", "সারসংক্ষেপ, রিপোর্ট, বিজ্ঞাপনের লেখা। খালি = নিচের প্রোভাইডারের মডেল।")}</span>
+          </label>
+          <button type="submit" className={buttonClass("primary")}>{tr("Save models", "মডেল সংরক্ষণ")}</button>
+        </form>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {AI_PROVIDER_IDS.map((id) => {

@@ -56,6 +56,20 @@ export async function saveProviderConfig(formData: FormData) {
   done("saved", provider);
 }
 
+// কাজ অনুযায়ী মডেল: সহকারী আর রিপোর্ট আলাদা। খালি রাখলে প্রোভাইডারের সাধারণ মডেল।
+export async function saveTaskModels(formData: FormData) {
+  const { supabase, user } = await requireAdmin();
+  const assistant = String(formData.get("assistant_model") ?? "").trim();
+  const report = String(formData.get("report_model") ?? "").trim();
+  if ((assistant && !MODEL_PATTERN.test(assistant)) || (report && !MODEL_PATTERN.test(report))) done("bad_model", "tasks");
+  const { error } = await supabase
+    .from("ai_settings")
+    .update({ assistant_model: assistant || null, report_model: report || null, updated_at: new Date().toISOString(), updated_by: user.id })
+    .eq("id", 1);
+  if (error) done("error", "tasks");
+  done("saved", "tasks");
+}
+
 // এই প্রোভাইডারকে চালু করে; অ্যাপের সব AI কাজ এখন থেকে এটি দিয়ে হবে
 export async function activateProvider(formData: FormData) {
   const { supabase, user } = await requireAdmin();
