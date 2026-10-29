@@ -67,6 +67,7 @@ export async function runAgent(cfg: AiConfig, ctx: AssistantCtx, history: Histor
   const scratch: string[] = [];
   const steps: string[] = [];
   let cost: number | null = null;
+  let retried = false;
   const addCost = (c: number | null) => {
     if (c !== null) cost = (cost ?? 0) + c;
   };
@@ -84,7 +85,15 @@ export async function runAgent(cfg: AiConfig, ctx: AssistantCtx, history: Histor
 
     const text = await generateText(cfg, { system, prompt, maxTokens: 6000, onUsage: (u) => addCost(u.costUsd) });
     const out = parseJson(text);
-    if (!out) return { reply: text.trim().slice(0, 4000), proposal: null, costUsd: cost, steps };
+    if (!out) {
+      // মডেল মাঝে মাঝে ভুল JSON লেখে (যেমন বাড়তি বন্ধনী); একবার ঠিক করে আবার লিখতে বলা হয়
+      if (!last && !retried) {
+        retried = true;
+        scratch.push(`[your previous answer was not valid JSON, so it could not be read. Answer again with exactly one valid JSON object.]\n${text.slice(0, 3000)}`);
+        continue;
+      }
+      return { reply: text.trim().slice(0, 4000), proposal: null, costUsd: cost, steps };
+    }
 
     const tool = out.tool as { name?: string; args?: Record<string, unknown> } | undefined;
     if (tool?.name && !last) {
