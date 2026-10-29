@@ -117,7 +117,7 @@ export default function AssistantChat({ messages, model, monthCost }: { messages
         )}
       </div>
 
-      <div className="flex min-h-[40vh] flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex min-h-[40vh] flex-col gap-3 glass-panel rounded-3xl p-4">
         {messages.length === 0 && !sent && (
           <div className="flex flex-col items-center gap-3 py-10 text-center text-sm text-zinc-500">
             <Bot className="size-8 text-indigo-500" />

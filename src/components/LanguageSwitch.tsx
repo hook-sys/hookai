@@ -48,7 +48,7 @@ export default function LanguageSwitch({ className }: { className?: string }) {
             className={cn(
               "rounded-full px-2.5 py-1 transition-colors",
               active
-                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-black"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white",
             )}
           >

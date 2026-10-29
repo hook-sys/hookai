@@ -60,7 +60,7 @@ export default function AccountSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex max-w-[16rem] items-center gap-2 rounded-xl border border-white/80 bg-white/70 px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:hover:bg-white/10"
+        className="flex max-w-[16rem] items-center gap-2 rounded-full border border-white/80 bg-white/70 px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] dark:hover:bg-white/10 xl:py-2.5"
       >
         {pending && <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />}
         <span className="truncate">

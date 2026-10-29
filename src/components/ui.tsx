@@ -10,11 +10,11 @@ export function cn(...classes: (string | false | null | undefined)[]) {
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-60";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400",
+    "bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_8px_20px_-8px_rgb(74_111_202/0.8)] dark:hover:bg-indigo-400",
   secondary:
     "border border-white/80 bg-white/70 text-zinc-800 shadow-sm backdrop-blur hover:bg-white/90 dark:border-white/10 dark:bg-white/[0.06] dark:text-zinc-100 dark:hover:bg-white/10",
   ghost:
@@ -28,7 +28,7 @@ export function buttonClass(variant: ButtonVariant = "primary", extra?: string) 
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-zinc-900/10 bg-white/75 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.05] dark:placeholder:text-zinc-500";
+  "w-full rounded-xl border border-zinc-900/10 bg-white/75 px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[inset_0_1px_2px_rgb(0_0_0/0.25)] dark:placeholder:text-zinc-500 dark:focus:border-indigo-400";
 
 export function Card({
   children,
@@ -40,7 +40,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "glass-panel rounded-2xl",
+        "glass-panel rounded-3xl",
         className,
       )}
     >
@@ -123,13 +123,13 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <h1 className="text-3xl leading-tight font-semibold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
+          <p className="mt-2 max-w-3xl text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
         )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

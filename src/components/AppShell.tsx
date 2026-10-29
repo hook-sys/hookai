@@ -8,6 +8,7 @@ import {
   Newspaper,
   PackageCheck,
   PenLine,
+  Plus,
   Radio,
   Rocket,
   Settings,
@@ -23,7 +24,9 @@ import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { getTr } from "@/lib/i18n-server";
-import { Logo, cn } from "@/components/ui";
+import { LogoMark, cn } from "@/components/ui";
+import LiquidBackdrop from "@/components/LiquidBackdrop";
+import LensFlag from "@/components/LensFlag";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import ClientSwitcher from "@/components/ClientSwitcher";
@@ -34,60 +37,57 @@ type Section = "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audi
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+// পাশের ভাসমান আইকন বার: শুধু আইকন, মাউস রাখলে নাম দেখায়
+function RailLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group relative flex size-10 items-center justify-center rounded-full transition-colors",
+        active ? "glass-chip text-white" : "text-zinc-400 hover:bg-white/10 hover:text-zinc-100",
+      )}
+    >
+      <Icon className="size-[18px]" aria-hidden />
+      <span className="lg-tip glass-popover pointer-events-none absolute left-full ml-3 rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap text-zinc-100">
+        {item.label}
+        {item.soon && <span className="ml-1.5 text-amber-300">· {item.soon}</span>}
+      </span>
+    </Link>
+  );
+}
+
+// উপরের গোল পিল মেনুর ট্যাব
+function TabLink({ item, active, withIcon = false }: { item: NavItem; active: boolean; withIcon?: boolean }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "glass-chip text-zinc-950 dark:text-white"
-          : "text-zinc-600 hover:bg-white/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100",
+        "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
+        active ? "glass-chip text-white" : "text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100",
       )}
     >
-      <Icon className="size-4" aria-hidden />
+      {withIcon && <Icon className="size-4" aria-hidden />}
       {item.label}
-      {item.soon && (
-        <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-          {item.soon}
-        </span>
-      )}
+      {item.soon && <span className="text-[10px] text-amber-300">{item.soon}</span>}
     </Link>
   );
 }
 
-// উপরের ট্যাব: মূল চারটা পাতা, স্ক্রল করলেও উপরে থাকে
-function TabLink({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon;
-  return (
-    <Link
-      href={item.href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors",
-        active
-          ? "glass-chip text-zinc-950 dark:text-white"
-          : "text-zinc-600 hover:bg-white/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100",
-      )}
-    >
-      <Icon className="size-4" aria-hidden />
-      {item.label}
-    </Link>
-  );
-}
-
-function LogoutButton({ label, withLabel }: { label: string; withLabel: boolean }) {
+function LogoutButton({ label }: { label: string }) {
   return (
     <form action={signOut}>
       <button
         type="submit"
         aria-label={label}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        title={label}
+        className="flex size-9 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
       >
         <LogOut className="size-4" aria-hidden />
-        {withLabel && label}
       </button>
     </form>
   );
@@ -165,79 +165,98 @@ export default async function AppShell({
     { id: "admin-blog", href: "/admin/blog", label: tr("Blog", "ব্লগ"), icon: Newspaper },
   ];
 
-  // মূল চারটা পাতা উপরের ট্যাবে; বাকিগুলো পাশের মেনুতে
-  const TAB_IDS: Section[] = ["dashboard", "orders", "manage", "reports"];
+  // মূল পাতাগুলো উপরের পিলে; বাকিগুলো পাশের আইকন বারে
+  const TAB_IDS: Section[] = ["dashboard", "assistant", "manage", "orders", "reports"];
   const tabs = TAB_IDS.map((id) => nav.find((n) => n.id === id)!).filter(Boolean);
   // অ্যাডমিন লিংক শুধু অ্যাডমিনকে দেখায়; আসল সুরক্ষা পেজ ও action-এর ভেতরে
-  const items = (isAdmin ? [...nav, ...adminNav] : nav).filter((n) => !TAB_IDS.includes(n.id));
+  const rail = nav.filter((n) => !TAB_IDS.includes(n.id) && n.id !== "launch");
+  const launch = nav.find((n) => n.id === "launch")!;
   const tabLabel = tr("Main pages", "মূল পাতা");
   const logout = tr("Log out", "লগআউট");
-  const menuLabel = tr("Main menu", "প্রধান মেনু");
+  const menuLabel = tr("More pages", "আরও পাতা");
+  const initial = (user?.email ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    <div className="app-glass-bg min-h-screen lg:flex">
-      <aside className="glass-panel sticky top-0 hidden h-screen w-64 shrink-0 flex-col rounded-none border-y-0 border-l-0 px-4 py-5 print:!hidden lg:flex">
-        <div className="px-2">
-          <Logo />
-        </div>
-        {clientSwitcher && <div className="mt-5">{clientSwitcher}</div>}
-        <nav aria-label={menuLabel} className={clientSwitcher ? "mt-5 flex flex-col gap-1" : "mt-8 flex flex-col gap-1"}>
-          {items.map((item) => (
-            <NavLink key={item.id} item={item} active={item.id === active} />
-          ))}
-        </nav>
-        <div className="mt-auto border-t border-zinc-900/10 pt-4 dark:border-white/10">
-          <p
-            className="truncate px-3 pb-2 text-xs text-zinc-500 dark:text-zinc-400"
-            title={user?.email}
-          >
-            {user?.email}
-          </p>
-          <LogoutButton label={logout} withLabel />
-        </div>
-      </aside>
+    <div className="dark app-dark relative min-h-screen print:bg-white">
+      <LiquidBackdrop />
+      <LensFlag />
 
-      <header className="glass-panel sticky top-0 z-20 rounded-none border-x-0 border-t-0 print:hidden lg:hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Logo />
-          <div className="flex items-center gap-1">
-            <LanguageSwitch />
-            <LogoutButton label={logout} withLabel={false} />
-          </div>
-        </div>
-        {(clientSwitcher || switcher) && (
-          <div className="grid grid-cols-2 gap-2 px-4 pb-2">
-            {clientSwitcher}
-            {switcher}
-          </div>
-        )}
-        <nav aria-label={tabLabel} className="flex gap-1 overflow-x-auto px-3 pb-2">
-          {tabs.map((item) => (
-            <TabLink key={item.id} item={item} active={item.id === active} />
-          ))}
-          {items.map((item) => (
-            <NavLink key={item.id} item={item} active={item.id === active} />
-          ))}
-        </nav>
-      </header>
+      {/* বড় স্ক্রিনে বাঁ পাশে ভাসমান আইকন বার */}
+      <nav
+        aria-label={menuLabel}
+        className="glass-panel fixed top-1/2 left-4 z-30 hidden max-h-[calc(100vh-7rem)] -translate-y-1/2 flex-col items-center gap-1 overflow-visible rounded-full p-1.5 print:!hidden lg:flex"
+      >
+        <Link
+          href={launch.href}
+          aria-label={launch.label}
+          aria-current={active === "launch" ? "page" : undefined}
+          className="group relative mb-1 flex size-10 items-center justify-center rounded-full bg-indigo-500 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_8px_20px_-6px_rgb(74_111_202/0.8)] hover:bg-indigo-400"
+        >
+          <Plus className="size-5" aria-hidden />
+          <span className="lg-tip glass-popover pointer-events-none absolute left-full ml-3 rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap text-zinc-100">
+            {launch.label}
+          </span>
+        </Link>
+        {rail.map((item) => (
+          <RailLink key={item.id} item={item} active={item.id === active} />
+        ))}
+        {isAdmin && <span className="my-1 h-px w-6 bg-white/10" aria-hidden />}
+        {isAdmin && adminNav.map((item) => <RailLink key={item.id} item={item} active={item.id === active} />)}
+      </nav>
 
-      <main className="min-w-0 flex-1 px-4 pb-6 sm:px-6 lg:px-10 lg:pb-8 print:p-0">
-        {/* বড় স্ক্রিনে উপরের ট্যাব, Ad Account আর ভাষা; স্ক্রল করলেও উপরে থাকে */}
-        <div className="sticky top-0 z-20 -mx-4 hidden px-4 pt-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-10 lg:block lg:px-10 print:!hidden">
-          <div className="glass-panel mx-auto flex max-w-6xl items-center gap-3 rounded-2xl p-1.5">
-            <nav aria-label={tabLabel} className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+      <div className="relative z-10 lg:pl-20">
+        {/* উপরের বার: লোগো, পিল মেনু, ক্লায়েন্ট/অ্যাকাউন্ট, ভাষা */}
+        <header className="sticky top-0 z-20 px-3 pt-3 pb-2 print:hidden sm:px-4 lg:pr-6">
+          <div className="flex items-center gap-2 lg:gap-3">
+            <Link href="/dashboard" className="glass-panel lg-lens flex shrink-0 items-center rounded-full py-1 pr-3 pl-1" aria-label="Hook AI">
+              <LogoMark className="size-8 rounded-full" />
+              <span className="ml-2 hidden text-sm font-semibold tracking-wide sm:inline">
+                HOOK <span className="text-[#FF7A4D]">AI</span>
+              </span>
+            </Link>
+            <nav aria-label={tabLabel} className="glass-panel lg-lens mx-auto hidden min-w-0 gap-0.5 overflow-x-auto rounded-full p-1 lg:flex">
               {tabs.map((item) => (
                 <TabLink key={item.id} item={item} active={item.id === active} />
               ))}
             </nav>
-            <div className="flex shrink-0 items-center gap-2 pr-1">
-              {switcher}
-              <LanguageSwitch />
+            <div className="ml-auto flex shrink-0 items-center gap-2 lg:ml-0">
+              {clientSwitcher && <div className="hidden w-48 xl:block">{clientSwitcher}</div>}
+              {switcher && <div className="hidden xl:block">{switcher}</div>}
+              <div className="glass-panel lg-lens flex items-center gap-1 rounded-full p-1">
+                <LanguageSwitch />
+                <LogoutButton label={logout} />
+                <span
+                  className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-zinc-200 to-zinc-400 text-xs font-semibold text-black"
+                  title={user?.email}
+                  aria-label={user?.email}
+                >
+                  {initial}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mx-auto max-w-6xl pt-6 lg:pt-3">{children}</div>
-      </main>
+
+          {/* ছোট আর মাঝারি স্ক্রিন: ক্লায়েন্ট আর অ্যাকাউন্ট নিচের সারিতে */}
+          {(clientSwitcher || switcher) && (
+            <div className="mt-2 grid grid-cols-2 gap-2 xl:hidden">
+              {clientSwitcher ?? <span />}
+              <div className="flex justify-end">{switcher}</div>
+            </div>
+          )}
+          {/* মোবাইল: সব পাতা পাশাপাশি স্ক্রল করা যায় এমন পিলে */}
+          <nav aria-label={tabLabel} className="glass-panel mt-2 flex gap-0.5 overflow-x-auto rounded-full p-1 lg:hidden">
+            {[...tabs, launch, ...rail, ...(isAdmin ? adminNav : [])].map((item) => (
+              <TabLink key={item.id} item={item} active={item.id === active} withIcon />
+            ))}
+          </nav>
+        </header>
+
+        <main className="min-w-0 px-4 pb-10 sm:px-6 lg:pr-8 lg:pl-6 print:p-0">
+          <div key={active} className="lg-page mx-auto max-w-6xl pt-4 lg:pt-6">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
