@@ -162,7 +162,9 @@ export async function loadHome(supabase: SupabaseClient, userId: string, token: 
     const orders7 = mine.filter((o) => o.order_date >= since7 && real(o)).length;
     const orders3 = mine.filter((o) => o.order_date >= addDays(today, -2)).length;
     const finished = mine.filter((o) => ["delivered", "returned", "cancelled"].includes(o.status));
-    const deliveryRate = finished.length >= 10 ? Math.round((finished.filter((o) => o.status === "delivered").length / finished.length) * 100) : null;
+    // কুরিয়ারের খবর না এলে (যেমন Shopify-তে ডেলিভারি ট্র্যাক হয় না) হার মিথ্যা ০% দেখায়, তাই তখন হিসাব হয় না
+    const tracked = finished.filter((o) => o.status !== "cancelled").length >= 5;
+    const deliveryRate = tracked && finished.length >= 10 ? Math.round((finished.filter((o) => o.status === "delivered").length / finished.length) * 100) : null;
     const costPerOrder = orders7 > 0 && spend7 > 0 ? spend7 / orders7 : null;
     const target = c.target_cost_per_order === null ? null : Number(c.target_cost_per_order);
 
@@ -179,7 +181,8 @@ export async function loadHome(supabase: SupabaseClient, userId: string, token: 
       const st = PROBLEM_STATUS[a.status];
       const spent = a.daily.some((d) => d.spend > 0);
       if (st) add(spent ? "red" : "yellow", `${a.name}: account ${st[0]}`, `${a.name}: অ্যাকাউন্ট ${st[1]}`, { accountId: a.id, href: "/assets" });
-      if (a.rejected.length)
+      // বন্ধ অ্যাকাউন্টের সব বিজ্ঞাপনই সমস্যায় দেখায়; আসল সমস্যা অ্যাকাউন্টটাই
+      if (a.rejected.length && !st)
         add("yellow", `${a.name}: ${a.rejected.length} ad(s) rejected or with issues`, `${a.name}: ${a.rejected.length}টা বিজ্ঞাপন বাতিল বা সমস্যায়`, {
           accountId: a.id,
           href: "/manage",
@@ -224,9 +227,13 @@ export async function loadHome(supabase: SupabaseClient, userId: string, token: 
 
   // অন্য জায়গার ঝামেলা: সতর্কবার্তা, আটকে থাকা বিজ্ঞাপন, AI-এর প্রস্তাব
   const nameOf = new Map((clients ?? []).map((c) => [c.id, c.name]));
+  const seen = new Set<string>();
   for (const n of notes ?? []) {
     const clientId = clientOfAccount.get(n.ad_account_id);
     if (!clientId) continue;
+    // একই অ্যাকাউন্টের একই সতর্কবার্তা কয়েকবার এলে একবারই দেখানো
+    if (seen.has(n.ad_account_id + n.title)) continue;
+    seen.add(n.ad_account_id + n.title);
     // অ্যাকাউন্ট বন্ধের খবর উপরে Meta থেকে সরাসরি আসে, তাই একই কথা দুবার না
     if (n.kind === "account_status") continue;
     tasks.push({
