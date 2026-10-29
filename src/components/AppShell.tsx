@@ -206,7 +206,8 @@ export default async function AppShell({
 
       <div className="relative z-10 lg:pl-20">
         {/* উপরের বার: লোগো, পিল মেনু, ক্লায়েন্ট/অ্যাকাউন্ট, ভাষা */}
-        <header className="sticky top-0 z-20 px-3 pt-3 pb-2 print:hidden sm:px-4 lg:pr-6">
+        {/* নিচের লেখা স্ক্রল করে পিলের ফাঁক দিয়ে না দেখায়, তাই পেছনে গাঢ় থেকে স্বচ্ছ আভা */}
+        <header className="sticky top-0 z-20 bg-gradient-to-b from-[#17181b] from-55% to-transparent px-3 pt-3 pb-5 print:hidden sm:px-4 lg:pr-6">
           <div className="flex items-center gap-2 lg:gap-3">
             <Link href="/dashboard" className="glass-panel lg-lens flex shrink-0 items-center rounded-full py-1 pr-3 pl-1" aria-label="Hook AI">
               <LogoMark className="size-8 rounded-full" />
