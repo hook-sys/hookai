@@ -4,6 +4,7 @@ import { AiError, generateText } from "./providers";
 import { makeTr, type Locale } from "@/lib/i18n";
 import { assertQuota, getUserPlan, recordUsage } from "@/lib/plans";
 import { findInterest, findLocation, SALES_CTAS, type Gender, type LaunchObjective, type LaunchSpec } from "@/lib/meta/launch";
+import type { ClientProfile } from "@/lib/clientProfile";
 
 // মালিকের লেখা নির্দেশনা (বাংলা/ইংরেজি/বাংলিশ) থেকে বিজ্ঞাপনের পরিকল্পনা: টার্গেটিং, বাজেট আর লেখা।
 // AI শুধু নাম দেয় ("Dhaka", "Leather"); আসল Meta key খুঁজে বসানো হয় Meta-র search দিয়ে।
@@ -12,19 +13,20 @@ const SYSTEM_PROMPT = `You turn a Bangladeshi business owner's ad brief into a M
 The brief may be in Bengali, English or Banglish. Follow it exactly; only fill gaps with sensible defaults.
 
 Rules:
-- locations: place names in English as Meta knows them (e.g. "Dhaka", "Chattogram", "Sylhet", "Gazipur"). If the brief says the whole country or says nothing, use ["Bangladesh"].
-- age_min 18-65, age_max 18-65 (65 means 65+). Default 18-55 if not given.
+- Targeting fields: fill them ONLY from what the brief says. If the brief does not mention a field, return null for it (the client's saved profile is used instead).
+- locations: place names in English as Meta knows them (e.g. "Dhaka", "Chattogram", "Sylhet", "Gazipur"); ["Bangladesh"] if the brief says the whole country.
+- age_min 18-65, age_max 18-65 (65 means 65+).
 - gender: "all", "male" or "female".
-- interests: up to 6 short English interest names Meta's detailed targeting would have (e.g. "Leather", "Online shopping", "Fashion"). Empty if the brief asks for broad targeting.
-- daily_budget: number in the account currency the user gives. Use what the brief says; if missing use the default given below.
-- Ad text: write in the language of the brief (Bengali brief -> natural Bangladeshi Bengali). Follow Meta policies: no personal attributes, no fake urgency, no invented prices or discounts; only facts from the brief.
+- interests: up to 6 short English interest names Meta's detailed targeting would have (e.g. "Leather", "Online shopping", "Fashion"). [] if the brief asks for broad targeting.
+- daily_budget: number in the account currency, only if the brief gives one.
+- Ad text: write in the ad language given below (Bengali -> natural Bangladeshi Bengali). Use the business facts and tone from the client profile and the brief. Follow Meta policies: no personal attributes, no fake urgency, no invented prices or discounts; only facts from the profile or the brief.
   primary_text up to about 300 characters with the hook first; headline at most 40 characters; description at most 30 characters.
 - cta: for sales one of ${SALES_CTAS.join(", ")}; for messages use "MESSAGE_PAGE".
 - name: a short campaign name like "Leather Wallet · Dhaka · 25-45 M".
 - rules: copy any performance rules the owner wrote (e.g. "cost per purchase over 300 hole bondho") as one short line in the brief's language; empty if none.
 
 Respond with ONLY one JSON object, no markdown:
-{"name": string, "locations": string[], "age_min": number, "age_max": number, "gender": "all"|"male"|"female", "interests": string[], "daily_budget": number, "primary_text": string, "headline": string, "description": string, "cta": string, "rules": string}`;
+{"name": string, "locations": string[]|null, "age_min": number|null, "age_max": number|null, "gender": "all"|"male"|"female"|null, "interests": string[]|null, "daily_budget": number|null, "primary_text": string, "headline": string, "description": string, "cta": string, "rules": string}`;
 
 export type BriefInput = {
   brief: string;
@@ -32,6 +34,7 @@ export type BriefInput = {
   link: string | null;
   currency: string | null;
   defaultBudget: number;
+  profile?: ClientProfile;
 };
 
 type RawPlan = {
@@ -70,10 +73,13 @@ export async function planFromBrief(
   await assertQuota(supabase, userId, await getUserPlan(supabase, userId), "ad_copy", tr);
 
   const cfg = await getActiveAiConfig(supabase);
+  const pf = input.profile ?? {};
   const prompt = [
     `Objective: ${input.objective === "sales" ? "website sales (purchases)" : "Messenger messages"}`,
     input.link ? `Website link: ${input.link}` : "",
-    `Account currency: ${input.currency ?? "unknown"}. Default daily budget if not in the brief: ${input.defaultBudget}.`,
+    `Account currency: ${input.currency ?? "unknown"}.`,
+    `Ad language: ${pf.language === "en" ? "English" : pf.language === "bn" ? "Bengali" : "the language of the brief"}.`,
+    pf.about ? `Client profile (business facts and tone):\n${pf.about}` : "",
     `Brief:\n${input.brief}`,
   ]
     .filter(Boolean)
@@ -88,37 +94,40 @@ export async function planFromBrief(
   }
   await recordUsage(supabase, userId, "ad_copy");
 
-  // নামগুলো Meta-র আসল key-তে বদলানো; না মিললে জানানো হয়
+  // নামগুলো Meta-র আসল key-তে বদলানো; না মিললে জানানো হয়।
+  // নির্দেশনায় যা বলা হয়নি (null), তা ক্লায়েন্ট প্রোফাইল থেকে, সেখানেও না থাকলে সাধারণ মান।
   const unmatched: string[] = [];
   const locations: LaunchSpec["locations"] = [];
-  for (const q of strList(raw.locations, 10)) {
+  const saidLocations = Array.isArray(raw.locations) && raw.locations.length > 0;
+  for (const q of saidLocations ? strList(raw.locations, 10) : []) {
     const hit = await findLocation(token, q).catch(() => null);
     if (hit && !locations.some((l) => l.key === hit.key)) locations.push(hit);
     else if (!hit) unmatched.push(q);
   }
   const interests: LaunchSpec["interests"] = [];
-  for (const q of strList(raw.interests, 6)) {
+  const saidInterests = Array.isArray(raw.interests);
+  for (const q of saidInterests ? strList(raw.interests, 6) : []) {
     const hit = await findInterest(token, q).catch(() => null);
     if (hit && !interests.some((i) => i.id === hit.id)) interests.push({ id: hit.id, name: hit.name });
     else if (!hit) unmatched.push(q);
   }
 
-  const ageMin = clampAge(raw.age_min, 18);
-  const ageMax = Math.max(ageMin, clampAge(raw.age_max, 55));
-  const gender: Gender = raw.gender === "male" || raw.gender === "female" ? raw.gender : "all";
-  const budget = Number(raw.daily_budget);
-  const cta = str(raw.cta, 30);
+  const ageMin = clampAge(raw.age_min ?? pf.age_min, 18);
+  const ageMax = Math.max(ageMin, clampAge(raw.age_max ?? pf.age_max, 55));
+  const gender: Gender = raw.gender === "male" || raw.gender === "female" || raw.gender === "all" ? raw.gender : (pf.gender ?? "all");
+  const budget = Number(raw.daily_budget ?? pf.daily_budget);
+  const cta = str(raw.cta, 30) || (pf.cta ?? "");
 
   return {
     name: str(raw.name, 120) || "Hook AI launch",
     objective: input.objective,
     link: input.link,
     daily_budget: Number.isFinite(budget) && budget > 0 ? budget : input.defaultBudget,
-    locations: locations.length ? locations : [{ key: "BD", name: "Bangladesh", type: "country" }],
+    locations: locations.length ? locations : !saidLocations && pf.locations?.length ? pf.locations : [{ key: "BD", name: "Bangladesh", type: "country" }],
     age_min: ageMin,
     age_max: ageMax,
     gender,
-    interests,
+    interests: saidInterests ? interests : (pf.interests ?? []),
     primary_text: str(raw.primary_text, 2000),
     headline: str(raw.headline, 80),
     description: str(raw.description, 60),

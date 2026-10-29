@@ -26,6 +26,8 @@ import {
   type Platform,
 } from "@/lib/meta/launch";
 import { runLaunch, type LaunchMeta, type LaunchRow } from "@/lib/meta/launchRun";
+import { loadClientProfile } from "@/lib/clientProfile";
+import { listAudiences } from "@/lib/meta/audiences";
 
 export type LaunchState = { ok: true; message: string } | { ok: false; error: string } | null;
 
@@ -124,8 +126,16 @@ export async function createDraft(_prev: LaunchState, formData: FormData): Promi
 
   let id: string;
   try {
-    const plan = await planFromBrief(supabase, user.id, token, { brief, objective, link, currency, defaultBudget }, await getLocale());
+    const { client } = await currentClient(supabase, user.id);
+    const profile = client ? (await loadClientProfile(supabase, user.id, client.id))?.profile : undefined;
+    const plan = await planFromBrief(supabase, user.id, token, { brief, objective, link, currency, defaultBudget, profile }, await getLocale());
     const { unmatched, ...rest } = plan;
+    // প্রোফাইলে "শুধু নতুন ক্রেতা" থাকলে Hook-এর ক্রেতা অডিয়েন্স বাদ
+    const exclude = profile?.exclude_buyers
+      ? (await listAudiences(token, accountId).catch(() => []))
+          .filter((a) => /Buyers|ক্রেতা/i.test(a.name) && a.subtype !== "LOOKALIKE")
+          .map((a) => ({ id: a.id, name: a.name }))
+      : [];
     const spec: LaunchSpec & { unmatched?: string[] } = {
       ...rest,
       page_id: pageId,
@@ -133,8 +143,8 @@ export async function createDraft(_prev: LaunchState, formData: FormData): Promi
       pixel_id: objective === "sales" ? pixelId : null,
       media,
       unmatched,
+      ...(exclude.length ? { exclude_audiences: exclude } : {}),
     };
-    const { client } = await currentClient(supabase, user.id);
     const { data, error } = await supabase
       .from("ad_launches")
       .insert({ user_id: user.id, client_id: client?.id ?? null, ad_account_id: accountId, brief, spec })

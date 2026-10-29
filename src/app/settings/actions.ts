@@ -112,7 +112,7 @@ export async function selectClient(formData: FormData) {
 }
 
 // হোম থেকে সরাসরি কোনো ক্লায়েন্টের পাতায় যাওয়া: ক্লায়েন্ট (আর দরকার হলে নির্দিষ্ট Ad Account) বেছে সেই পাতা খোলে
-const NEXT_PATHS = /^\/(dashboard|orders|manage|reports|assistant|assets|audiences|rules|launch(\/[0-9a-f-]{36})?|ad-copy|settings)$/;
+const NEXT_PATHS = /^\/(dashboard|orders|manage|reports|assistant|assets|audiences|rules|launch(\/[0-9a-f-]{36})?|ad-copy|settings|profile)$/;
 
 export async function openClient(formData: FormData) {
   const clientId = String(formData.get("clientId") ?? "");

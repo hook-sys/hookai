@@ -137,6 +137,7 @@ function ClientCard({ c, tr }: { c: ClientRow; tr: Tr }) {
         <Go clientId={c.id} next="/orders">{tr("Orders", "অর্ডার")}</Go>
         <Go clientId={c.id} next="/manage">{tr("Ads control", "বিজ্ঞাপন নিয়ন্ত্রণ")}</Go>
         <Go clientId={c.id} next="/launch">{tr("New ad", "নতুন বিজ্ঞাপন")}</Go>
+        <Go clientId={c.id} next="/profile">{tr("Profile", "প্রোফাইল")}</Go>
         <span className="ml-auto truncate text-[11px] text-zinc-500">
           {c.accounts.length} {tr("ad account(s)", "টা Ad Account")}
         </span>

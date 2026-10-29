@@ -11,6 +11,7 @@ import { listPixels, listPromotePages } from "@/lib/meta/launch";
 import AppShell from "@/components/AppShell";
 import { Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass } from "@/components/ui";
 import NewLaunchForm from "./NewLaunchForm";
+import { loadClientProfile } from "@/lib/clientProfile";
 import { LaunchStatusBadge } from "./LaunchStatusBadge";
 
 export const maxDuration = 120;
@@ -51,7 +52,7 @@ export default async function LaunchPage() {
   const token = decrypt(connection.access_token_encrypted);
   const currency = connection.selected_ad_account_currency as string | null;
 
-  const [pages, pixels, { data: launches }] = await Promise.all([
+  const [pages, pixels, { data: launches }, client] = await Promise.all([
     listPromotePages(token, accountId).catch(() => null),
     listPixels(token, accountId).catch(() => []),
     supabase
@@ -61,7 +62,19 @@ export default async function LaunchPage() {
       .eq("ad_account_id", accountId)
       .order("created_at", { ascending: false })
       .limit(20),
+    scope.client ? loadClientProfile(supabase, user.id, scope.client.id) : null,
   ]);
+  // প্রোফাইলের যা নতুন বিজ্ঞাপনে নিজে বসবে, তার ছোট তালিকা
+  const pf = client?.profile ?? {};
+  const genderLabel = pf.gender === "male" ? tr("men", "পুরুষ") : pf.gender === "female" ? tr("women", "নারী") : pf.gender ? tr("all", "সবাই") : "";
+  const profileSummary = [
+    pf.locations?.length ? pf.locations.map((l) => l.name.split(" (")[0]).slice(0, 3).join(", ") : "",
+    pf.age_min || pf.age_max ? `${pf.age_min ?? 18}-${pf.age_max ?? 55}${pf.age_max === 65 ? "+" : ""} ${genderLabel}`.trim() : genderLabel,
+    pf.interests?.length ? tr(`${pf.interests.length} interests`, `${pf.interests.length}টা আগ্রহ`) : "",
+    pf.daily_budget ? tr(`${pf.daily_budget} ${currency ?? ""}/day`, `দিনে ${pf.daily_budget} ${currency ?? ""}`) : "",
+    pf.exclude_buyers ? tr("new customers only", "শুধু নতুন ক্রেতা") : "",
+    pf.about ? tr("business info", "ব্যবসার তথ্য") : "",
+  ].filter(Boolean);
   const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Dhaka" });
 
   return (
@@ -94,7 +107,9 @@ export default async function LaunchPage() {
               pages={pages ?? []}
               pixels={pixels.map((p) => ({ id: p.id, name: p.name, active: Boolean(p.last_fired_time) }))}
               currency={currency}
-              defaultBudget={currency === "BDT" ? 1000 : 10}
+              defaultBudget={pf.daily_budget ?? (currency === "BDT" ? 1000 : 10)}
+              defaults={{ objective: pf.objective, page_id: pf.page_id, pixel_id: pf.pixel_id, link: client?.website_url }}
+              profileSummary={profileSummary}
             />
           </div>
         </Card>

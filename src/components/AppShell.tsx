@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   Bot,
   FileText,
+  IdCard,
   LayoutDashboard,
   LayoutGrid,
   LogOut,
@@ -34,7 +35,7 @@ import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
-type Section = "home" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "home" | "profile" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -154,6 +155,7 @@ export default async function AppShell({
     { id: "orders", href: "/orders", label: tr("Orders", "অর্ডার"), icon: PackageCheck },
     { id: "reports", href: "/reports", label: tr("Reports", "রিপোর্ট"), icon: FileText },
     { id: "launch", href: "/launch", label: tr("New ad", "নতুন বিজ্ঞাপন"), icon: Rocket },
+    ...(isAdmin ? [{ id: "profile" as const, href: "/profile", label: tr("Client profile", "ক্লায়েন্ট প্রোফাইল"), icon: IdCard }] : []),
     { id: "assets", href: "/assets", label: tr("Pixel & assets", "Pixel ও অ্যাসেট"), icon: Radio },
     { id: "audiences", href: "/audiences", label: tr("Audiences", "অডিয়েন্স"), icon: UsersRound },
     { id: "rules", href: "/rules", label: tr("Automatic rules", "স্বয়ংক্রিয় নিয়ম"), icon: Zap },

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { ImageIcon, Loader2, MessageCircle, ShoppingBag, Sparkles, Video, X } from "lucide-react";
+import Link from "next/link";
+import { IdCard, ImageIcon, Loader2, MessageCircle, ShoppingBag, Sparkles, Video, X } from "lucide-react";
 import { useTr } from "@/components/I18nProvider";
 import { buttonClass, cn, inputClass } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
@@ -17,17 +18,22 @@ export default function NewLaunchForm({
   pixels,
   currency,
   defaultBudget,
+  defaults,
+  profileSummary = [],
 }: {
   userId: string;
   pages: { id: string; name: string }[];
   pixels: { id: string; name: string; active: boolean }[];
   currency: string | null;
   defaultBudget: number;
+  // ক্লায়েন্ট প্রোফাইল থেকে আগে থেকে বসানো মান
+  defaults?: { objective?: "sales" | "messages"; page_id?: string; pixel_id?: string; link?: string | null };
+  profileSummary?: string[];
 }) {
   const tr = useTr();
   const [state, action] = useActionState<LaunchState, FormData>(createDraft, null);
   const [pending, startTransition] = useTransition();
-  const [objective, setObjective] = useState<"sales" | "messages">("sales");
+  const [objective, setObjective] = useState<"sales" | "messages">(defaults?.objective ?? "sales");
   const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -84,6 +90,25 @@ export default function NewLaunchForm({
 
   return (
     <form ref={formRef} onSubmit={submit} className="flex flex-col gap-4">
+      {/* প্রোফাইল থেকে যা নিজে বসবে */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-xs text-zinc-400">
+        <IdCard className="size-4 text-indigo-300" aria-hidden />
+        {profileSummary.length ? (
+          <>
+            <span className="mr-1">{tr("From the client profile:", "ক্লায়েন্ট প্রোফাইল থেকে:")}</span>
+            {profileSummary.map((s) => (
+              <span key={s} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-zinc-300">
+                {s}
+              </span>
+            ))}
+          </>
+        ) : (
+          <span>{tr("No client profile yet: fill it once and new ads take a minute.", "এখনো ক্লায়েন্ট প্রোফাইল নেই: একবার পূরণ করলে নতুন বিজ্ঞাপন এক মিনিটে হবে।")}</span>
+        )}
+        <Link href="/profile" className="ml-auto font-medium text-indigo-300 hover:underline">
+          {profileSummary.length ? tr("Edit", "বদলাও") : tr("Fill profile", "প্রোফাইল পূরণ করো")}
+        </Link>
+      </div>
       <fieldset className="flex flex-col gap-1.5 text-sm">
         <legend className="mb-1.5 font-medium text-zinc-700 dark:text-zinc-300">{tr("Goal", "লক্ষ্য")}</legend>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -114,7 +139,7 @@ export default function NewLaunchForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Facebook page", "Facebook পেজ")}</span>
-          <select name="page_id" required className={inputClass} defaultValue={pages[0]?.id}>
+          <select name="page_id" required className={inputClass} defaultValue={pages.some((p) => p.id === defaults?.page_id) ? defaults?.page_id : pages[0]?.id}>
             {pages.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -125,7 +150,12 @@ export default function NewLaunchForm({
         {objective === "sales" && (
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="font-medium text-zinc-700 dark:text-zinc-300">Pixel</span>
-            <select name="pixel_id" required className={inputClass} defaultValue={pixels.find((p) => p.active)?.id ?? pixels[0]?.id}>
+            <select
+              name="pixel_id"
+              required
+              className={inputClass}
+              defaultValue={pixels.some((p) => p.id === defaults?.pixel_id) ? defaults?.pixel_id : (pixels.find((p) => p.active)?.id ?? pixels[0]?.id)}
+            >
               {pixels.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -140,7 +170,7 @@ export default function NewLaunchForm({
       {objective === "sales" && (
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Website link (product page)", "ওয়েবসাইট লিংক (প্রোডাক্ট পেজ)")}</span>
-          <input name="link" type="url" required placeholder="https://" className={inputClass} />
+          <input name="link" type="url" required placeholder="https://" defaultValue={defaults?.link ?? ""} className={inputClass} />
         </label>
       )}
 
