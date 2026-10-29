@@ -651,8 +651,9 @@ export default function LaunchEditor({
       </fieldset>
     </form>
 
-      {/* ডানে: দর্শকের আকার, প্রিভিউ, অনুমোদন */}
+      {/* ডানে: অনুমোদন, দর্শকের আকার, প্রিভিউ */}
       <aside className="flex flex-col gap-5 lg:sticky lg:top-28 lg:self-start">
+        {aside}
         {editable && (
           <section className="glass-panel rounded-3xl p-5">
             <div className="flex items-center justify-between">
@@ -665,7 +666,7 @@ export default function LaunchEditor({
             <div className="mt-4">
               <div className="relative h-2 rounded-full bg-gradient-to-r from-amber-400/70 via-emerald-400/70 to-amber-400/70">
                 {meter !== null && (
-                  <span className="absolute -top-1 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-zinc-900 shadow" style={{ left: `${meter * 100}%` }} />
+                  <span className="absolute -top-1 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-black shadow" style={{ left: `${meter * 100}%` }} />
                 )}
               </div>
               <div className="mt-1.5 flex justify-between text-[11px] text-zinc-500">
@@ -716,7 +717,7 @@ export default function LaunchEditor({
           </div>
 
           {preview === "feed" ? (
-            <div className="overflow-hidden rounded-2xl bg-white text-[13px] text-zinc-900 shadow-lg">
+            <div className="overflow-hidden rounded-2xl bg-white text-[13px] text-[#1c1e21] shadow-lg">
               <div className="flex items-center gap-2 px-3 pt-3">
                 <span className="flex size-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">{pageName.slice(0, 1)}</span>
                 <div className="min-w-0 flex-1 leading-tight">
@@ -753,7 +754,7 @@ export default function LaunchEditor({
               </div>
             </div>
           ) : (
-            <div className="relative mx-auto aspect-[9/16] w-56 overflow-hidden rounded-2xl bg-zinc-900 text-white shadow-lg">
+            <div className="relative mx-auto aspect-[9/16] w-56 overflow-hidden rounded-2xl bg-black text-white shadow-lg">
               {shown?.url && shown.kind === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={shown.url} alt="" className="absolute inset-0 size-full object-cover" />
@@ -770,7 +771,7 @@ export default function LaunchEditor({
               </div>
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-black/70 to-transparent p-3 pt-10">
                 <p className="line-clamp-2 text-center text-[11px]">{v.primary_text}</p>
-                <span className="flex items-center gap-1 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-zinc-900">
+                <span className="flex items-center gap-1 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-[#1c1e21]">
                   {sales ? CTA_LABELS[v.cta] ?? v.cta : tr("Send message", "মেসেজ পাঠাও")}
                   {!sales && <Send className="size-3" aria-hidden />}
                 </span>
@@ -785,7 +786,6 @@ export default function LaunchEditor({
           )}
         </section>
 
-        {aside}
       </aside>
     </div>
   );
