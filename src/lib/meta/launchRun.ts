@@ -44,13 +44,13 @@ export async function runLaunch(
     supabase.from("ad_launches").update({ meta, status, error, updated_at: new Date().toISOString() }).eq("id", row.id);
 
   try {
-    meta.campaign_id ??= await createCampaign(token, accountId, spec);
+    meta.campaign_id ??= await createCampaign(token, accountId, spec, currency);
     await save("creating");
     meta.adset_id ??= await createAdSet(token, accountId, meta.campaign_id, spec, currency);
     await save("creating");
 
     let waiting = false;
-    const instagramId = await pageInstagram(token, spec.page_id);
+    const instagramId = spec.use_instagram === false ? null : await pageInstagram(token, spec.page_id);
     for (const m of spec.media) {
       const done = meta.ads![m.path];
       if (done?.ad_id) continue;
@@ -90,7 +90,8 @@ export async function runLaunch(
         instagramId,
       );
       await save("creating");
-      const label = spec.media.length > 1 ? `${spec.name} · ${m.name}` : spec.name;
+      const base = spec.ad_name || spec.name;
+      const label = spec.media.length > 1 ? `${base} · ${m.name}` : base;
       ad.ad_id = await createAd(token, accountId, meta.adset_id, ad.creative_id, label.slice(0, 200));
       await save("creating");
     }

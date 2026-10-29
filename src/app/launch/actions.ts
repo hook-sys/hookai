@@ -12,7 +12,19 @@ import { clearLiveCache } from "@/lib/insights/live";
 import { MetaApiError } from "@/lib/meta/graph";
 import { setDeliveryStatus } from "@/lib/meta/manage";
 import { planFromBrief } from "@/lib/ai/launchBrief";
-import { SALES_CTAS, searchInterests, searchLocations, type LaunchSpec } from "@/lib/meta/launch";
+import {
+  ATTRIBUTIONS,
+  BID_STRATEGIES,
+  CONVERSION_EVENTS,
+  PLACEMENT_POSITIONS,
+  SALES_CTAS,
+  deliveryEstimate,
+  searchInterests,
+  searchLocations,
+  type LaunchSpec,
+  type Placements,
+  type Platform,
+} from "@/lib/meta/launch";
 import { runLaunch, type LaunchMeta, type LaunchRow } from "@/lib/meta/launchRun";
 
 export type LaunchState = { ok: true; message: string } | { ok: false; error: string } | null;
@@ -217,6 +229,46 @@ function parseSpecForm(formData: FormData, prev: LaunchSpec, tr: (en: string, bn
   if (prev.objective === "sales" && !link) return { error: tr("Enter a valid website link.", "সঠিক ওয়েবসাইট লিংক দাও।") };
   if (prev.objective === "sales" && !(SALES_CTAS as readonly string[]).includes(cta)) return { error: tr("Pick a button.", "একটা বাটন বাছো।") };
 
+  // ---- Ads Manager-এর বাড়তি সেটিং ----
+  const pick = <T extends string>(k: string, list: readonly T[], fallback: T) => {
+    const v = String(formData.get(k) ?? "");
+    return (list as readonly string[]).includes(v) ? (v as T) : fallback;
+  };
+  const budgetMode = pick("budget_mode", ["adset", "campaign"] as const, "adset");
+  const budgetType = pick("budget_type", ["daily", "lifetime"] as const, "daily");
+  const bidStrategy = pick("bid_strategy", BID_STRATEGIES, "LOWEST_COST_WITHOUT_CAP");
+  const bidAmount = Number(text("bid_amount", 20).replace(/[^\d.]/g, ""));
+  const when = (k: string) => {
+    const v = text(k, 16);
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v : null;
+  };
+  const startTime = when("start_time");
+  const endTime = when("end_time");
+  const pageId = text("page_id", 30);
+  const pixelId = text("pixel_id", 30);
+
+  let placements: Placements = { mode: "auto" };
+  if (formData.get("placement_mode") === "manual") {
+    const platforms = formData.getAll("platforms").map(String).filter((x): x is Platform => x in PLACEMENT_POSITIONS);
+    const positions: Partial<Record<Platform, string[]>> = {};
+    for (const pl of platforms) {
+      const allowed = PLACEMENT_POSITIONS[pl] as readonly string[];
+      positions[pl] = formData.getAll(`pos_${pl}`).map(String).filter((x) => allowed.includes(x));
+    }
+    const devices = formData.getAll("devices").map(String).filter((x): x is "mobile" | "desktop" => x === "mobile" || x === "desktop");
+    if (platforms.length === 0) return { error: tr("Pick at least one platform.", "অন্তত একটা প্ল্যাটফর্ম বাছো।") };
+    if (platforms.some((pl) => !positions[pl]?.length)) return { error: tr("Each platform needs at least one placement.", "প্রতিটা প্ল্যাটফর্মে অন্তত একটা জায়গা বাছো।") };
+    if (devices.length === 0) return { error: tr("Pick mobile, desktop or both.", "মোবাইল, ডেস্কটপ বা দুটোই বাছো।") };
+    placements = { mode: "manual", platforms, positions, devices };
+  }
+
+  if (budgetType === "lifetime" && !endTime) return { error: tr("A lifetime budget needs an end date.", "মোট বাজেটে শেষের তারিখ লাগবে।") };
+  if (startTime && endTime && endTime <= startTime) return { error: tr("The end must be after the start.", "শেষের সময় শুরুর পরে হতে হবে।") };
+  if (bidStrategy !== "LOWEST_COST_WITHOUT_CAP" && !(bidAmount > 0)) return { error: tr("Enter the cost or bid cap.", "খরচ বা বিডের সীমা দাও।") };
+  if (pageId && !ID_PATTERN.test(pageId)) return { error: tr("Pick a Facebook page.", "Facebook পেজ বাছো।") };
+  if (prev.objective === "sales" && pixelId && !ID_PATTERN.test(pixelId)) return { error: tr("Pick a pixel.", "Pixel বাছো।") };
+  const urlTags = text("url_tags", 500);
+
   return {
     spec: {
       ...prev,
@@ -235,8 +287,41 @@ function parseSpecForm(formData: FormData, prev: LaunchSpec, tr: (en: string, bn
       cta: prev.objective === "messages" ? "MESSAGE_PAGE" : cta,
       link,
       rules: text("rules", 500),
+      page_id: pageId || prev.page_id,
+      page_name: text("page_name", 120) || prev.page_name,
+      pixel_id: prev.objective === "sales" ? pixelId || prev.pixel_id : prev.pixel_id,
+      adset_name: text("adset_name", 120) || undefined,
+      ad_name: text("ad_name", 120) || undefined,
+      budget_mode: budgetMode,
+      budget_type: budgetType,
+      bid_strategy: bidStrategy,
+      bid_amount: bidStrategy === "LOWEST_COST_WITHOUT_CAP" ? null : bidAmount,
+      start_time: startTime,
+      end_time: endTime,
+      conversion_event: pick("conversion_event", CONVERSION_EVENTS, "PURCHASE"),
+      attribution: pick("attribution", Object.keys(ATTRIBUTIONS) as (keyof typeof ATTRIBUTIONS)[], "7d_click_1d_view"),
+      advantage_audience: formData.get("advantage_audience") === "on",
+      placements,
+      use_instagram: formData.get("use_instagram") === "on",
+      display_link: text("display_link", 80) || undefined,
+      url_tags: urlTags || undefined,
     },
   };
+}
+
+// Ads Manager-এর মতো ডান পাশে দর্শকের আকার: ফর্মে এখন যা আছে তা দিয়ে Meta-কে জিজ্ঞেস করা
+export async function estimateAudience(formData: FormData) {
+  const ctx = await context();
+  if ("error" in ctx) return null;
+  const row = await loadRow(ctx, String(formData.get("id") ?? ""));
+  if (!row || row.ad_account_id !== ctx.accountId) return null;
+  const parsed = parseSpecForm(formData, row.spec, ctx.tr);
+  if ("error" in parsed) return { error: parsed.error };
+  try {
+    return await deliveryEstimate(ctx.token, ctx.accountId, parsed.spec, ctx.currency);
+  } catch (err) {
+    return { error: metaError(err, ctx.tr) };
+  }
 }
 
 // ধাপ ৩: অনুমোদন → Meta-তে বন্ধ (PAUSED) অবস্থায় তৈরি। টাকা খরচ হয় না।

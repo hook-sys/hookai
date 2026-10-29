@@ -29,9 +29,54 @@ export type LaunchSpec = {
   media: { path: string; kind: "image" | "video"; name: string }[];
   start_active?: boolean;
   rules?: string; // নির্দেশনায় লেখা নিয়ম (পরের ধাপে স্বয়ংক্রিয়)
+
+  // ---- Ads Manager-এর মতো বাড়তি সেটিং (না থাকলে আগের মতো সাধারণ মান) ----
+  adset_name?: string;
+  ad_name?: string;
+  // বাজেট কোথায়: Ad Set-এ, নাকি ক্যাম্পেইনে (Advantage+ campaign budget)
+  budget_mode?: "adset" | "campaign";
+  // daily_budget ঘরেই টাকার অঙ্ক থাকে; lifetime হলে সেটাই পুরো সময়ের বাজেট
+  budget_type?: "daily" | "lifetime";
+  bid_strategy?: BidStrategy;
+  bid_amount?: number | null; // Cost cap বা Bid cap, অ্যাকাউন্টের মুদ্রায়
+  start_time?: string | null; // "2026-10-30T10:00", ঢাকার সময়
+  end_time?: string | null;
+  conversion_event?: ConversionEvent;
+  attribution?: AttributionId;
+  advantage_audience?: boolean;
+  placements?: Placements;
+  use_instagram?: boolean; // পেজের সাথে যুক্ত Instagram থেকেও দেখানো
+  display_link?: string;
+  url_tags?: string;
 };
 
-export const SALES_CTAS = ["SHOP_NOW", "ORDER_NOW", "BUY_NOW", "LEARN_MORE", "GET_OFFER", "SIGN_UP"] as const;
+export type BidStrategy = "LOWEST_COST_WITHOUT_CAP" | "COST_CAP" | "LOWEST_COST_WITH_BID_CAP";
+export const BID_STRATEGIES: BidStrategy[] = ["LOWEST_COST_WITHOUT_CAP", "COST_CAP", "LOWEST_COST_WITH_BID_CAP"];
+
+export const CONVERSION_EVENTS = ["PURCHASE", "INITIATED_CHECKOUT", "ADD_TO_CART", "CONTENT_VIEW", "LEAD", "COMPLETE_REGISTRATION"] as const;
+export type ConversionEvent = (typeof CONVERSION_EVENTS)[number];
+
+export const ATTRIBUTIONS = {
+  "7d_click_1d_view": [{ event_type: "CLICK_THROUGH", window_days: 7 }, { event_type: "VIEW_THROUGH", window_days: 1 }],
+  "7d_click": [{ event_type: "CLICK_THROUGH", window_days: 7 }],
+  "1d_click_1d_view": [{ event_type: "CLICK_THROUGH", window_days: 1 }, { event_type: "VIEW_THROUGH", window_days: 1 }],
+  "1d_click": [{ event_type: "CLICK_THROUGH", window_days: 1 }],
+} as const;
+export type AttributionId = keyof typeof ATTRIBUTIONS;
+
+// ম্যানুয়াল প্লেসমেন্ট: কোন প্ল্যাটফর্মের কোন জায়গায় দেখাবে
+export const PLACEMENT_POSITIONS = {
+  facebook: ["feed", "profile_feed", "marketplace", "video_feeds", "right_hand_column", "story", "facebook_reels", "instream_video", "search"],
+  instagram: ["stream", "profile_feed", "explore", "explore_home", "story", "reels", "ig_search"],
+  messenger: ["story"],
+  audience_network: ["classic", "rewarded_video"],
+} as const;
+export type Platform = keyof typeof PLACEMENT_POSITIONS;
+export type Placements =
+  | { mode: "auto" }
+  | { mode: "manual"; platforms: Platform[]; positions: Partial<Record<Platform, string[]>>; devices: ("mobile" | "desktop")[] };
+
+export const SALES_CTAS = ["SHOP_NOW", "ORDER_NOW", "BUY_NOW", "LEARN_MORE", "GET_OFFER", "SIGN_UP", "CONTACT_US", "SUBSCRIBE", "GET_QUOTE", "APPLY_NOW"] as const;
 
 // অর্ডার ক্যাম্পেইনের সাথে মেলাতে প্রতিটি লিংকে বসে
 export const URL_TAGS =
@@ -131,7 +176,24 @@ export async function pageInstagram(token: string, pageId: string) {
 
 // ---------- তৈরি ----------
 
-function targeting(spec: LaunchSpec) {
+// ঢাকার সময় (+06:00) ধরে Meta-কে পাঠানো
+export const dhakaTime = (local: string) => `${local.length === 16 ? `${local}:00` : local}+0600`;
+
+function placementTargeting(p: Placements | undefined) {
+  if (!p || p.mode === "auto") return {};
+  const platforms = p.platforms.length ? p.platforms : (["facebook"] as Platform[]);
+  const pos = (k: Platform) => (platforms.includes(k) && p.positions[k]?.length ? { [`${k}_positions`]: p.positions[k] } : {});
+  return {
+    publisher_platforms: platforms,
+    ...pos("facebook"),
+    ...pos("instagram"),
+    ...pos("messenger"),
+    ...pos("audience_network"),
+    ...(p.devices.length === 1 ? { device_platforms: p.devices } : {}),
+  };
+}
+
+export function targeting(spec: LaunchSpec) {
   const countries = spec.locations.filter((l) => l.type === "country").map((l) => l.key);
   const regions = spec.locations.filter((l) => l.type === "region").map((l) => ({ key: l.key }));
   const cities = spec.locations.filter((l) => l.type === "city").map((l) => ({ key: l.key }));
@@ -141,46 +203,66 @@ function targeting(spec: LaunchSpec) {
       : { ...(regions.length ? { regions } : {}), ...(cities.length ? { cities } : {}) };
   return {
     geo_locations: geo,
-    age_min: spec.age_min,
-    age_max: spec.age_max,
+    // Advantage+ audience-এ Meta বয়স ৬৫ পর্যন্ত আর সর্বনিম্ন ২৫-এর বেশি নিতে দেয় না
+    age_min: spec.advantage_audience ? Math.min(spec.age_min, 25) : spec.age_min,
+    age_max: spec.advantage_audience ? 65 : spec.age_max,
     ...(spec.gender === "male" ? { genders: [1] } : spec.gender === "female" ? { genders: [2] } : {}),
     ...(spec.interests.length ? { flexible_spec: [{ interests: spec.interests.map((i) => ({ id: i.id, name: i.name })) }] } : {}),
     ...(spec.include_audiences?.length ? { custom_audiences: spec.include_audiences.map((a) => ({ id: a.id })) } : {}),
     ...(spec.exclude_audiences?.length ? { excluded_custom_audiences: spec.exclude_audiences.map((a) => ({ id: a.id })) } : {}),
-    // নিজের দেওয়া টার্গেটিং মানা হয়; Meta নিজে বাড়িয়ে দেবে না
-    targeting_automation: { advantage_audience: 0 },
+    ...placementTargeting(spec.placements),
+    // বন্ধ: নিজের দেওয়া টার্গেটিং মানা হয়। চালু (Advantage+ audience): Meta এগুলোকে পরামর্শ ধরে আরও মানুষ খোঁজে
+    targeting_automation: { advantage_audience: spec.advantage_audience ? 1 : 0 },
   };
 }
 
-export async function createCampaign(token: string, accountId: string, spec: LaunchSpec) {
+const money = (v: number, currency: string | null) => String(Math.round(v * minorFactor(currency)));
+
+export async function createCampaign(token: string, accountId: string, spec: LaunchSpec, currency: string | null) {
+  const cbo = spec.budget_mode === "campaign";
   const res = await post<{ id: string }>(token, `/${accountId}/campaigns`, {
     name: spec.name,
     objective: spec.objective === "sales" ? "OUTCOME_SALES" : "OUTCOME_ENGAGEMENT",
     status: "PAUSED",
     special_ad_categories: "[]",
     buying_type: "AUCTION",
-    // বাজেট Ad Set-এ
-    is_adset_budget_sharing_enabled: "false",
+    ...(cbo
+      ? {
+          // Advantage+ campaign budget: বাজেট ক্যাম্পেইনে, Meta Ad Set-গুলোর মধ্যে ভাগ করে
+          [spec.budget_type === "lifetime" ? "lifetime_budget" : "daily_budget"]: money(spec.daily_budget, currency),
+          bid_strategy: spec.bid_strategy ?? "LOWEST_COST_WITHOUT_CAP",
+        }
+      : { is_adset_budget_sharing_enabled: "false" }),
   });
   return res.id;
 }
 
 export async function createAdSet(token: string, accountId: string, campaignId: string, spec: LaunchSpec, currency: string | null) {
-  const common = {
-    name: `${spec.name} · Ad set`,
+  const cbo = spec.budget_mode === "campaign";
+  const bid = spec.bid_strategy ?? "LOWEST_COST_WITHOUT_CAP";
+  const common: Record<string, string> = {
+    name: spec.adset_name || `${spec.name} · Ad set`,
     campaign_id: campaignId,
-    daily_budget: String(Math.round(spec.daily_budget * minorFactor(currency))),
     billing_event: "IMPRESSIONS",
-    bid_strategy: "LOWEST_COST_WITHOUT_CAP",
     targeting: JSON.stringify(targeting(spec)),
     status: "PAUSED",
+    ...(cbo
+      ? {}
+      : {
+          [spec.budget_type === "lifetime" ? "lifetime_budget" : "daily_budget"]: money(spec.daily_budget, currency),
+          bid_strategy: bid,
+        }),
+    ...(bid !== "LOWEST_COST_WITHOUT_CAP" && spec.bid_amount ? { bid_amount: money(spec.bid_amount, currency) } : {}),
+    ...(spec.start_time ? { start_time: dhakaTime(spec.start_time) } : {}),
+    ...(spec.end_time ? { end_time: dhakaTime(spec.end_time) } : {}),
   };
   const params =
     spec.objective === "sales"
       ? {
           ...common,
           optimization_goal: "OFFSITE_CONVERSIONS",
-          promoted_object: JSON.stringify({ pixel_id: spec.pixel_id, custom_event_type: "PURCHASE" }),
+          promoted_object: JSON.stringify({ pixel_id: spec.pixel_id, custom_event_type: spec.conversion_event ?? "PURCHASE" }),
+          attribution_spec: JSON.stringify(ATTRIBUTIONS[spec.attribution ?? "7d_click_1d_view"]),
         }
       : {
           ...common,
@@ -190,6 +272,34 @@ export async function createAdSet(token: string, accountId: string, campaignId: 
         };
   const res = await post<{ id: string }>(token, `/${accountId}/adsets`, params);
   return res.id;
+}
+
+// Ads Manager-এর "Audience definition": দর্শক কত বড় আর এই বাজেটে দিনে কতজনের কাছে যাবে (আন্দাজ)
+export async function deliveryEstimate(token: string, accountId: string, spec: LaunchSpec, currency: string | null) {
+  const res = await get<{
+    data: {
+      estimate_mau_lower_bound?: number;
+      estimate_mau_upper_bound?: number;
+      daily_outcomes_curve?: { spend: number; reach: number; actions: number }[];
+    }[];
+  }>(token, `/${accountId}/delivery_estimate`, {
+    targeting_spec: JSON.stringify(targeting(spec)),
+    optimization_goal: spec.objective === "sales" ? "OFFSITE_CONVERSIONS" : "CONVERSATIONS",
+    promoted_object: JSON.stringify(
+      spec.objective === "sales" ? { pixel_id: spec.pixel_id, custom_event_type: spec.conversion_event ?? "PURCHASE" } : { page_id: spec.page_id },
+    ),
+  });
+  const d = res.data[0];
+  if (!d) return null;
+  // দৈনিক বাজেটে বক্ররেখা থেকে দৈনিক reach (মোট বাজেট হলে দিন হিসাবে ভাগ করা যায় না, তাই শুধু দৈনিকে)
+  let reach: [number, number] | null = null;
+  const curve = d.daily_outcomes_curve ?? [];
+  if (curve.length && spec.budget_type !== "lifetime") {
+    const spend = spec.daily_budget * minorFactor(currency);
+    const pt = curve.reduce((best, c) => (Math.abs(c.spend - spend) < Math.abs(best.spend - spend) ? c : best), curve[0]);
+    if (pt.reach > 0) reach = [Math.round(pt.reach * 0.75), Math.round(pt.reach * 1.25)];
+  }
+  return { low: d.estimate_mau_lower_bound ?? null, high: d.estimate_mau_upper_bound ?? null, dailyReach: reach };
 }
 
 export async function createCreative(
@@ -202,7 +312,7 @@ export async function createCreative(
   const link = spec.objective === "sales" ? spec.link! : "https://fb.com/messenger_doc/";
   const cta =
     spec.objective === "sales"
-      ? { type: spec.cta, value: { link } }
+      ? { type: spec.cta, value: { link, ...(spec.display_link && media.videoId ? { link_caption: spec.display_link } : {}) } }
       : { type: "MESSAGE_PAGE", value: { app_destination: "MESSENGER" } };
   const story = media.videoId
     ? {
@@ -225,6 +335,7 @@ export async function createCreative(
           message: spec.primary_text,
           name: spec.headline,
           ...(spec.description ? { description: spec.description } : {}),
+          ...(spec.display_link ? { caption: spec.display_link } : {}),
           image_hash: media.imageHash,
           call_to_action: cta,
         },
@@ -232,7 +343,7 @@ export async function createCreative(
   const res = await post<{ id: string }>(token, `/${accountId}/adcreatives`, {
     name: `${spec.name} · Creative`,
     object_story_spec: JSON.stringify(story),
-    ...(spec.objective === "sales" ? { url_tags: URL_TAGS } : {}),
+    ...(spec.objective === "sales" ? { url_tags: spec.url_tags?.trim() || URL_TAGS } : {}),
   });
   return res.id;
 }

@@ -4,19 +4,22 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { Loader2, Play, Plus, Power, Rocket, Search, X } from "lucide-react";
 import { useTr } from "@/components/I18nProvider";
 import { buttonClass, inputClass } from "@/components/ui";
-import { SALES_CTAS, type LaunchSpec } from "@/lib/meta/launch";
-import { activateLaunch, deleteDraft, launchOnMeta, saveSpec, searchTargeting, type LaunchState } from "../actions";
+import { activateLaunch, deleteDraft, launchOnMeta, searchTargeting, type LaunchState } from "../actions";
 
-const CTA_LABELS: Record<string, string> = {
+export const CTA_LABELS: Record<string, string> = {
   SHOP_NOW: "Shop now",
   ORDER_NOW: "Order now",
   BUY_NOW: "Buy now",
   LEARN_MORE: "Learn more",
   GET_OFFER: "Get offer",
   SIGN_UP: "Sign up",
+  CONTACT_US: "Contact us",
+  SUBSCRIBE: "Subscribe",
+  GET_QUOTE: "Get quote",
+  APPLY_NOW: "Apply now",
 };
 
-function Result({ state }: { state: LaunchState }) {
+export function Result({ state }: { state: LaunchState }) {
   if (!state) return null;
   return (
     <p role={state.ok ? "status" : "alert"} className={state.ok ? "text-sm text-emerald-700 dark:text-emerald-400" : "text-sm text-red-600 dark:text-red-400"}>
@@ -25,10 +28,10 @@ function Result({ state }: { state: LaunchState }) {
   );
 }
 
-type Chip = { key: string; name: string; type: string };
+export type Chip = { key: string; name: string; type: string };
 
 // লোকেশন বা আগ্রহ: চিপ হিসেবে দেখায়, Meta-তে খুঁজে যোগ করা যায়
-function TargetPicker({
+export function TargetPicker({
   kind,
   label,
   value,
@@ -111,10 +114,10 @@ function TargetPicker({
   );
 }
 
-type AudienceOption = { id: string; name: string; subtype: string; size: number | null };
+export type AudienceOption = { id: string; name: string; subtype: string; size: number | null };
 
 // রিটার্গেটিং: কাদের দেখাবে আর কাদের বাদ দেবে। তৈরি বোতামে Hook-এর রিটার্গেটিং সেট থেকে বসে।
-function AudiencePicker({
+export function AudiencePicker({
   audiences,
   include,
   exclude,
@@ -205,126 +208,6 @@ function AudiencePicker({
         </>
       )}
     </div>
-  );
-}
-
-export default function ReviewForm({
-  id,
-  spec,
-  currency,
-  editable,
-  audiences = [],
-}: {
-  id: string;
-  spec: LaunchSpec;
-  currency: string | null;
-  editable: boolean;
-  audiences?: AudienceOption[];
-}) {
-  const tr = useTr();
-  const [state, action, pending] = useActionState<LaunchState, FormData>(saveSpec, null);
-  const [locations, setLocations] = useState<Chip[]>(spec.locations);
-  const [interests, setInterests] = useState<Chip[]>(spec.interests.map((i) => ({ key: i.id, name: i.name, type: "interest" })));
-  const [include, setInclude] = useState<string[]>((spec.include_audiences ?? []).map((a) => a.id));
-  const [exclude, setExclude] = useState<string[]>((spec.exclude_audiences ?? []).map((a) => a.id));
-  // খসড়ায় থাকা অডিয়েন্স তালিকায় না থাকলেও (মুছে গেলে) নাম দেখাতে
-  const known = new Map<string, string>([
-    ...[...(spec.include_audiences ?? []), ...(spec.exclude_audiences ?? [])].map((a) => [a.id, a.name] as [string, string]),
-    ...audiences.map((a) => [a.id, a.name] as [string, string]),
-  ]);
-  const audJson = (ids: string[]) => JSON.stringify(ids.map((x) => ({ id: x, name: known.get(x) ?? x })));
-  const field = (label: string, child: React.ReactNode, hint?: string) => (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
-      {child}
-      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
-    </label>
-  );
-
-  return (
-    <form action={action} className="flex flex-col gap-4">
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="locations" value={JSON.stringify(locations)} />
-      <input type="hidden" name="interests" value={JSON.stringify(interests.map((i) => ({ id: i.key, name: i.name })))} />
-      <input type="hidden" name="include_audiences" value={audJson(include)} />
-      <input type="hidden" name="exclude_audiences" value={audJson(exclude)} />
-      <fieldset disabled={!editable} className="flex flex-col gap-4">
-        {field(tr("Campaign name", "ক্যাম্পেইনের নাম"), <input name="name" required maxLength={120} defaultValue={spec.name} className={inputClass} />)}
-        <div className="grid gap-4 sm:grid-cols-4">
-          {field(
-            tr(`Daily budget (${currency ?? ""})`, `দৈনিক বাজেট (${currency ?? ""})`),
-            <input name="daily_budget" inputMode="decimal" required defaultValue={spec.daily_budget} className={inputClass} />,
-          )}
-          {field(tr("Age from", "বয়স থেকে"), <input name="age_min" type="number" min={18} max={65} defaultValue={spec.age_min} className={inputClass} />)}
-          {field(tr("Age to", "বয়স পর্যন্ত"), <input name="age_max" type="number" min={18} max={65} defaultValue={spec.age_max} className={inputClass} />, tr("65 = 65+", "৬৫ = ৬৫+"))}
-          {field(
-            tr("Gender", "লিঙ্গ"),
-            <select name="gender" defaultValue={spec.gender} className={inputClass}>
-              <option value="all">{tr("All", "সবাই")}</option>
-              <option value="male">{tr("Men", "পুরুষ")}</option>
-              <option value="female">{tr("Women", "নারী")}</option>
-            </select>,
-          )}
-        </div>
-        <TargetPicker kind="location" label={tr("Locations", "লোকেশন")} value={locations} onChange={setLocations} disabled={!editable} />
-        <TargetPicker kind="interest" label={tr("Interests", "আগ্রহ")} value={interests} onChange={setInterests} disabled={!editable} />
-        {editable ? (
-          <AudiencePicker
-            audiences={audiences}
-            include={include}
-            exclude={exclude}
-            setInclude={setInclude}
-            setExclude={setExclude}
-            onRetarget={() => setInterests([])}
-            disabled={!editable}
-          />
-        ) : (
-          (include.length > 0 || exclude.length > 0) && (
-            <p className="text-xs text-zinc-500">
-              {include.length > 0 && `${tr("Shown to", "দেখানো হচ্ছে")}: ${include.map((x) => known.get(x)).join(", ")}. `}
-              {exclude.length > 0 && `${tr("Excluded", "বাদ")}: ${exclude.map((x) => known.get(x)).join(", ")}.`}
-            </p>
-          )
-        )}
-        {spec.objective === "sales" &&
-          field(tr("Website link", "ওয়েবসাইট লিংক"), <input name="link" type="url" required defaultValue={spec.link ?? ""} className={inputClass} />)}
-        {field(
-          tr("Primary text", "মূল লেখা"),
-          <textarea name="primary_text" required rows={5} maxLength={2000} defaultValue={spec.primary_text} className={inputClass} />,
-        )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {field(tr("Headline", "হেডলাইন"), <input name="headline" required maxLength={80} defaultValue={spec.headline} className={inputClass} />)}
-          {field(tr("Description", "বিবরণ"), <input name="description" maxLength={60} defaultValue={spec.description ?? ""} className={inputClass} />)}
-        </div>
-        {spec.objective === "sales"
-          ? field(
-              tr("Button", "বাটন"),
-              <select name="cta" defaultValue={spec.cta} className={inputClass}>
-                {SALES_CTAS.map((c) => (
-                  <option key={c} value={c}>
-                    {CTA_LABELS[c] ?? c}
-                  </option>
-                ))}
-              </select>,
-            )
-          : <input type="hidden" name="cta" value="MESSAGE_PAGE" />}
-        {field(
-          tr("Rules (optional)", "নিয়ম (ইচ্ছা হলে)"),
-          <input name="rules" maxLength={500} defaultValue={spec.rules ?? ""} className={inputClass} />,
-        )}
-        <p className="text-xs text-zinc-500">
-          {tr(`${spec.media.length} media: `, `${spec.media.length}টি মিডিয়া: `)}
-          {spec.media.map((m) => m.name).join(", ")}
-        </p>
-      </fieldset>
-      <Result state={state} />
-      {editable && (
-        <button type="submit" disabled={pending} className={buttonClass("secondary", "self-start")}>
-          {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-          {tr("Save changes", "পরিবর্তন সংরক্ষণ")}
-        </button>
-      )}
-    </form>
   );
 }
 

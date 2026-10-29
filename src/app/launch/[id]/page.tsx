@@ -5,14 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
-import type { LaunchSpec } from "@/lib/meta/launch";
+import { listPixels, listPromotePages, type LaunchSpec } from "@/lib/meta/launch";
 import { listAudiences } from "@/lib/meta/audiences";
 import { decrypt } from "@/lib/crypto";
 import type { LaunchMeta } from "@/lib/meta/launchRun";
 import AppShell from "@/components/AppShell";
 import { Card, CardHeader, Notice, PageHeader, buttonClass } from "@/components/ui";
 import { LaunchStatusBadge } from "../LaunchStatusBadge";
-import ReviewForm, { LaunchButtons } from "./ReviewForm";
+import { LaunchButtons } from "./ReviewForm";
+import LaunchEditor from "./LaunchEditor";
 
 // Meta-তে ভিডিও প্রসেস আর তৈরি হতে সময় লাগে
 export const maxDuration = 300;
@@ -42,12 +43,21 @@ export default async function LaunchReviewPage({ params }: { params: Promise<{ i
     supabase.from("meta_connections").select("access_token_encrypted, selected_ad_account_id, selected_ad_account_currency").eq("user_id", user.id).maybeSingle(),
   ]);
   if (!row) notFound();
-  // রিটার্গেটিং-এর জন্য এই অ্যাকাউন্টের অডিয়েন্স (খসড়া বদলানো গেলেই লাগে)
-  const audiences =
-    (row.status === "draft" || row.status === "failed") && conn?.access_token_encrypted
-      ? (await listAudiences(decrypt(conn.access_token_encrypted), row.ad_account_id).catch(() => [])).map((a) => ({ id: a.id, name: a.name, subtype: a.subtype, size: a.sizeLow }))
-      : [];
   const spec = row.spec as LaunchSpec & { unmatched?: string[] };
+  // খসড়া বদলানো গেলে Ads Manager-এর মতো বাছাইয়ের তালিকা: অডিয়েন্স, পেজ, Pixel
+  const canEdit = (row.status === "draft" || row.status === "failed") && Boolean(conn?.access_token_encrypted);
+  const token = canEdit ? decrypt(conn!.access_token_encrypted) : "";
+  const [audienceList, pages, pixels, signed] = await Promise.all([
+    canEdit ? listAudiences(token, row.ad_account_id).catch(() => []) : [],
+    canEdit ? listPromotePages(token, row.ad_account_id).catch(() => []) : [],
+    canEdit && spec.objective === "sales" ? listPixels(token, row.ad_account_id).catch(() => []) : [],
+    // প্রিভিউর জন্য আপলোড করা ছবি/ভিডিওর সাময়িক লিংক
+    spec.media.length
+      ? supabase.storage.from("ad-media").createSignedUrls(spec.media.map((m) => m.path), 60 * 60).then((r) => r.data ?? [])
+      : [],
+  ]);
+  const audiences = audienceList.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype, size: a.sizeLow }));
+  const media = spec.media.map((m) => ({ ...m, url: signed.find((x) => x.path === m.path)?.signedUrl ?? null }));
   const meta = (row.meta ?? {}) as LaunchMeta;
   const editable = row.status === "draft" || row.status === "failed";
   const otherAccount = conn?.selected_ad_account_id !== row.ad_account_id;
@@ -98,37 +108,34 @@ export default async function LaunchReviewPage({ params }: { params: Promise<{ i
         </Notice>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <Card>
-          <CardHeader
-            title={editable ? tr("Check and change the plan", "পরিকল্পনা দেখে বদলাও") : tr("Plan", "পরিকল্পনা")}
-            description={tr("Your brief:", "তোমার নির্দেশনা:") + " " + row.brief.slice(0, 300) + (row.brief.length > 300 ? "…" : "")}
-          />
-          <div className="p-5">
-            <ReviewForm id={row.id} spec={spec} currency={conn?.selected_ad_account_currency ?? null} editable={editable} audiences={audiences} />
-          </div>
-        </Card>
-        <Card className="self-start">
-          <CardHeader title={tr("Approve", "অনুমোদন")} />
-          <div className="flex flex-col gap-3 p-5 text-sm">
-            <LaunchButtons id={row.id} status={row.status} canDelete={row.status === "draft" && !meta.campaign_id} disabled={otherAccount} />
-            <ul className="mt-2 flex flex-col gap-1 text-xs text-zinc-500">
-              <li>{tr("1. Make: created on Meta turned off, no spend.", "১. তৈরি: Meta-তে বন্ধ অবস্থায় তৈরি, খরচ নেই।")}</li>
-              <li>{tr("2. Turn on: campaign, ad set and ads go live after Meta's review.", "২. চালু: Meta রিভিউর পর ক্যাম্পেইন, Ad Set আর বিজ্ঞাপন চলবে।")}</li>
-              {spec.objective === "sales" && (
-                <li>{tr("Links get UTM tags, so orders match this campaign.", "লিংকে UTM বসে, তাই অর্ডার এই ক্যাম্পেইনের সাথে মিলবে।")}</li>
-              )}
-            </ul>
-            {spec.rules && (
-              <p className="rounded-lg glass-chip px-3 py-2 text-xs">
-                <span className="font-medium">{tr("Your rule: ", "তোমার নিয়ম: ")}</span>
-                {spec.rules}
-                <span className="block text-zinc-400">{tr("Automatic rules are coming next; for now check it in Ads control.", "স্বয়ংক্রিয় নিয়ম আসছে; আপাতত বিজ্ঞাপন নিয়ন্ত্রণ থেকে দেখো।")}</span>
-              </p>
-            )}
-          </div>
-        </Card>
-      </div>
+      <p className="mb-5 text-sm text-zinc-400">
+        <span className="font-medium text-zinc-300">{tr("Your brief:", "তোমার নির্দেশনা:")}</span> {row.brief.slice(0, 300)}
+        {row.brief.length > 300 ? "…" : ""}
+      </p>
+
+      <LaunchEditor
+        id={row.id}
+        spec={spec}
+        currency={conn?.selected_ad_account_currency ?? null}
+        editable={editable}
+        audiences={audiences}
+        pages={pages.map((p) => ({ id: p.id, name: p.name }))}
+        pixels={pixels.map((p) => ({ id: p.id, name: p.name }))}
+        media={media}
+        aside={
+          <Card>
+            <CardHeader title={tr("Publish", "প্রকাশ")} />
+            <div className="flex flex-col gap-3 p-5 text-sm">
+              <LaunchButtons id={row.id} status={row.status} canDelete={row.status === "draft" && !meta.campaign_id} disabled={otherAccount} />
+              <ul className="mt-2 flex flex-col gap-1 text-xs text-zinc-500">
+                <li>{tr("Save your changes first.", "আগে পরিবর্তন সংরক্ষণ করো।")}</li>
+                <li>{tr("1. Make: created on Meta turned off, no spend.", "১. তৈরি: Meta-তে বন্ধ অবস্থায় তৈরি, খরচ নেই।")}</li>
+                <li>{tr("2. Turn on: campaign, ad set and ads go live after Meta's review.", "২. চালু: Meta রিভিউর পর ক্যাম্পেইন, Ad Set আর বিজ্ঞাপন চলবে।")}</li>
+              </ul>
+            </div>
+          </Card>
+        }
+      />
     </AppShell>
   );
 }
