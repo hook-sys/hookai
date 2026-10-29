@@ -31,7 +31,16 @@ export async function dismissNotification(formData: FormData) {
   if (!ctx) return;
   const id = String(formData.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
-  await ctx.supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("user_id", ctx.user.id);
+  // হোমে একই অ্যাকাউন্টের একই কথা একবার দেখায়, তাই সবগুলো একসাথে "দেখা হয়েছে"
+  const { data: n } = await ctx.supabase.from("notifications").select("ad_account_id, title").eq("id", id).eq("user_id", ctx.user.id).maybeSingle();
+  if (!n) return;
+  await ctx.supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", ctx.user.id)
+    .eq("ad_account_id", n.ad_account_id)
+    .eq("title", n.title)
+    .is("read_at", null);
   revalidatePath("/home");
 }
 
