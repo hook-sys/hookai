@@ -7,6 +7,18 @@ import { getAccountInfo } from "@/lib/rules/engine";
 import { CAMPAIGN_ONLY_METRICS, RULE_ACTIONS, RULE_METRICS, RULE_WINDOWS } from "@/lib/rules/types";
 import { pickPurchases } from "@/lib/metrics";
 import { addDays, todayIn } from "@/lib/dates";
+import {
+  VIDEO_EVENTS,
+  WEB_EVENTS,
+  adsWithLinks,
+  audienceName,
+  cleanUrl,
+  createVideoAudience,
+  createWebAudience,
+  productLabel,
+  type VideoKind,
+  type WebKind,
+} from "@/lib/meta/productAudiences";
 
 // AI সহকারীর হাতিয়ার। "পড়ার" হাতিয়ার সাথে সাথে চলে; "কাজ" (Meta-তে কিছু বদলানো) শুধু প্রস্তাব হয়,
 // মালিক অনুমোদন দিলে তবেই execute হয়। সব অ্যাকাউন্ট আইডি বর্তমান ক্লায়েন্টের তালিকায় থাকতে হয়।
@@ -155,6 +167,15 @@ export const READ_TOOLS: Record<string, { desc: string; run: (ctx: AssistantCtx,
       return { pixels, pages, active_ad_videos: videos.length };
     },
   },
+  find_product_ads: {
+    desc: "Ads in the account with their link and video count; 'matched' = the ad goes to this product/website link. args: {account_id?, url}",
+    run: async (ctx, a) => {
+      const acc = account(ctx, a);
+      if (!cleanUrl(str(a.url))) throw new ToolError("url required");
+      const ads = await adsWithLinks(ctx.token, acc, str(a.url));
+      return { label: productLabel(str(a.url)), ads: ads.slice(0, 40).map((x) => ({ id: x.id, name: x.name, status: x.status, link: x.link, videos: x.videos.length, matched: x.matched })) };
+    },
+  },
   list_rules: {
     desc: "Automatic rules and their latest actions. args: {}",
     run: async (ctx) => {
@@ -195,6 +216,63 @@ export const ACTIONS: Record<string, { desc: string; check: (ctx: AssistantCtx, 
       if (preset.needs === "videos" && videos.length === 0) throw new ToolError("no active video ads in this account");
       const r = await createPreset(ctx.token, acc, preset, { pixelId: str(a.pixel_id), pageId: str(a.page_id), videoIds: videos, label });
       return `Created audience ${presetName(preset, label)} (${r?.id ?? "?"})`;
+    },
+  },
+  create_product_audiences: {
+    desc: `Audiences for one product or the whole website from a link. args: {account_id?, url, video?: (${Object.keys(VIDEO_EVENTS).join("|")})[], video_days?: 1-365, ad_ids?: string[] (default: ads matched to the url, see find_product_ads), web?: (${Object.keys(WEB_EVENTS).join("|")})[], web_days?: 1-180, pixel_id? (needed for web), label?}`,
+    check: async (ctx, a) => {
+      const acc = account(ctx, a);
+      const url = str(a.url);
+      if (!cleanUrl(url)) throw new ToolError("url required");
+      const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+      const video = list(a.video).filter((k): k is VideoKind => k in VIDEO_EVENTS);
+      const web = list(a.web).filter((k): k is WebKind => k in WEB_EVENTS);
+      if (video.length + web.length === 0) throw new ToolError("choose at least one video or web audience");
+      let adIds = list(a.ad_ids).filter((x) => ID.test(x));
+      if (video.length) {
+        const ads = await adsWithLinks(ctx.token, acc, url);
+        adIds = adIds.length ? adIds.filter((x) => ads.some((ad) => ad.id === x)) : ads.filter((ad) => ad.matched && ad.videos.length).map((ad) => ad.id);
+        if (adIds.length === 0) throw new ToolError("no video ads found for this link; ask the owner which ads (by name) to use");
+      }
+      if (web.length && !ID.test(str(a.pixel_id))) throw new ToolError("pixel_id required for web audiences (use assets_check)");
+      return {
+        account_id: acc,
+        url,
+        label: str(a.label).slice(0, 60) || productLabel(url),
+        video,
+        video_days: Math.min(365, Math.max(1, Math.round(num(a.video_days) || 30))),
+        ad_ids: adIds,
+        web,
+        web_days: Math.min(180, Math.max(1, Math.round(num(a.web_days) || 30))),
+        pixel_id: web.length ? str(a.pixel_id) : null,
+      };
+    },
+    run: async (ctx, a) => {
+      const acc = str(a.account_id);
+      const url = str(a.url);
+      const label = str(a.label);
+      const adIds = new Set(a.ad_ids as string[]);
+      const videos = adIds.size ? [...new Set((await adsWithLinks(ctx.token, acc, url)).filter((x) => adIds.has(x.id)).flatMap((x) => x.videos))] : [];
+      const existing = new Set((await listAudiences(ctx.token, acc)).map((x) => x.name));
+      const out: string[] = [];
+      const make = async (name: string, fn: () => Promise<unknown>) => {
+        if (existing.has(name)) return out.push(`${name}: already exists`);
+        try {
+          await fn();
+          out.push(`${name}: created`);
+        } catch (err) {
+          out.push(`${name}: failed (${err instanceof Error ? err.message.slice(0, 160) : "error"})`);
+        }
+      };
+      for (const k of a.video as VideoKind[]) {
+        const name = audienceName(label, `Video ${VIDEO_EVENTS[k].label[0]}`, num(a.video_days));
+        await make(name, () => createVideoAudience(ctx.token, acc, name, k, videos, num(a.video_days)));
+      }
+      for (const k of a.web as WebKind[]) {
+        const name = audienceName(label, `Web ${WEB_EVENTS[k].label[0]}`, num(a.web_days));
+        await make(name, () => createWebAudience(ctx.token, acc, name, k, str(a.pixel_id), url, num(a.web_days)));
+      }
+      return out.join("\n");
     },
   },
   create_lookalike: {

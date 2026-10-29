@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { Building2, Repeat2, Users } from "lucide-react";
+import { Building2, Link2, Repeat2, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { getLocale } from "@/lib/i18n-server";
@@ -11,6 +11,7 @@ import { listPixels, listPromotePages } from "@/lib/meta/launch";
 import AppShell from "@/components/AppShell";
 import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader } from "@/components/ui";
 import { AudienceRowActions, RetargetingSetForm } from "./AudienceClient";
+import ProductAudienceForm from "./ProductAudienceForm";
 
 export const maxDuration = 120;
 
@@ -82,6 +83,21 @@ export default async function AudiencesPage() {
         )}
       />
       {loadError && <Notice tone="warning">{tr("Couldn't load audiences from Meta. Try again shortly.", "Meta থেকে অডিয়েন্স আনা যায়নি। একটু পরে আবার চেষ্টা করো।")}</Notice>}
+
+      {/* প্রোডাক্ট ধরে অডিয়েন্স: সবচেয়ে বেশি ব্যবহার হয়, তাই উপরে */}
+      <Card className="mb-6">
+        <CardHeader
+          icon={Link2}
+          title={tr("Audiences from a product link", "প্রোডাক্টের লিংক থেকে অডিয়েন্স")}
+          description={tr(
+            "Paste a link: Hook finds the ads for it and makes video viewer (25/50/75/95%, ThruPlay) and website audiences in one go.",
+            "লিংক দাও: Hook সেই লিংকের বিজ্ঞাপন খুঁজে ভিডিও দর্শক (২৫/৫০/৭৫/৯৫%, ThruPlay) আর ওয়েবসাইটের অডিয়েন্স একবারে বানাবে।",
+          )}
+        />
+        <div className="max-w-3xl p-5">
+          <ProductAudienceForm pixels={pixels.map((p) => ({ id: p.id, name: p.name, active: Boolean(p.last_fired_time) }))} />
+        </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <Card>

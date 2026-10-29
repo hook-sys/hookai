@@ -19,6 +19,19 @@ import {
   presetName,
   type PresetId,
 } from "@/lib/meta/audiences";
+import {
+  VIDEO_EVENTS,
+  WEB_EVENTS,
+  adsWithLinks,
+  audienceName,
+  cleanUrl,
+  createVideoAudience,
+  createWebAudience,
+  productLabel,
+  type AdWithLink,
+  type VideoKind,
+  type WebKind,
+} from "@/lib/meta/productAudiences";
 
 export type AudienceState =
   | { ok: true; message: string; lines?: { name: string; ok: boolean; note?: string }[] }
@@ -137,3 +150,101 @@ export async function removeAudience(formData: FormData) {
 }
 
 export type { PresetId };
+
+// ---------- প্রোডাক্ট ধরে অডিয়েন্স ----------
+
+export type ProductLookup =
+  | { ok: true; label: string; whole: boolean; ads: AdWithLink[] }
+  | { ok: false; error: string };
+
+// ধাপ ১: লিংক দিলে অ্যাকাউন্টের বিজ্ঞাপনগুলো, কোনগুলো এই লিংকের তা চিহ্নসহ
+export async function findProductAds(url: string): Promise<ProductLookup> {
+  const ctx = await context();
+  if ("error" in ctx) return { ok: false, error: ctx.error ?? "" };
+  const { tr, token, accountId } = ctx;
+  const target = cleanUrl(url.slice(0, 500));
+  if (!target || !target.host.includes(".")) return { ok: false, error: tr("Enter a website or product link.", "ওয়েবসাইট বা প্রোডাক্টের লিংক দাও।") };
+  try {
+    return { ok: true, label: productLabel(url), whole: target.whole, ads: await adsWithLinks(token, accountId, url) };
+  } catch (err) {
+    return { ok: false, error: tr(`Meta refused: ${metaMessage(err)}`, `Meta গ্রহণ করেনি: ${metaMessage(err)}`) };
+  }
+}
+
+// Meta-র Custom Audience শর্তে রাজি না হলে ওয়েবসাইট অডিয়েন্স হয় না; মালিককে নিজে রাজি হতে হয়
+function termsLink(msg: string) {
+  return msg.match(/https:\/\/www\.facebook\.com\/customaudiences\/app\/tos\/\?act=\d+/)?.[0] ?? null;
+}
+
+export type ProductAudienceState =
+  | { ok: true; message: string; lines: { name: string; ok: boolean; note?: string }[]; termsUrl?: string | null }
+  | { ok: false; error: string }
+  | null;
+
+// ধাপ ২: বাছা বিজ্ঞাপনের ভিডিও আর বাছা ওয়েবসাইট ইভেন্ট থেকে অডিয়েন্সগুলো বানানো (আগে থেকে থাকলে বাদ)
+export async function createProductAudiences(_prev: ProductAudienceState, formData: FormData): Promise<ProductAudienceState> {
+  const ctx = await context();
+  if ("error" in ctx) return { ok: false, error: ctx.error ?? "" };
+  const { tr, token, accountId } = ctx;
+
+  const url = String(formData.get("url") ?? "").slice(0, 500);
+  const label = String(formData.get("label") ?? "").trim().slice(0, 60) || productLabel(url);
+  const adIds = new Set(formData.getAll("ads").map(String).filter((x) => ID_PATTERN.test(x)));
+  const videoKinds = formData.getAll("video").map(String).filter((k): k is VideoKind => k in VIDEO_EVENTS);
+  const webKinds = formData.getAll("web").map(String).filter((k): k is WebKind => k in WEB_EVENTS);
+  const videoDays = Math.min(365, Math.max(1, Math.round(Number(formData.get("video_days")) || 30)));
+  const webDays = Math.min(180, Math.max(1, Math.round(Number(formData.get("web_days")) || 30)));
+  const pixelId = String(formData.get("pixel_id") ?? "");
+  if (!cleanUrl(url)) return { ok: false, error: tr("Enter the link first.", "আগে লিংক দাও।") };
+  if (videoKinds.length + webKinds.length === 0) return { ok: false, error: tr("Tick at least one audience.", "অন্তত একটা অডিয়েন্সে টিক দাও।") };
+  if (videoKinds.length && adIds.size === 0) return { ok: false, error: tr("Tick the ads whose video viewers you want.", "যেসব বিজ্ঞাপনের ভিডিও দর্শক চাও, সেগুলোতে টিক দাও।") };
+  if (webKinds.length && !ID_PATTERN.test(pixelId)) return { ok: false, error: tr("Pick a pixel for website audiences.", "ওয়েবসাইট অডিয়েন্সের জন্য Pixel বাছো।") };
+
+  let existing: Set<string>;
+  let videos: string[] = [];
+  try {
+    existing = new Set((await listAudiences(token, accountId)).map((a) => a.name));
+    // ভিডিওর আইডি আবার Meta থেকে নেওয়া (ব্রাউজারের পাঠানো আইডি বিশ্বাস না করে)
+    if (videoKinds.length) videos = [...new Set((await adsWithLinks(token, accountId, url)).filter((a) => adIds.has(a.id)).flatMap((a) => a.videos))];
+  } catch (err) {
+    return { ok: false, error: tr(`Meta refused: ${metaMessage(err)}`, `Meta গ্রহণ করেনি: ${metaMessage(err)}`) };
+  }
+
+  const lines: { name: string; ok: boolean; note?: string }[] = [];
+  let termsUrl: string | null = null;
+  const run = async (name: string, shown: string, make: () => Promise<unknown>) => {
+    if (existing.has(name)) return lines.push({ name: shown, ok: true, note: tr("already exists", "আগে থেকেই আছে") });
+    try {
+      await make();
+      lines.push({ name: shown, ok: true, note: tr("created", "তৈরি হয়েছে") });
+    } catch (err) {
+      const msg = metaMessage(err);
+      termsUrl ??= termsLink(msg);
+      lines.push({
+        name: shown,
+        ok: false,
+        note: termsLink(msg) ? tr("accept Meta's Custom Audience terms first (link below)", "আগে Meta-র Custom Audience শর্তে রাজি হতে হবে (নিচের লিংক)") : msg,
+      });
+    }
+  };
+
+  for (const k of videoKinds) {
+    const v = VIDEO_EVENTS[k];
+    const shown = `${tr(v.label[0], v.label[1])} · ${videoDays}${tr("d", " দিন")}`;
+    if (videos.length === 0) {
+      lines.push({ name: shown, ok: false, note: tr("the ticked ads have no video", "বাছা বিজ্ঞাপনে কোনো ভিডিও নেই") });
+      continue;
+    }
+    await run(audienceName(label, `Video ${v.label[0]}`, videoDays), shown, () => createVideoAudience(token, accountId, audienceName(label, `Video ${v.label[0]}`, videoDays), k, videos, videoDays));
+  }
+  for (const k of webKinds) {
+    const w = WEB_EVENTS[k];
+    const shown = `${tr(w.label[0], w.label[1])} · ${webDays}${tr("d", " দিন")}`;
+    const name = audienceName(label, `Web ${w.label[0]}`, webDays);
+    await run(name, shown, () => createWebAudience(token, accountId, name, k, pixelId, url, webDays));
+  }
+
+  revalidatePath("/audiences");
+  const made = lines.filter((l) => l.ok).length;
+  return { ok: true, message: tr(`${made} of ${lines.length} ready. Meta fills them over the next hours.`, `${lines.length}টির মধ্যে ${made}টি তৈরি। Meta কয়েক ঘণ্টায় ভরে দেবে।`), lines, termsUrl };
+}
