@@ -7,7 +7,7 @@ import { decrypt } from "@/lib/crypto";
 import { getTr } from "@/lib/i18n-server";
 import {
   AD_ACCOUNT_ID_PATTERN,
-  getAdAccounts,
+  getAdAccount,
   revokePermissions,
 } from "@/lib/meta/graph";
 
@@ -33,8 +33,8 @@ async function applyAdAccount(
 
   let account;
   try {
-    const accounts = await getAdAccounts(decrypt(connection.access_token_encrypted));
-    account = accounts.find((acc) => acc.id === accountId);
+    // শুধু এই অ্যাকাউন্টটাই Meta থেকে পড়া (পুরো তালিকা আনার চেয়ে অনেক দ্রুত); পড়তে পারলেই এই ব্যবহারকারীর
+    account = await getAdAccount(decrypt(connection.access_token_encrypted), accountId);
   } catch (err) {
     console.error("ad account verification failed", err instanceof Error ? err.message : err);
     return false;
