@@ -4,6 +4,7 @@ import {
   Bot,
   FileText,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   Newspaper,
   PackageCheck,
@@ -33,7 +34,7 @@ import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
-type Section = "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "home" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -146,6 +147,7 @@ export default async function AppShell({
     ) : null;
 
   const nav: NavItem[] = [
+    ...(isAdmin ? [{ id: "home" as const, href: "/home", label: tr("All clients", "সব ক্লায়েন্ট"), icon: LayoutGrid }] : []),
     { id: "dashboard", href: "/dashboard", label: tr("Dashboard", "ড্যাশবোর্ড"), icon: LayoutDashboard },
     { id: "assistant", href: "/assistant", label: tr("AI assistant", "AI সহকারী"), icon: Bot },
     { id: "manage", href: "/manage", label: tr("Ads control", "বিজ্ঞাপন নিয়ন্ত্রণ"), icon: SlidersHorizontal },
@@ -166,7 +168,7 @@ export default async function AppShell({
   ];
 
   // মূল পাতাগুলো উপরের পিলে; বাকিগুলো পাশের আইকন বারে
-  const TAB_IDS: Section[] = ["dashboard", "assistant", "manage", "orders", "reports"];
+  const TAB_IDS: Section[] = ["home", "dashboard", "assistant", "manage", "orders", "reports"];
   const tabs = TAB_IDS.map((id) => nav.find((n) => n.id === id)!).filter(Boolean);
   // অ্যাডমিন লিংক শুধু অ্যাডমিনকে দেখায়; আসল সুরক্ষা পেজ ও action-এর ভেতরে
   const rail = nav.filter((n) => !TAB_IDS.includes(n.id) && n.id !== "launch");
@@ -209,7 +211,7 @@ export default async function AppShell({
         {/* নিচের লেখা স্ক্রল করে পিলের ফাঁক দিয়ে না দেখায়, তাই পেছনে গাঢ় থেকে স্বচ্ছ আভা */}
         <header className="sticky top-0 z-20 bg-gradient-to-b from-[#17181b] from-55% to-transparent px-3 pt-3 pb-5 print:hidden sm:px-4 lg:pr-6">
           <div className="flex items-center gap-2 lg:gap-3">
-            <Link href="/dashboard" className="glass-panel lg-lens flex shrink-0 items-center rounded-full py-1 pr-3 pl-1" aria-label="Hook AI">
+            <Link href={isAdmin ? "/home" : "/dashboard"} className="glass-panel lg-lens flex shrink-0 items-center rounded-full py-1 pr-3 pl-1" aria-label="Hook AI">
               <LogoMark className="size-8 rounded-full" />
               <span className="ml-2 hidden text-sm font-semibold tracking-wide sm:inline">
                 HOOK <span className="text-[#FF7A4D]">AI</span>

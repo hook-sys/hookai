@@ -59,7 +59,7 @@ export async function signIn(
     };
   }
 
-  redirect("/dashboard");
+  redirect("/home");
 }
 
 export async function signUp(
@@ -96,7 +96,7 @@ export async function signUp(
 
   // ইমেইল নিশ্চিতকরণ বন্ধ থাকলে Supabase সাথে সাথেই session দেয়
   if (data.session) {
-    redirect("/dashboard");
+    redirect("/home");
   }
 
   return {

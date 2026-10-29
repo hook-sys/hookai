@@ -111,6 +111,33 @@ export async function selectClient(formData: FormData) {
   revalidateAppPages();
 }
 
+// হোম থেকে সরাসরি কোনো ক্লায়েন্টের পাতায় যাওয়া: ক্লায়েন্ট (আর দরকার হলে নির্দিষ্ট Ad Account) বেছে সেই পাতা খোলে
+const NEXT_PATHS = /^\/(dashboard|orders|manage|reports|assistant|assets|audiences|rules|launch(\/[0-9a-f-]{36})?|ad-copy|settings)$/;
+
+export async function openClient(formData: FormData) {
+  const clientId = String(formData.get("clientId") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  const next = String(formData.get("next") ?? "/dashboard");
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return;
+  const target = NEXT_PATHS.test(next) ? next : "/dashboard";
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: link } = accountId
+    ? await supabase.from("client_ad_accounts").select("ad_account_id").eq("user_id", user.id).eq("client_id", clientId).eq("ad_account_id", accountId).maybeSingle()
+    : { data: null };
+  if (link) {
+    await applyAdAccount(supabase, user.id, link.ad_account_id, clientId);
+    revalidateAppPages();
+  } else {
+    await selectClient(formData);
+  }
+  redirect(target);
+}
+
 export type DeleteAccountState = { error: string } | null;
 
 // পুরো অ্যাকাউন্ট মুছে ফেলে। নিশ্চিত করতে ব্যবহারকারীকে নিজের ইমেইল লিখতে হয়।
