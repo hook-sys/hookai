@@ -19,6 +19,7 @@ import {
   PLACEMENT_POSITIONS,
   SALES_CTAS,
   deliveryEstimate,
+  isStoragePath,
   searchInterests,
   searchLocations,
   type LaunchSpec,
@@ -28,6 +29,8 @@ import {
 import { runLaunch, type LaunchMeta, type LaunchRow } from "@/lib/meta/launchRun";
 import { loadClientProfile } from "@/lib/clientProfile";
 import { listAudiences } from "@/lib/meta/audiences";
+import { campaignAds, listCampaigns, type SourceAd } from "@/lib/meta/launchSources";
+import { QuickError, buildQuickSpec, writeAdCopy } from "@/lib/launchQuick";
 
 export type LaunchState = { ok: true; message: string } | { ok: false; error: string } | null;
 
@@ -418,7 +421,8 @@ export async function deleteDraft(formData: FormData) {
   const row = await loadRow(ctx, String(formData.get("id") ?? ""));
   // Meta-তে কিছু তৈরি হয়নি এমন খসড়াই কেবল মোছা যায়
   if (!row || row.status !== "draft" || row.meta?.campaign_id) return;
-  const paths = row.spec.media.map((m) => m.path);
+  // শুধু আপলোড করা ফাইল মোছা; Drive বা আগের বিজ্ঞাপনের কিছু নয়
+  const paths = row.spec.media.map((m) => m.path).filter(isStoragePath);
   if (paths.length) await ctx.supabase.storage.from("ad-media").remove(paths);
   await ctx.supabase.from("ad_launches").delete().eq("id", row.id);
   revalidatePath("/launch");
@@ -437,4 +441,104 @@ export async function searchTargeting(kind: "location" | "interest", q: string) 
   } catch {
     return [];
   }
+}
+
+// ---------- AI ছাড়া দ্রুত বিজ্ঞাপন ----------
+
+// আগের ক্যাম্পেইনের তালিকা (কনটেন্ট নেওয়ার জন্য)
+export async function launchCampaigns() {
+  const ctx = await context();
+  if ("error" in ctx) return [];
+  return (await listCampaigns(ctx.token, ctx.accountId).catch(() => [])).map((c) => ({ id: c.id, name: c.name, active: c.effective_status === "ACTIVE" }));
+}
+
+export async function launchCampaignAds(campaignId: string): Promise<SourceAd[] | { error: string }> {
+  const ctx = await context();
+  if ("error" in ctx) return { error: ctx.error ?? "" };
+  if (!ID_PATTERN.test(campaignId)) return { error: ctx.tr("Pick a campaign.", "ক্যাম্পেইন বাছো।") };
+  try {
+    return await campaignAds(ctx.token, ctx.accountId, campaignId);
+  } catch (err) {
+    return { error: metaError(err, ctx.tr) };
+  }
+}
+
+// "AI দিয়ে লেখাও" বোতাম
+export async function aiWriteCopy(input: { link?: string; notes?: string; objective: "sales" | "messages" }) {
+  const ctx = await context();
+  if ("error" in ctx) return { error: ctx.error ?? "" };
+  try {
+    const { client } = await currentClient(ctx.supabase, ctx.user.id);
+    const profile = client ? (await loadClientProfile(ctx.supabase, ctx.user.id, client.id))?.profile : undefined;
+    return await writeAdCopy(ctx.supabase, { profile, link: input.link?.slice(0, 500), notes: input.notes?.slice(0, 1500), objective: input.objective });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message.slice(0, 200) : "error" };
+  }
+}
+
+// ফর্ম থেকে খসড়া: AI লাগে না; তারপর Ads Manager-এর মতো পাতায় দেখে অনুমোদন
+export async function createQuickDraft(_prev: LaunchState, formData: FormData): Promise<LaunchState> {
+  const ctx = await context();
+  if ("error" in ctx) return { ok: false, error: ctx.error ?? "" };
+  const { tr, supabase, user, token, accountId } = ctx;
+  const text = (k: string, max: number) => String(formData.get(k) ?? "").trim().slice(0, max);
+  const json = <T,>(k: string): T[] => {
+    try {
+      const v = JSON.parse(String(formData.get(k) ?? "[]"));
+      return Array.isArray(v) ? v : [];
+    } catch {
+      return [];
+    }
+  };
+  const objective = formData.get("objective") === "messages" ? "messages" : "sales";
+  const source = formData.get("source") === "campaign" ? "campaign" : "drive";
+  const gender = text("gender", 10);
+  const audience = text("audience", 10);
+  const rawLink = text("link", 2000);
+
+  let spec: LaunchSpec;
+  try {
+    spec = await buildQuickSpec(token, accountId, {
+      name: text("name", 120),
+      objective,
+      page_id: text("page_id", 30),
+      page_name: text("page_name", 200),
+      pixel_id: text("pixel_id", 30),
+      link: rawLink ? validLink(rawLink) : null,
+      daily_budget: Number(text("daily_budget", 20).replace(/[^\d.]/g, "")),
+      age_min: Number(formData.get("age_min")) || 18,
+      age_max: Number(formData.get("age_max")) || 65,
+      gender: gender === "male" || gender === "female" ? gender : "all",
+      locations: json<LaunchSpec["locations"][number]>("locations")
+        .filter((l) => typeof l.key === "string" && /^[\w-]{1,30}$/.test(l.key) && ["country", "region", "city"].includes(l.type))
+        .slice(0, 25),
+      interests: json<{ id: string; name: string }>("interests").filter((i) => ID_PATTERN.test(String(i.id))).slice(0, 25),
+      audience: audience === "new" || audience === "retarget" ? audience : "broad",
+      include_audiences: json<{ id: string; name: string }>("include_audiences").map((a) => ({ id: String(a.id), name: String(a.name).slice(0, 200) })),
+      content:
+        source === "drive"
+          ? { source: "drive", links: text("drive_links", 5000).split(/\s+/) }
+          : {
+              source: "campaign",
+              campaign_id: text("campaign_id", 30),
+              ad_ids: formData.getAll("ad_ids").map(String).filter((x) => ID_PATTERN.test(x)),
+              mode: formData.get("reuse") === "post" ? "post" : "media",
+            },
+      copy: { primary_text: text("primary_text", 2000), headline: text("headline", 80), description: text("description", 60), cta: text("cta", 30) },
+      rule_templates: formData.getAll("rules").map(String),
+      rule_target: Number(text("rule_target", 20).replace(/[^\d.]/g, "")) || null,
+    });
+  } catch (err) {
+    if (err instanceof QuickError) return { ok: false, error: err.message };
+    return { ok: false, error: metaError(err, tr) };
+  }
+
+  const { client } = await currentClient(supabase, user.id);
+  const { data, error } = await supabase
+    .from("ad_launches")
+    .insert({ user_id: user.id, client_id: client?.id ?? null, ad_account_id: accountId, brief: tr("Quick setup (no AI)", "দ্রুত সেটআপ (AI ছাড়া)"), spec })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false, error: tr("Couldn't save the draft.", "খসড়া সংরক্ষণ করা যায়নি।") };
+  redirect(`/launch/${data.id}`);
 }

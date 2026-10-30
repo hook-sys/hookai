@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Building2, History, Rocket } from "lucide-react";
+import { Building2, History, Rocket, Sparkles, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { getLocale } from "@/lib/i18n-server";
@@ -11,6 +11,9 @@ import { listPixels, listPromotePages } from "@/lib/meta/launch";
 import AppShell from "@/components/AppShell";
 import { Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass } from "@/components/ui";
 import NewLaunchForm from "./NewLaunchForm";
+import QuickLaunchForm from "./QuickLaunchForm";
+import { listAudiences } from "@/lib/meta/audiences";
+import { cn } from "@/components/ui";
 import { loadClientProfile } from "@/lib/clientProfile";
 import { LaunchStatusBadge } from "./LaunchStatusBadge";
 
@@ -21,7 +24,9 @@ export async function generateMetadata() {
 }
 
 // নির্দেশনা লিখে, ছবি/ভিডিও দিয়ে নতুন বিজ্ঞাপন: AI পরিকল্পনা করে, মালিক দেখে অনুমোদন দেয়
-export default async function LaunchPage() {
+export default async function LaunchPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  // দুই পথ: দ্রুত সেটআপ (AI ছাড়া, সাধারণ) আর AI নির্দেশনা
+  const mode = (await searchParams).mode === "ai" ? "ai" : "quick";
   const tr = makeTr(await getLocale());
   const supabase = await createClient();
   const {
@@ -52,7 +57,7 @@ export default async function LaunchPage() {
   const token = decrypt(connection.access_token_encrypted);
   const currency = connection.selected_ad_account_currency as string | null;
 
-  const [pages, pixels, { data: launches }, client] = await Promise.all([
+  const [pages, pixels, { data: launches }, client, audienceList] = await Promise.all([
     listPromotePages(token, accountId).catch(() => null),
     listPixels(token, accountId).catch(() => []),
     supabase
@@ -63,6 +68,7 @@ export default async function LaunchPage() {
       .order("created_at", { ascending: false })
       .limit(20),
     scope.client ? loadClientProfile(supabase, user.id, scope.client.id) : null,
+    mode === "quick" ? listAudiences(token, accountId).catch(() => []) : [],
   ]);
   // প্রোফাইলের যা নতুন বিজ্ঞাপনে নিজে বসবে, তার ছোট তালিকা
   const pf = client?.profile ?? {};
@@ -82,8 +88,8 @@ export default async function LaunchPage() {
       <PageHeader
         title={tr("New ad", "নতুন বিজ্ঞাপন")}
         description={tr(
-          `${connection.selected_ad_account_name ?? accountId} · write what you want, Hook plans it, you approve`,
-          `${connection.selected_ad_account_name ?? accountId} · কী চাও লেখো, Hook পরিকল্পনা করবে, তুমি অনুমোদন দেবে`,
+          `${connection.selected_ad_account_name ?? accountId} · pick content and settings, check, approve`,
+          `${connection.selected_ad_account_name ?? accountId} · কনটেন্ট আর সেটিং দাও, দেখে নাও, অনুমোদন দাও`,
         )}
       />
       {pages === null && (
@@ -93,6 +99,54 @@ export default async function LaunchPage() {
       )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Card>
+          {/* দুই পথের ট্যাব */}
+          <nav aria-label={tr("How to make the ad", "কীভাবে বানাবে")} className="flex gap-1 border-b border-white/[0.07] p-2">
+            {(
+              [
+                ["quick", Zap, tr("Quick setup", "দ্রুত সেটআপ"), "/launch"],
+                ["ai", Sparkles, tr("With AI (brief)", "AI দিয়ে (নির্দেশনা)"), "/launch?mode=ai"],
+              ] as const
+            ).map(([id, Icon, label, href]) => (
+              <Link
+                key={id}
+                href={href}
+                aria-current={mode === id ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium",
+                  mode === id ? "glass-chip text-white" : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100",
+                )}
+              >
+                <Icon className="size-4" aria-hidden />
+                {label}
+              </Link>
+            ))}
+          </nav>
+          {mode === "quick" ? (
+            <div className="p-5">
+              <QuickLaunchForm
+                pages={pages ?? []}
+                pixels={pixels.map((p) => ({ id: p.id, name: p.name, active: Boolean(p.last_fired_time) }))}
+                audiences={audienceList.map((a) => ({ id: a.id, name: a.name, size: a.sizeLow }))}
+                currency={currency}
+                defaults={{
+                  objective: pf.objective,
+                  page_id: pf.page_id,
+                  pixel_id: pf.pixel_id,
+                  link: client?.website_url,
+                  daily_budget: pf.daily_budget,
+                  age_min: pf.age_min,
+                  age_max: pf.age_max,
+                  gender: pf.gender,
+                  locations: pf.locations,
+                  interests: pf.interests,
+                  new_customers: pf.exclude_buyers,
+                  cta: pf.cta,
+                  target: client?.target_cost_per_order,
+                }}
+              />
+            </div>
+          ) : (
+          <>
           <CardHeader
             icon={Rocket}
             title={tr("Brief", "নির্দেশনা")}
@@ -112,6 +166,8 @@ export default async function LaunchPage() {
               profileSummary={profileSummary}
             />
           </div>
+          </>
+          )}
         </Card>
         <Card className="self-start">
           <CardHeader icon={History} title={tr("Recent", "সাম্প্রতিক")} />

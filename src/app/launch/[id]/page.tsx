@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getLocale } from "@/lib/i18n-server";
 import { makeTr } from "@/lib/i18n";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
-import { listPixels, listPromotePages, type LaunchSpec } from "@/lib/meta/launch";
+import { isStoragePath, listPixels, listPromotePages, type LaunchSpec } from "@/lib/meta/launch";
 import { listAudiences } from "@/lib/meta/audiences";
 import { decrypt } from "@/lib/crypto";
 import type { LaunchMeta } from "@/lib/meta/launchRun";
@@ -53,11 +53,16 @@ export default async function LaunchReviewPage({ params }: { params: Promise<{ i
     canEdit && spec.objective === "sales" ? listPixels(token, row.ad_account_id).catch(() => []) : [],
     // প্রিভিউর জন্য আপলোড করা ছবি/ভিডিওর সাময়িক লিংক
     spec.media.length
-      ? supabase.storage.from("ad-media").createSignedUrls(spec.media.map((m) => m.path), 60 * 60).then((r) => r.data ?? [])
+      ? supabase.storage.from("ad-media").createSignedUrls(spec.media.map((m) => m.path).filter(isStoragePath), 60 * 60).then((r) => r.data ?? [])
       : [],
   ]);
   const audiences = audienceList.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype, size: a.sizeLow }));
-  const media = spec.media.map((m) => ({ ...m, url: signed.find((x) => x.path === m.path)?.signedUrl ?? null }));
+  // Drive বা আগের বিজ্ঞাপনের কনটেন্টে প্রিভিউ হিসেবে শুধু ছবি (থাম্বনেইল)
+  const media = spec.media.map((m) =>
+    isStoragePath(m.path)
+      ? { ...m, url: signed.find((x) => x.path === m.path)?.signedUrl ?? null }
+      : { ...m, url: m.thumb ?? null, still: true },
+  );
   const meta = (row.meta ?? {}) as LaunchMeta;
   const editable = row.status === "draft" || row.status === "failed";
   const otherAccount = conn?.selected_ad_account_id !== row.ad_account_id;

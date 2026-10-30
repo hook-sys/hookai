@@ -32,7 +32,7 @@ import { AudiencePicker, CTA_LABELS, Result, TargetPicker, type AudienceOption, 
 // Ads Manager-এর মতো সম্পাদনা: বাঁয়ে Campaign → Ad set → Ad গাছ, মাঝে সেটিং, ডানে দর্শকের আকার আর বিজ্ঞাপনের প্রিভিউ।
 // সব ঘর এক ফর্মে, তাই "সংরক্ষণ" একবারেই সব রাখে।
 
-export type MediaPreview = { path: string; kind: "image" | "video"; name: string; url: string | null };
+export type MediaPreview = { path: string; kind: "image" | "video"; name: string; url: string | null; still?: boolean };
 type Option = { id: string; name: string };
 type Estimate = { low: number | null; high: number | null; dailyReach: [number, number] | null } | { error: string } | null;
 
@@ -577,7 +577,7 @@ export default function LaunchEditor({
                   aria-label={m.name}
                   title={m.name}
                 >
-                  {m.url && m.kind === "image" ? (
+                  {m.url && (m.kind === "image" || m.still) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={m.url} alt="" className="size-full object-cover" />
                   ) : m.url ? (
@@ -730,7 +730,7 @@ export default function LaunchEditor({
               </div>
               <p className="line-clamp-4 px-3 py-2 whitespace-pre-line">{v.primary_text}</p>
               <div className="aspect-square bg-zinc-200">
-                {shown?.url && shown.kind === "image" ? (
+                {shown?.url && (shown.kind === "image" || shown.still) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={shown.url} alt="" className="size-full object-cover" />
                 ) : shown?.url ? (
@@ -755,7 +755,7 @@ export default function LaunchEditor({
             </div>
           ) : (
             <div className="relative mx-auto aspect-[9/16] w-56 overflow-hidden rounded-2xl bg-black text-white shadow-lg">
-              {shown?.url && shown.kind === "image" ? (
+              {shown?.url && (shown.kind === "image" || shown.still) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={shown.url} alt="" className="absolute inset-0 size-full object-cover" />
               ) : shown?.url ? (

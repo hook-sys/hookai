@@ -26,7 +26,9 @@ export type LaunchSpec = {
   headline: string;
   description?: string;
   cta: string;
-  media: { path: string; kind: "image" | "video"; name: string }[];
+  // path: আপলোড করা ফাইল ("userId/..."), নয়তো উৎস চিহ্ন: "drive:ID", "video:ID" (আগের ভিডিও),
+  // "image:HASH" (আগের ছবি), "post:PAGEID_POSTID" (আগের পুরো পোস্ট, লাইক-কমেন্টসহ)
+  media: { path: string; kind: "image" | "video"; name: string; thumb?: string | null }[];
   start_active?: boolean;
   rules?: string; // নির্দেশনায় লেখা নিয়ম (পরের ধাপে স্বয়ংক্রিয়)
 
@@ -48,7 +50,13 @@ export type LaunchSpec = {
   use_instagram?: boolean; // পেজের সাথে যুক্ত Instagram থেকেও দেখানো
   display_link?: string;
   url_tags?: string;
+  // Meta-তে তৈরি হলে এই নিয়মগুলো নিজে বসে যায় (রুলের টেমপ্লেট আর টার্গেট খরচ)
+  rule_templates?: string[];
+  rule_target?: number | null;
 };
+
+// আপলোড করা ফাইল কিনা (অন্য উৎসে "drive:" ইত্যাদি চিহ্ন থাকে)
+export const isStoragePath = (path: string) => !/^(drive|video|image|post):/.test(path);
 
 export type BidStrategy = "LOWEST_COST_WITHOUT_CAP" | "COST_CAP" | "LOWEST_COST_WITH_BID_CAP";
 export const BID_STRATEGIES: BidStrategy[] = ["LOWEST_COST_WITHOUT_CAP", "COST_CAP", "LOWEST_COST_WITH_BID_CAP"];
@@ -344,6 +352,16 @@ export async function createCreative(
     name: `${spec.name} · Creative`,
     object_story_spec: JSON.stringify(story),
     ...(spec.objective === "sales" ? { url_tags: spec.url_tags?.trim() || URL_TAGS } : {}),
+  });
+  return res.id;
+}
+
+// আগের পোস্টটাই বিজ্ঞাপন: লেখা-ছবি সেই পোস্টের, লাইক-কমেন্টও থাকে
+export async function createPostCreative(token: string, accountId: string, name: string, postId: string, instagramId: string | null) {
+  const res = await post<{ id: string }>(token, `/${accountId}/adcreatives`, {
+    name: name.slice(0, 200),
+    object_story_id: postId,
+    ...(instagramId ? { instagram_user_id: instagramId } : {}),
   });
   return res.id;
 }

@@ -25,6 +25,25 @@ const EXAMPLES: [string, string][] = [
   ["Is the pixel working?", "Pixel ঠিকমতো কাজ করছে?"],
 ];
 
+// ফলাফলে খসড়ার ঠিকানা (/launch/...) থাকলে ক্লিক করার লিংক
+function ResultText({ text }: { text: string }) {
+  const parts = text.split(/(\/launch\/[0-9a-f-]{36})/);
+  return (
+    <>
+      {": "}
+      {parts.map((p, i) =>
+        /^\/launch\/[0-9a-f-]{36}$/.test(p) ? (
+          <a key={i} href={p} className="underline decoration-dotted underline-offset-2 hover:text-white">
+            {p}
+          </a>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function ProposalCard({ m }: { m: ChatMessage }) {
   const tr = useTr();
   const [pending, start] = useTransition();
@@ -71,7 +90,7 @@ function ProposalCard({ m }: { m: ChatMessage }) {
           )}
         >
           {status}
-          {m.result ? `: ${m.result}` : ""}
+          {m.result && <ResultText text={m.result} />}
         </div>
       )}
       {error && <div className="mt-2 text-red-600">{error}</div>}
