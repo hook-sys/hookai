@@ -15,7 +15,8 @@ import { canManageAds, loadAccountStructure, type ManagedCampaign } from "@/lib/
 import AppShell from "@/components/AppShell";
 import { accountInCurrentClient } from "@/lib/clients";
 import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader, buttonClass, cn } from "@/components/ui";
-import { BudgetEditor, StatusSwitch } from "./Controls";
+import { BudgetEditor, PublishButton, StatusSwitch } from "./Controls";
+import { postStates, type PostState } from "@/lib/meta/pagePosts";
 
 export async function generateMetadata() {
   return { title: makeTr(await getLocale())("Ads control", "বিজ্ঞাপন নিয়ন্ত্রণ") };
@@ -84,6 +85,7 @@ export default async function ManagePage() {
   const ownerClient = clientOfAccount(clientAccounts, accountId);
 
   let structure: ManagedCampaign[] = [];
+  let posts = new Map<string, PostState>();
   let loadError: string | null = null;
   const [allowed, live, orders, campaignsKnown, { data: log }] = await Promise.all([
     canManageAds(token),
@@ -99,6 +101,11 @@ export default async function ManagePage() {
   ]);
   try {
     structure = await loadAccountStructure(token, accountId, currency);
+    // কোন বিজ্ঞাপনের পোস্ট পেজে প্রকাশ হয়েছে (পেজ ধরে একসাথে)
+    posts = await postStates(
+      token,
+      structure.flatMap((c) => c.adsets.flatMap((s) => s.ads.map((a) => a.post_id ?? ""))).filter(Boolean),
+    ).catch(() => new Map());
   } catch (err) {
     console.error("manage structure failed", err instanceof Error ? err.message : err);
     loadError = tr("Couldn't load campaigns from Meta. Try again shortly.", "Meta থেকে ক্যাম্পেইন আনা যায়নি। একটু পরে আবার চেষ্টা করো।");
@@ -242,6 +249,16 @@ export default async function ManagePage() {
                                       {a.name}
                                     </span>
                                     {aNote && <Badge tone="warning">{aNote}</Badge>}
+                                    {a.post_id && (
+                                      <span className="ml-auto">
+                                        <PublishButton
+                                          adId={a.id}
+                                          name={a.name}
+                                          published={posts.get(a.post_id)?.published ?? null}
+                                          url={posts.get(a.post_id)?.url ?? null}
+                                        />
+                                      </span>
+                                    )}
                                   </li>
                                 );
                               })}

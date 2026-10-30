@@ -5,7 +5,7 @@ import { graphGetAll, graphRequest } from "./graph";
 export type ManagedLevel = "campaign" | "adset" | "ad";
 export type DeliveryStatus = "ACTIVE" | "PAUSED";
 
-export type ManagedAd = { id: string; name: string; status: string; effective_status: string };
+export type ManagedAd = { id: string; name: string; status: string; effective_status: string; post_id?: string | null };
 export type ManagedAdSet = ManagedAd & {
   campaign_id: string;
   daily_budget: number | null; // মূল মুদ্রায় (যেমন ডলার), সেন্টে নয়
@@ -49,16 +49,16 @@ export async function loadAccountStructure(token: string, accountId: string, cur
     ),
     graphGetAll<Record<string, string>>(
       `/${accountId}/ads`,
-      { fields: "id,name,status,effective_status,adset_id", limit: "500" },
+      { fields: "id,name,status,effective_status,adset_id,creative{effective_object_story_id}", limit: "500" },
       token,
       10,
     ),
   ]);
 
   const adsBySet = new Map<string, ManagedAd[]>();
-  for (const a of visible(ads as unknown as (ManagedAd & { adset_id: string })[])) {
+  for (const a of visible(ads as unknown as (ManagedAd & { adset_id: string; creative?: { effective_object_story_id?: string } })[])) {
     const list = adsBySet.get(a.adset_id) ?? [];
-    list.push({ id: a.id, name: a.name, status: a.status, effective_status: a.effective_status });
+    list.push({ id: a.id, name: a.name, status: a.status, effective_status: a.effective_status, post_id: a.creative?.effective_object_story_id ?? null });
     adsBySet.set(a.adset_id, list);
   }
   const setsByCampaign = new Map<string, ManagedAdSet[]>();

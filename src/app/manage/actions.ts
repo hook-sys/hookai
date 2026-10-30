@@ -9,6 +9,7 @@ import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { clearLiveCache } from "@/lib/insights/live";
 import { MetaApiError } from "@/lib/meta/graph";
 import { getObject, minorFactor, setDailyBudget, setDeliveryStatus, type ManagedLevel } from "@/lib/meta/manage";
+import { PublishError, publishAdPost } from "@/lib/meta/pagePosts";
 
 export type ManageState = { ok: true; message: string } | { ok: false; error: string } | null;
 
@@ -157,4 +158,24 @@ export async function changeDailyBudget(_prev: ManageState, formData: FormData):
       `${name}-এর দৈনিক বাজেট: ${oldMajor?.toFixed(2)} → ${amount.toFixed(2)} ${currency ?? ""}`,
     ),
   };
+}
+
+// বিজ্ঞাপনের পোস্ট পেজে প্রকাশ (টেস্টে ভালো চললে)
+export async function publishPost(_prev: ManageState, formData: FormData): Promise<ManageState> {
+  const ctx = await context();
+  if ("error" in ctx) return { ok: false, error: ctx.error ?? "" };
+  const { tr } = ctx;
+  const adId = String(formData.get("adId") ?? "");
+  if (!ID_PATTERN.test(adId)) return { ok: false, error: tr("Invalid request.", "ভুল অনুরোধ।") };
+  try {
+    const r = await publishAdPost(ctx.token, adId, ctx.accountId);
+    revalidatePath("/manage");
+    return {
+      ok: true,
+      message: r.already ? tr("Already on the page.", "আগেই পেজে আছে।") : tr("Published on the page.", "পেজে প্রকাশ হয়েছে।"),
+    };
+  } catch (err) {
+    if (err instanceof PublishError) return { ok: false, error: tr(err.message, err.message.startsWith("Facebook hasn't") ? "Facebook এখনো Hook-কে পোস্ট প্রকাশের অনুমতি দেয়নি। সেটিংস থেকে Facebook আবার কানেক্ট করে পেজের পোস্ট পরিচালনার অনুমতি দাও।" : err.message) };
+    return { ok: false, error: metaError(err, tr) };
+  }
 }

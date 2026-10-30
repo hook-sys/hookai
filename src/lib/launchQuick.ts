@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SALES_CTAS, type Gender, type LaunchObjective, type LaunchSpec } from "@/lib/meta/launch";
-import { DriveError, campaignAds, driveFileInfo, parseDriveLink } from "@/lib/meta/launchSources";
+import { DriveError, campaignAds, driveFileInfo, listDriveFolder, kindFromName, parseDriveLink } from "@/lib/meta/launchSources";
 import { listAudiences } from "@/lib/meta/audiences";
 import { ruleTemplates } from "@/lib/rules/types";
 import { getActiveAiConfig } from "@/lib/ai/config";
@@ -49,12 +49,21 @@ export async function buildQuickSpec(token: string, accountId: string, input: Qu
   const media: LaunchSpec["media"] = [];
   let reused: { body: string | null; title: string | null; description: string | null; link: string | null; cta: string | null } | null = null;
   if (input.content.source === "drive") {
-    const links = input.content.links.map((l) => l.trim()).filter(Boolean).slice(0, 5);
-    if (links.length === 0) throw new QuickError("Paste at least one Google Drive link.");
-    for (const l of links) {
+    const links: string[] = [];
+    for (const l of input.content.links.map((x) => x.trim()).filter(Boolean).slice(0, 10)) {
       const p = parseDriveLink(l);
       if (!p) throw new QuickError(`Not a Google Drive link: ${l.slice(0, 80)}`);
-      if (p.folder) throw new QuickError("Folder links need a Google API key; paste the file links for now.");
+      // ফোল্ডারের লিংক: ভেতরের ছবি/ভিডিও (ফর্মে বাছা না থাকলে প্রথম কয়েকটা)
+      if (p.folder) {
+        const files = await listDriveFolder(p.id).catch((err) => {
+          throw new QuickError(err instanceof DriveError ? err.message : "The folder couldn't be read.");
+        });
+        links.push(...files.filter((f) => kindFromName(f.name)).map((f) => `https://drive.google.com/file/d/${f.id}/view`));
+      } else links.push(l);
+    }
+    if (links.length === 0) throw new QuickError("Paste at least one Google Drive link with an image or video.");
+    for (const l of links.slice(0, 5)) {
+      const p = parseDriveLink(l)!;
       try {
         const f = await driveFileInfo(p.id);
         media.push({ path: `drive:${f.id}`, kind: f.kind, name: f.name, thumb: f.thumb });

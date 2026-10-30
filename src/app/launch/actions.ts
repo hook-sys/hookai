@@ -29,7 +29,7 @@ import {
 import { runLaunch, type LaunchMeta, type LaunchRow } from "@/lib/meta/launchRun";
 import { loadClientProfile } from "@/lib/clientProfile";
 import { listAudiences } from "@/lib/meta/audiences";
-import { campaignAds, listCampaigns, type SourceAd } from "@/lib/meta/launchSources";
+import { campaignAds, driveLookup, listCampaigns, type SourceAd } from "@/lib/meta/launchSources";
 import { QuickError, buildQuickSpec, writeAdCopy } from "@/lib/launchQuick";
 
 export type LaunchState = { ok: true; message: string } | { ok: false; error: string } | null;
@@ -541,4 +541,11 @@ export async function createQuickDraft(_prev: LaunchState, formData: FormData): 
     .single();
   if (error || !data) return { ok: false, error: tr("Couldn't save the draft.", "খসড়া সংরক্ষণ করা যায়নি।") };
   redirect(`/launch/${data.id}`);
+}
+
+// Drive-এর ফাইল/ফোল্ডারের লিংক দেখে ভেতরের ছবি-ভিডিও দেখানো
+export async function lookupDrive(text: string) {
+  const ctx = await context();
+  if ("error" in ctx) return { items: [], errors: [ctx.error ?? ""] };
+  return driveLookup(text.split(/\s+/).slice(0, 10));
 }

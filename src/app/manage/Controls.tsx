@@ -4,7 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTr } from "@/components/I18nProvider";
 import { buttonClass, cn } from "@/components/ui";
-import { changeDailyBudget, changeStatus, type ManageState } from "./actions";
+import { changeDailyBudget, changeStatus, publishPost, type ManageState } from "./actions";
 
 function Feedback({ state }: { state: ManageState }) {
   if (!state) return null;
@@ -19,6 +19,40 @@ function Feedback({ state }: { state: ManageState }) {
 }
 
 // চালু/বন্ধ সুইচ: চাপলে আগে নিশ্চিত হতে চায়, তারপর Meta-তে পাঠায়
+// বিজ্ঞাপনের পোস্ট পেজে প্রকাশ: আগে টেস্ট, ভালো হলে প্রকাশ
+export function PublishButton({ adId, name, published, url }: { adId: string; name: string; published: boolean | null; url: string | null }) {
+  const tr = useTr();
+  const [state, action, pending] = useActionState<ManageState, FormData>(publishPost, null);
+  if (published || state?.ok) {
+    return (
+      <a
+        href={url ?? undefined}
+        target="_blank"
+        rel="noreferrer"
+        className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/25"
+      >
+        {tr("On the page", "পেজে আছে")}
+      </a>
+    );
+  }
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm(tr(`Publish "${name}" on the page? Everyone who visits the page will see it.`, `"${name}" পেজে প্রকাশ করবে? পেজে যে আসবে সবাই দেখবে।`))) e.preventDefault();
+      }}
+      className="flex shrink-0 items-center gap-2"
+    >
+      <input type="hidden" name="adId" value={adId} />
+      <button type="submit" disabled={pending} className={buttonClass("secondary", "px-2.5 py-0.5 text-[11px]")}>
+        {pending && <Loader2 className="size-3 animate-spin" aria-hidden />}
+        {tr("Publish", "পাবলিশ")}
+      </button>
+      {state && !state.ok && <span className="max-w-[16rem] text-[11px] text-red-400">{state.error}</span>}
+    </form>
+  );
+}
+
 export function StatusSwitch({
   id,
   level,

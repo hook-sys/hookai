@@ -7,7 +7,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 // পড়া আর বিজ্ঞাপন চালু-বন্ধ ও বাজেট বদল (ads_management)। অ্যাপ Development mode-এ থাকায়
 // শুধু অ্যাপের মালিক/রোলধারীরা এই অনুমতি দিতে পারে।
-export const META_SCOPES = ["ads_read", "ads_management"];
+// পেজের অনুমতি: বিজ্ঞাপনের পোস্ট পেজে প্রকাশ আর পোস্টের অবস্থা দেখা
+export const META_SCOPES = ["ads_read", "ads_management", "pages_show_list", "pages_read_engagement", "pages_manage_posts"];
 
 export class MetaApiError extends Error {}
 

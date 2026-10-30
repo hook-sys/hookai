@@ -37,7 +37,16 @@ export async function driveFileInfo(id: string): Promise<DriveFile> {
   const kind = type.startsWith("video/") ? "video" : type.startsWith("image/") ? "image" : null;
   if (!kind) throw new DriveError(`Not an image or video (${type || "unknown type"}).`);
   const disp = res.headers.get("content-disposition") ?? "";
-  const name = decodeURIComponent(disp.match(/filename\*=UTF-8''([^;]+)/i)?.[1] ?? disp.match(/filename="?([^";]+)"?/i)?.[1] ?? `drive-${id}`);
+  // নামে % বা ; থাকতে পারে (যেমন "25% Discount 1;1.mp4"), তাই সাবধানে পড়া
+  const encoded = disp.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  let name = disp.match(/filename="([^"]+)"/i)?.[1] ?? disp.match(/filename=([^;]+)/i)?.[1] ?? `drive-${id}`;
+  if (encoded) {
+    try {
+      name = decodeURIComponent(encoded);
+    } catch {
+      // ভুল এনকোডিং হলে সাধারণ নামটাই থাকে
+    }
+  }
   const total = Number(res.headers.get("content-range")?.split("/")[1]);
   await res.body?.cancel().catch(() => undefined);
   return { id, name: name.slice(0, 100), kind, size: Number.isFinite(total) ? total : null, thumb: driveThumb(id) };
@@ -129,4 +138,74 @@ export async function campaignAds(token: string, accountId: string, campaignId: 
       cta: vd?.call_to_action?.type ?? ld?.call_to_action?.type ?? c.call_to_action_type ?? null,
     };
   });
+}
+
+// ---------- Drive ফোল্ডার ----------
+
+// পাবলিক ফোল্ডারের ফাইলের তালিকা (Google API key ছাড়া, Drive-এর নিজের embed পাতা থেকে)।
+// ভেতরের ফোল্ডারগুলোর (যেমন "1:1", "9:16") ফাইলও এক ধাপ পর্যন্ত আনা হয়।
+export async function listDriveFolder(folderId: string, depth = 1): Promise<{ id: string; name: string; folder: string | null }[]> {
+  let html: string;
+  try {
+    const res = await fetch(`https://drive.google.com/embeddedfolderview?id=${folderId}`, { redirect: "follow", signal: AbortSignal.timeout(20_000), cache: "no-store" });
+    if (/accounts\.google\.com/.test(res.url)) throw new DriveError("This folder isn't shared. In Drive set it to 'Anyone with the link'.");
+    html = await res.text();
+  } catch (err) {
+    if (err instanceof DriveError) throw err;
+    throw new DriveError("Google Drive didn't answer.");
+  }
+  if (!html.includes("flip-entry")) {
+    if (/ServiceLogin|accounts\.google\.com/.test(html)) throw new DriveError("This folder isn't shared. In Drive set it to 'Anyone with the link'.");
+    return [];
+  }
+  const unescape = (s: string) => s.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const entries = [...html.matchAll(/class="flip-entry" id="entry-([\w-]+)"[\s\S]*?href="([^"]+)"[\s\S]*?class="flip-entry-title">([^<]*)</g)].map((m) => ({
+    id: m[1],
+    isFolder: m[2].includes("/folders/"),
+    name: unescape(m[3]).slice(0, 100),
+  }));
+  const out: { id: string; name: string; folder: string | null }[] = entries.filter((e) => !e.isFolder).map((e) => ({ id: e.id, name: e.name, folder: null }));
+  if (depth > 0) {
+    for (const sub of entries.filter((e) => e.isFolder).slice(0, 6)) {
+      const inner = await listDriveFolder(sub.id, depth - 1).catch(() => []);
+      out.push(...inner.map((f) => ({ ...f, folder: sub.name })));
+    }
+  }
+  return out.slice(0, 40);
+}
+
+// নামের শেষাংশ দেখে ছবি নাকি ভিডিও (তালিকা দেখানোর জন্য; খসড়া বানানোর সময় আসল ধরন যাচাই হয়)
+export function kindFromName(name: string): "image" | "video" | null {
+  if (/\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(name)) return "video";
+  if (/\.(jpe?g|png|webp|gif)$/i.test(name)) return "image";
+  return null;
+}
+
+export type DriveItem = { id: string; name: string; kind: "image" | "video"; folder: string | null; thumb: string };
+
+// ফাইল বা ফোল্ডারের লিংক থেকে ব্যবহারযোগ্য ছবি/ভিডিওর তালিকা
+export async function driveLookup(links: string[]): Promise<{ items: DriveItem[]; errors: string[] }> {
+  const items: DriveItem[] = [];
+  const errors: string[] = [];
+  for (const raw of links.map((l) => l.trim()).filter(Boolean).slice(0, 10)) {
+    const p = parseDriveLink(raw);
+    if (!p) {
+      errors.push(`Not a Google Drive link: ${raw.slice(0, 60)}`);
+      continue;
+    }
+    try {
+      if (p.folder) {
+        for (const f of await listDriveFolder(p.id)) {
+          const kind = kindFromName(f.name);
+          if (kind) items.push({ id: f.id, name: f.name, kind, folder: f.folder, thumb: driveThumb(f.id) });
+        }
+      } else {
+        const f = await driveFileInfo(p.id);
+        items.push({ id: f.id, name: f.name, kind: f.kind, folder: null, thumb: f.thumb });
+      }
+    } catch (err) {
+      errors.push(`${raw.slice(0, 50)}… ${err instanceof DriveError ? err.message : "couldn't be read"}`);
+    }
+  }
+  return { items: items.filter((x, i) => items.findIndex((y) => y.id === x.id) === i), errors };
 }

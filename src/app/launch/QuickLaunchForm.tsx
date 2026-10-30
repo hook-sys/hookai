@@ -7,7 +7,8 @@ import { buttonClass, cn, inputClass } from "@/components/ui";
 import { SALES_CTAS } from "@/lib/meta/launch";
 import type { SourceAd } from "@/lib/meta/launchSources";
 import { CTA_LABELS, TargetPicker, type Chip } from "./[id]/ReviewForm";
-import { aiWriteCopy, createQuickDraft, launchCampaignAds, launchCampaigns, type LaunchState } from "./actions";
+import { aiWriteCopy, createQuickDraft, launchCampaignAds, launchCampaigns, lookupDrive, type LaunchState } from "./actions";
+import type { DriveItem } from "@/lib/meta/launchSources";
 
 // AI ছাড়া নতুন বিজ্ঞাপন: কনটেন্ট (Drive লিংক বা আগের ক্যাম্পেইন) + সেটিং + নিয়ম → খসড়া → দেখে অনুমোদন
 
@@ -113,6 +114,23 @@ export default function QuickLaunchForm({
   const [loading, startLoad] = useTransition();
   const [adsError, setAdsError] = useState<string | null>(null);
 
+  // Drive: লিংক দেখে ভেতরের ফাইল, তার থেকে বাছাই
+  const [driveText, setDriveText] = useState("");
+  const [driveItems, setDriveItems] = useState<DriveItem[] | null>(null);
+  const [driveErrors, setDriveErrors] = useState<string[]>([]);
+  const [drivePick, setDrivePick] = useState<string[]>([]);
+  const [checking, startCheck] = useTransition();
+  const checkDrive = () =>
+    startCheck(async () => {
+      const r = await lookupDrive(driveText);
+      setDriveItems(r.items);
+      setDriveErrors(r.errors);
+      // ৫টা বা কম হলে সবগুলো আগে থেকে বাছা
+      setDrivePick(r.items.length <= 5 ? r.items.map((i) => i.id) : []);
+    });
+  // বাছা থাকলে সেগুলোর ফাইল-লিংক, না থাকলে যা লেখা হয়েছে
+  const driveValue = driveItems && drivePick.length ? drivePick.map((id) => `https://drive.google.com/file/d/${id}/view`).join("\n") : driveText;
+
   // AI দিয়ে লেখা
   const [notes, setNotes] = useState("");
   const [writing, startWrite] = useTransition();
@@ -163,9 +181,65 @@ export default function QuickLaunchForm({
           ]}
         />
         {source === "drive" ? (
-          <Field label={tr("Drive file links (one per line, up to 5; each becomes an ad)", "Drive ফাইলের লিংক (প্রতি লাইনে একটা, সর্বোচ্চ ৫টা; প্রতিটা আলাদা বিজ্ঞাপন)")}>
-            <textarea name="drive_links" rows={3} placeholder="https://drive.google.com/file/d/…/view" className={inputClass} />
-          </Field>
+          <div className="flex flex-col gap-3">
+            <input type="hidden" name="drive_links" value={driveValue} />
+            <Field
+              label={tr("Drive file or folder links (one per line)", "Drive-এর ফাইল বা ফোল্ডারের লিংক (প্রতি লাইনে একটা)")}
+              hint={tr("Share them as 'Anyone with the link'. Up to 5 files become ads.", "'Anyone with the link' করে শেয়ার করা থাকতে হবে। সর্বোচ্চ ৫টা ফাইল বিজ্ঞাপন হবে।")}
+            >
+              <textarea
+                rows={3}
+                value={driveText}
+                onChange={(e) => {
+                  setDriveText(e.target.value);
+                  setDriveItems(null);
+                }}
+                placeholder="https://drive.google.com/drive/folders/…"
+                className={inputClass}
+              />
+            </Field>
+            <button type="button" disabled={checking || !driveText.trim()} onClick={checkDrive} className={buttonClass("secondary", "self-start")}>
+              {checking ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <FolderOpen className="size-4" aria-hidden />}
+              {tr("Check links", "লিংক দেখো")}
+            </button>
+            {driveErrors.map((e) => (
+              <p key={e} className="text-xs text-red-400">
+                {e}
+              </p>
+            ))}
+            {driveItems && driveItems.length > 0 && (
+              <>
+                <p className="text-xs text-zinc-500">
+                  {tr(`${driveItems.length} files found. Tick up to 5 (${drivePick.length} ticked).`, `${driveItems.length}টা ফাইল পাওয়া গেছে। সর্বোচ্চ ৫টা টিক দাও (${drivePick.length}টা বাছা)।`)}
+                </p>
+                <ul className="grid gap-2 sm:grid-cols-3">
+                  {driveItems.map((f) => (
+                    <li key={f.id}>
+                      <label className={cn("flex cursor-pointer flex-col gap-1.5 rounded-2xl border p-2 text-xs", drivePick.includes(f.id) ? "border-indigo-400/60 bg-indigo-500/10" : "border-white/[0.08] bg-white/[0.03]")}>
+                        <span className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={f.thumb} alt="" loading="lazy" className="aspect-video w-full rounded-lg bg-white/5 object-cover" />
+                          <span className="absolute right-1 bottom-1 rounded bg-black/60 px-1 text-[9px] text-white uppercase">{f.kind}</span>
+                        </span>
+                        <span className="flex items-start gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={drivePick.includes(f.id)}
+                            onChange={() => setDrivePick(drivePick.includes(f.id) ? drivePick.filter((x) => x !== f.id) : [...drivePick, f.id].slice(0, 5))}
+                            className="mt-0.5 accent-indigo-500"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-zinc-100">{f.name}</span>
+                            {f.folder && <span className="block text-[10px] text-zinc-500">{f.folder}</span>}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             <input type="hidden" name="campaign_id" value={campaignId} />
