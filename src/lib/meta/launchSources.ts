@@ -98,11 +98,12 @@ type RawCreative = {
 export async function campaignAds(token: string, accountId: string, campaignId: string): Promise<SourceAd[]> {
   const camp = await graphRequest<{ account_id?: string }>(`/${campaignId}`, { params: { fields: "account_id" }, token });
   if (camp.account_id && `act_${camp.account_id}` !== accountId) throw new Error("This campaign belongs to another ad account.");
+  // থাম্বনেইল সাধারণত ৬৪px আসে; প্রিভিউর জন্য ৬০০px চাওয়া
   const rows = await graphGetAll<{ id: string; name: string; effective_status: string; creative?: RawCreative }>(
     `/${campaignId}/ads`,
     {
       fields:
-        "id,name,effective_status,creative{effective_object_story_id,video_id,image_hash,thumbnail_url,image_url,body,title,call_to_action_type,object_story_spec,asset_feed_spec{videos,images,bodies,titles,link_urls}}",
+        "id,name,effective_status,creative.thumbnail_width(600).thumbnail_height(600){effective_object_story_id,video_id,image_hash,thumbnail_url,image_url,body,title,call_to_action_type,object_story_spec,asset_feed_spec{videos,images,bodies,titles,link_urls}}",
       limit: "50",
     },
     token,
