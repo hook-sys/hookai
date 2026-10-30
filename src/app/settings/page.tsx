@@ -148,6 +148,15 @@ export default async function SettingsPage({ searchParams }: Props) {
                       </p>
                     </div>
                   </div>
+                  {/* নতুন অনুমতি লাগলে (যেমন পেজে পোস্ট প্রকাশ) সংযোগ না ভেঙে আবার অনুমতি নেওয়া */}
+                  <div className="flex flex-col gap-1">
+                    <Link href="/api/meta/connect" className={buttonClass("secondary", "w-fit")}>
+                      {tr("Update Facebook permissions", "Facebook-এর অনুমতি হালনাগাদ করো")}
+                    </Link>
+                    <p className="text-xs text-zinc-400">
+                      {tr("Needed once for new features, like publishing ad posts on the page.", "নতুন সুবিধার জন্য একবার লাগে, যেমন বিজ্ঞাপনের পোস্ট পেজে প্রকাশ।")}
+                    </p>
+                  </div>
                   <form action={disconnectMeta} className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
                     <button type="submit" className={buttonClass("danger", "-ml-4")}>
                       {tr("Disconnect", "সংযোগ বিচ্ছিন্ন করো")}
