@@ -10,6 +10,7 @@ import {
   Newspaper,
   PackageCheck,
   PenLine,
+  Radar,
   Plus,
   Radio,
   Rocket,
@@ -35,7 +36,7 @@ import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
 
-type Section = "home" | "profile" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "home" | "profile" | "competitors" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -158,6 +159,7 @@ export default async function AppShell({
     ...(isAdmin ? [{ id: "profile" as const, href: "/profile", label: tr("Client profile", "ক্লায়েন্ট প্রোফাইল"), icon: IdCard }] : []),
     { id: "assets", href: "/assets", label: tr("Pixel & assets", "Pixel ও অ্যাসেট"), icon: Radio },
     { id: "audiences", href: "/audiences", label: tr("Audiences", "অডিয়েন্স"), icon: UsersRound },
+    ...(isAdmin ? [{ id: "competitors" as const, href: "/competitors", label: tr("Competitors", "প্রতিযোগী"), icon: Radar }] : []),
     { id: "rules", href: "/rules", label: tr("Automatic rules", "স্বয়ংক্রিয় নিয়ম"), icon: Zap },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },

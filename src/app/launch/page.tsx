@@ -24,9 +24,14 @@ export async function generateMetadata() {
 }
 
 // নির্দেশনা লিখে, ছবি/ভিডিও দিয়ে নতুন বিজ্ঞাপন: AI পরিকল্পনা করে, মালিক দেখে অনুমোদন দেয়
-export default async function LaunchPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+export default async function LaunchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string; primary?: string; headline?: string; description?: string }>;
+}) {
   // দুই পথ: দ্রুত সেটআপ (AI ছাড়া, সাধারণ) আর AI নির্দেশনা
-  const mode = (await searchParams).mode === "ai" ? "ai" : "quick";
+  const sp = await searchParams;
+  const mode = sp.mode === "ai" ? "ai" : "quick";
   const tr = makeTr(await getLocale());
   const supabase = await createClient();
   const {
@@ -142,6 +147,7 @@ export default async function LaunchPage({ searchParams }: { searchParams: Promi
                   new_customers: pf.exclude_buyers,
                   cta: pf.cta,
                   target: client?.target_cost_per_order,
+                  copy: { primary_text: sp.primary?.slice(0, 2000), headline: sp.headline?.slice(0, 80), description: sp.description?.slice(0, 60) },
                 }}
               />
             </div>

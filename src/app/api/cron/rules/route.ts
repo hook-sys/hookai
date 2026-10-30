@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { checkSite, diffSnapshots, type SiteSnapshot } from "@/lib/competitors/site";
 import { createPublicClient } from "@/lib/supabase/public";
 import { runForUser, type UserSnapshot } from "@/lib/rules/runner";
 import { decrypt } from "@/lib/crypto";
@@ -92,5 +93,23 @@ export async function POST(request: NextRequest) {
     capi.push({ events: events.length, received, failed: Boolean(error) });
   }
 
-  return NextResponse.json({ ok: true, users: summaries, capi });
+  // প্রতিযোগীর ওয়েবসাইট: প্রতি ঘণ্টায় ৪টা করে, প্রত্যেকটা দিনে একবার; আগের ছবির সাথে মিলিয়ে কী বদলাল
+  const { data: due, error: dErr } = await supabase.rpc("cron_competitors_due", { p_secret: got, p_limit: 4 });
+  if (dErr) console.error("competitors due failed", dErr.message);
+  let competitors = 0;
+  for (const c of (due ?? []) as { id: string; website_url: string; prev: SiteSnapshot | null }[]) {
+    const r = await checkSite(c.website_url);
+    await supabase.rpc("cron_competitor_save", {
+      p_secret: got,
+      p_id: c.id,
+      p_status: r.status,
+      p_error: r.status === "ok" ? null : r.error,
+      p_platform: r.status === "ok" ? r.snapshot.platform : null,
+      p_data: r.status === "ok" ? r.snapshot : null,
+      p_changes: r.status === "ok" ? diffSnapshots(c.prev, r.snapshot) : [],
+    });
+    competitors++;
+  }
+
+  return NextResponse.json({ ok: true, users: summaries, capi, competitors });
 }

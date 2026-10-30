@@ -26,6 +26,8 @@ export type QuickDefaults = {
   new_customers?: boolean;
   cta?: string;
   target?: number | null;
+  // প্রতিযোগী রিপোর্টের আইডিয়া থেকে আসা লেখা
+  copy?: { primary_text?: string; headline?: string; description?: string };
 };
 
 const RULES: [string, string, string, boolean][] = [
@@ -102,7 +104,7 @@ export default function QuickLaunchForm({
   const [include, setInclude] = useState<string[]>([]);
   const [locations, setLocations] = useState<Chip[]>(defaults.locations ?? []);
   const [interests, setInterests] = useState<Chip[]>((defaults.interests ?? []).map((i) => ({ key: i.id, name: i.name, type: "interest" })));
-  const [copy, setCopy] = useState({ primary_text: "", headline: "", description: "" });
+  const [copy, setCopy] = useState({ primary_text: defaults.copy?.primary_text ?? "", headline: defaults.copy?.headline ?? "", description: defaults.copy?.description ?? "" });
   const [link, setLink] = useState(defaults.link ?? "");
 
   // আগের ক্যাম্পেইন
