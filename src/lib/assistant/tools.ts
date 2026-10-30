@@ -306,25 +306,40 @@ export const ACTIONS: Record<string, { desc: string; check: (ctx: AssistantCtx, 
       }
       const budget = num(a.daily_budget);
       if (!(budget > 0)) throw new ToolError("daily_budget required");
-      // জায়গা আর আগ্রহের নাম Meta-র key-তে
-      const locations = [];
-      for (const q of list(a.locations).slice(0, 10)) {
-        const hit = await findLocation(ctx.token, q).catch(() => null);
-        if (!hit) throw new ToolError(`location not found on Meta: ${q}`);
+      // জায়গা আর আগ্রহের নাম Meta-র key-তে। অনুমোদনের সময় আবার যাচাই হয়, তখন এগুলো আগেই
+      // Meta-র বস্তু হয়ে থাকে, তাই নাম আর বস্তু দুটোই মানা হয়।
+      const raw = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+      const locations: { key: string; name: string; type: "country" | "region" | "city" }[] = [];
+      for (const q of raw(a.locations).slice(0, 10)) {
+        if (q && typeof q === "object" && "key" in q) {
+          const l = q as { key: unknown; name?: unknown; type?: unknown };
+          const type = l.type === "city" || l.type === "region" ? l.type : "country";
+          locations.push({ key: String(l.key), name: String(l.name ?? l.key), type });
+          continue;
+        }
+        const hit = await findLocation(ctx.token, String(q)).catch(() => null);
+        if (!hit) throw new ToolError(`location not found on Meta: ${String(q)}`);
         locations.push(hit);
       }
-      const interests = [];
-      for (const q of list(a.interests).slice(0, 6)) {
-        const hit = await findInterest(ctx.token, q).catch(() => null);
+      const interests: { id: string; name: string }[] = [];
+      for (const q of raw(a.interests).slice(0, 6)) {
+        if (q && typeof q === "object" && "id" in q) {
+          const i = q as { id: unknown; name?: unknown };
+          interests.push({ id: String(i.id), name: String(i.name ?? "") });
+          continue;
+        }
+        const hit = await findInterest(ctx.token, String(q)).catch(() => null);
         if (hit) interests.push({ id: hit.id, name: hit.name });
       }
+      // খালি মান (null) প্রোফাইল থেকে আসবে; ০ বানালে চলবে না
+      const opt = (v: unknown) => (v === undefined || v === null || v === "" ? null : num(v));
       return {
         account_id: acc,
         content: drive.length ? { drive_links: drive.slice(0, 5) } : { campaign_id: campaignId, ad_ids: adIds, reuse: content.reuse === "media" ? "media" : "post" },
         objective: a.objective === "messages" ? "messages" : a.objective === "sales" ? "sales" : null,
         daily_budget: budget,
-        age_min: a.age_min === undefined ? null : num(a.age_min),
-        age_max: a.age_max === undefined ? null : num(a.age_max),
+        age_min: opt(a.age_min),
+        age_max: opt(a.age_max),
         gender: a.gender === "male" || a.gender === "female" || a.gender === "all" ? a.gender : null,
         locations,
         interests,
@@ -336,7 +351,7 @@ export const ACTIONS: Record<string, { desc: string; check: (ctx: AssistantCtx, 
         description: str(a.description).slice(0, 60),
         cta: str(a.cta),
         rules: list(a.rules),
-        rule_target: a.rule_target === undefined ? null : num(a.rule_target),
+        rule_target: opt(a.rule_target),
         name: str(a.name).slice(0, 120),
       };
     },
