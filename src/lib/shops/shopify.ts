@@ -4,9 +4,10 @@ import { isCourier, type Courier } from "@/lib/orders";
 import { fbcFromUrl, hashCustomer, type CustomerHash } from "@/lib/capi";
 
 // Hook-এর Shopify অ্যাপ (Shopify Dev Dashboard-এ তৈরি)। দোকানদার নিজের দোকানে অ্যাপটি ইনস্টল করে
-// অনুমতি দেয় (OAuth), Hook শুধু অর্ডার পড়ে (read_orders)।
+// অনুমতি দেয় (OAuth)। Hook অর্ডার পড়ে, আর দোকানের নিজস্ব COD ফর্ম থেকে অর্ডার বানায় (write_orders);
+// প্রোডাক্টের দাম/স্টক দেখতে read_products।
 export const SHOPIFY_API_VERSION = "2026-10";
-export const SHOPIFY_SCOPES = "read_orders";
+export const SHOPIFY_SCOPES = "read_orders,write_orders,read_products,write_products";
 
 export function shopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY;

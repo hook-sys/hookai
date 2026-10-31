@@ -48,7 +48,9 @@ export async function updateSession(request: NextRequest) {
     // কুরিয়ারের webhook লগইন ছাড়া আসে; নিজের token দিয়ে যাচাই হয়
     pathname.startsWith("/api/webhooks/") ||
     // প্রতি ঘণ্টার নিয়ম যাচাই; গোপন key দিয়ে যাচাই হয়
-    pathname === "/api/cron/rules";
+    pathname === "/api/cron/rules" ||
+    // দোকানের পাতার COD ফর্ম Shopify app proxy হয়ে আসে; Shopify-র signature দিয়ে যাচাই হয়
+    pathname.startsWith("/api/shopify/proxy/");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
