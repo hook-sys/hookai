@@ -14,6 +14,7 @@ import {
   Plus,
   Radio,
   Rocket,
+  Send,
   Settings,
   SlidersHorizontal,
   ShieldCheck,
@@ -35,8 +36,9 @@ import AccountSwitcher from "@/components/AccountSwitcher";
 import ClientSwitcher from "@/components/ClientSwitcher";
 import { adAccountOptions } from "@/lib/meta/accountsCache";
 import { currentClient } from "@/lib/clients";
+import { pagePostsAllowed } from "@/lib/pagePostsAccess";
 
-type Section = "home" | "profile" | "competitors" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
+type Section = "home" | "profile" | "competitors" | "dashboard" | "assistant" | "manage" | "launch" | "rules" | "audiences" | "assets" | "orders" | "clients" | "reports" | "ad-copy" | "page-posts" | "funnels" | "settings" | "admin" | "admin-blog" | "admin-users";
 
 type NavItem = { id: Section; href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -162,6 +164,8 @@ export default async function AppShell({
     ...(isAdmin ? [{ id: "competitors" as const, href: "/competitors", label: tr("Competitors", "প্রতিযোগী"), icon: Radar }] : []),
     { id: "rules", href: "/rules", label: tr("Automatic rules", "স্বয়ংক্রিয় নিয়ম"), icon: Zap },
     { id: "ad-copy", href: "/ad-copy", label: tr("Ad copy", "অ্যাডের লেখা"), icon: PenLine },
+    // Page posts আপাতত শুধু allowlist-এর অ্যাকাউন্টে দেখায় (আসল গেট পেজ, action আর cron-এও আছে)
+    ...(pagePostsAllowed(user?.email) ? [{ id: "page-posts" as const, href: "/page-posts", label: tr("Page posts", "পেজ পোস্ট"), icon: Send }] : []),
     { id: "funnels", href: "/funnels", label: tr("Funnels", "ফানেল"), icon: Workflow, soon: tr("Soon", "শীঘ্রই") },
     { id: "settings", href: "/settings", label: tr("Settings", "সেটিংস"), icon: Settings },
   ];

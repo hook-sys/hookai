@@ -6,7 +6,8 @@ import { graphRequest } from "./graph";
 
 export class PublishError extends Error {}
 
-async function pageToken(token: string, pageId: string, cache: Map<string, string>) {
+// পেজের নিজের টোকেন (ক্যাশসহ); pagePublish.ts-ও এটাই ব্যবহার করে
+export async function getPageToken(token: string, pageId: string, cache: Map<string, string>) {
   const hit = cache.get(pageId);
   if (hit) return hit;
   const res = await graphRequest<{ access_token?: string }>(`/${pageId}`, { params: { fields: "access_token" }, token });
@@ -30,7 +31,7 @@ export async function postStates(token: string, postIds: string[]): Promise<Map<
   await Promise.all(
     [...byPage].map(async ([page, ids]) => {
       try {
-        const ptok = await pageToken(token, page, cache);
+        const ptok = await getPageToken(token, page, cache);
         for (let i = 0; i < ids.length; i += 50) {
           const res = await graphRequest<Record<string, { is_published?: boolean; permalink_url?: string }>>("/", {
             params: { ids: ids.slice(i, i + 50).join(","), fields: "is_published,permalink_url" },
@@ -55,7 +56,7 @@ export async function publishAdPost(token: string, adId: string, accountId: stri
   if (ad.account_id && `act_${ad.account_id}` !== accountId) throw new PublishError("This ad belongs to another ad account.");
   const postId = ad.creative?.effective_object_story_id;
   if (!postId) throw new PublishError("This ad has no page post.");
-  const ptok = await pageToken(token, postId.split("_")[0], new Map());
+  const ptok = await getPageToken(token, postId.split("_")[0], new Map());
   const before = await graphRequest<{ is_published?: boolean; permalink_url?: string }>(`/${postId}`, {
     params: { fields: "is_published,permalink_url" },
     token: ptok,
