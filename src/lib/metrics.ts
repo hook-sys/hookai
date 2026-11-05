@@ -24,8 +24,13 @@ export function pickAction(list: MetaAction[] | undefined, types: string[]) {
 
 export const pickPurchases = (list?: MetaAction[]) =>
   pickAction(list, PURCHASE_TYPES);
-export const pickPurchaseValue = (list?: MetaAction[]) =>
-  pickAction(list, PURCHASE_TYPES);
+// Pixel ভুল করে ফোন নম্বর বা আইডির মতো বিশাল সংখ্যা value হিসেবে পাঠালে Meta সেটাই দেয়।
+// এমন মান আসল বিক্রি নয়, আর ডাটাবেসেও ধরে না (এক লাইনের জন্য পুরো অ্যাকাউন্টের সিঙ্ক আটকে যেত)।
+const MAX_PLAUSIBLE_VALUE = 1e12;
+export const pickPurchaseValue = (list?: MetaAction[]) => {
+  const value = pickAction(list, PURCHASE_TYPES);
+  return value < MAX_PLAUSIBLE_VALUE ? value : 0;
+};
 export const pickLeads = (list?: MetaAction[]) => pickAction(list, LEAD_TYPES);
 
 // যোগ করা যায় এমন কাঁচা সংখ্যা
