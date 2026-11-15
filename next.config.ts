@@ -23,6 +23,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Claude কানেক্টরের OAuth খোঁজার ঠিকানা
+  async rewrites() {
+    return [
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/oauth/metadata" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/oauth/resource" },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

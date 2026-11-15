@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTr } from "@/lib/i18n-server";
@@ -59,7 +59,11 @@ export async function signIn(
     };
   }
 
-  redirect("/home");
+  // Claude কানেক্টরের অনুমতির পাতা থেকে এলে সেখানেই ফেরা
+  const jar = await cookies();
+  const back = jar.get("oauth_return")?.value ?? "";
+  if (back) jar.delete("oauth_return");
+  redirect(back.startsWith("/oauth/authorize?") ? back : "/home");
 }
 
 export async function signUp(

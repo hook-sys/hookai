@@ -50,7 +50,12 @@ export async function updateSession(request: NextRequest) {
     // প্রতি ঘণ্টার নিয়ম যাচাই; গোপন key দিয়ে যাচাই হয়
     pathname === "/api/cron/rules" ||
     // দোকানের পাতার COD ফর্ম Shopify app proxy হয়ে আসে; Shopify-র signature দিয়ে যাচাই হয়
-    pathname.startsWith("/api/shopify/proxy/");
+    pathname.startsWith("/api/shopify/proxy/") ||
+    // Claude কানেক্টর (MCP): নিজের OAuth টোকেন দিয়ে যাচাই হয়; অনুমতির পাতা নিজেই লগইন দেখে
+    pathname === "/api/mcp" ||
+    pathname.startsWith("/api/oauth/") ||
+    pathname.startsWith("/oauth/") ||
+    pathname.startsWith("/.well-known/");
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
