@@ -853,9 +853,9 @@ export const TOOLS: Tool[] = [
             link_clicks: linkClicks,
             ctr_percent: r.ctr ? round(Number(r.ctr)) : null,
             link_ctr_percent: impressions ? round((linkClicks / impressions) * 100) : null,
-            cpc: r.cpc ? round(Number(r.cpc)) : null,
+            cpc: r.cpc ? round(Number(r.cpc), 4) : null,
             purchases,
-            cost_per_purchase: purchases ? round(spend / purchases) : null,
+            cost_per_purchase: purchases ? round(spend / purchases, 4) : null,
             purchase_value: round(value),
             roas: spend ? round(value / spend) : null,
           };
