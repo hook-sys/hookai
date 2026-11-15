@@ -76,7 +76,7 @@ async function handle(ctx: Ctx, msg: RpcMsg) {
             title: t.title,
             description: t.description,
             inputSchema: t.inputSchema,
-            annotations: { title: t.title, readOnlyHint: !t.write, destructiveHint: false, idempotentHint: !t.write, openWorldHint: true },
+            annotations: { title: t.title, readOnlyHint: !t.write, destructiveHint: !!t.destructive, idempotentHint: !t.write, openWorldHint: true },
           })),
         },
       };

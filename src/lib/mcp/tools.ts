@@ -48,6 +48,8 @@ type Tool = {
   description: string;
   inputSchema: Record<string, unknown>;
   write: boolean;
+  // ফেরানো যায় না এমন কাজ (মোছা)
+  destructive?: boolean;
   run: (ctx: Ctx, a: Args) => Promise<ToolOut>;
 };
 
@@ -766,6 +768,63 @@ export const TOOLS: Tool[] = [
       return {
         result: { copied_from: o.id, new_id: copy, status: "PAUSED", ads_manager: copy ? adsManager(act, level, copy) : null },
         log: { client: c.name, object_id: copy || o.id, summary: `${level} "${o.name}" duplicated (PAUSED)`, params: { from: o.id, level } },
+      };
+    },
+  },
+  {
+    name: "delete_paused",
+    title: "Delete a paused campaign, ad set or ad",
+    description:
+      "Delete a campaign (with its ad sets and ads), an ad set (with its ads) or an ad. Only works when it is PAUSED and nothing inside it is running. First returns a preview with a confirm_code; call again with it only after the user says yes. Deleting cannot be undone.",
+    inputSchema: {
+      type: "object",
+      required: ["client", "level", "id"],
+      properties: { client: S.client, level: S.level, id: { type: "string" }, confirm_code: S.confirm_code },
+    },
+    write: true,
+    destructive: true,
+    run: async (ctx, a) => {
+      const c = findClient(ctx, a);
+      const level = oneOf(a, "level", LEVELS);
+      const id = metaId(a, "id")!;
+      const { o, act } = await owned(ctx, c, level, id);
+      const t = token(ctx);
+      if (o.status !== "PAUSED") throw new ToolError(`"${o.name}" is ${o.status}. Pause it first; only paused things can be deleted.`);
+
+      // ভেতরে কিছু চালু থাকলে মোছা হবে না
+      const inside: { level: string; name: string; status: string }[] = [];
+      if (level !== "ad") {
+        const [sets, adsInside] = await Promise.all([
+          level === "campaign"
+            ? graphGetAll<{ name: string; status: string }>(`/${id}/adsets`, { fields: "name,status", limit: "100" }, t, 3)
+            : Promise.resolve([]),
+          graphGetAll<{ name: string; status: string }>(`/${id}/ads`, { fields: "name,status", limit: "100" }, t, 3),
+        ]);
+        sets.forEach((s) => inside.push({ level: "adset", name: s.name, status: s.status }));
+        adsInside.forEach((d) => inside.push({ level: "ad", name: d.name, status: d.status }));
+      }
+      const running = inside.filter((x) => x.status === "ACTIVE");
+      if (running.length) {
+        throw new ToolError(`Not deleted: ${running.length} item(s) inside are still ACTIVE (${running.map((r) => `${r.level} "${r.name}"`).slice(0, 5).join(", ")}). Pause them first.`);
+      }
+
+      const parts = ["delete", level, id];
+      if (!confirmOk(ctx, str(a, "confirm_code", 60), parts)) {
+        return {
+          result: {
+            preview: true,
+            will_do: `Permanently delete ${level} "${o.name}" (PAUSED) for ${c.name} in ${act}${inside.length ? `, together with ${inside.length} item(s) inside it` : ""}. This cannot be undone.`,
+            inside,
+            confirm_code: makeConfirm(ctx, parts),
+            note: PREVIEW_NOTE,
+          },
+        };
+      }
+
+      await graphRequest(`/${id}`, { method: "DELETE", token: t });
+      return {
+        result: { deleted: true, id, level, name: o.name, items_inside: inside.length },
+        log: { client: c.name, object_id: id, summary: `${level} "${o.name}" deleted (was PAUSED${inside.length ? `, with ${inside.length} item(s) inside` : ""})`, params: { level, inside: inside.length } },
       };
     },
   },
