@@ -31,6 +31,8 @@ export const metadata: Metadata = {
     template: "%s · Hook AI",
   },
   description: "See where your Meta ad budget is working and where it is leaking. Reports, alerts and plain-language advice in one place.",
+  // Meta Business (Hook Marketing Agency) hook.com.bd ডোমেইন যাচাই
+  other: { "facebook-domain-verification": "balzqzc87bkspt3h28i8zt4k225u4u" },
 };
 
 // Tell the browser before first paint that the page supports light and dark
