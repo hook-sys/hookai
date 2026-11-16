@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTr } from "@/lib/i18n-server";
 import { SIGNUP_OPEN } from "@/lib/site";
+import { INVITE_CODE, inviteHash } from "@/lib/invite";
 import type { Tr } from "@/lib/i18n";
 
 export type AuthState = { error?: string; message?: string } | null;
@@ -71,15 +72,22 @@ export async function signUp(
   formData: FormData,
 ): Promise<AuthState> {
   const tr = await getTr();
-  if (!SIGNUP_OPEN) return { error: tr("New sign-ups are closed.", "নতুন অ্যাকাউন্ট খোলা এখন বন্ধ।") };
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const invite = String(formData.get("invite") ?? "");
+  const closed = tr("New sign-ups are closed.", "নতুন অ্যাকাউন্ট খোলা এখন বন্ধ।");
+  if (!SIGNUP_OPEN && !INVITE_CODE.test(invite)) return { error: closed };
 
   if (password.length < 8) {
     return { error: tr("Password must be at least 8 characters.", "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।") };
   }
 
   const supabase = await createClient();
+  // সাইনআপ বন্ধ: আমন্ত্রণ কোডটা এই ইমেইলের জন্য ব্যবহার হলো বলে চিহ্ন দেওয়া; ডাটাবেস তবেই অ্যাকাউন্ট খুলতে দেয়
+  if (!SIGNUP_OPEN) {
+    const { data: claimed } = await supabase.rpc("claim_signup_invite", { p_code_hash: inviteHash(invite), p_email: email });
+    if (claimed !== true) return { error: tr("This invite link has expired or was already used.", "এই আমন্ত্রণ লিংকের মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে।") };
+  }
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

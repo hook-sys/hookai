@@ -9,7 +9,8 @@ import LanguageSwitch from "@/components/LanguageSwitch";
 import { signIn, signUp, type AuthState } from "./actions";
 
 // লগইন ও নতুন অ্যাকাউন্ট একই ফর্মে; /signup লিংক সরাসরি অ্যাকাউন্ট খোলার ধাপে খোলে
-export default function AuthForm({ initialMode = "signin" }: { initialMode?: "signin" | "signup" }) {
+// invite: সাইনআপ বন্ধ থাকলেও এককালীন আমন্ত্রণ কোড দিয়ে একটা অ্যাকাউন্ট খোলা যায় (যেমন Meta রিভিউয়ারের জন্য)
+export default function AuthForm({ initialMode = "signin", invite }: { initialMode?: "signin" | "signup"; invite?: string }) {
   const tr = useTr();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
 
@@ -65,6 +66,7 @@ export default function AuthForm({ initialMode = "signin" }: { initialMode?: "si
           </p>
 
           <form action={formAction} className="mt-8 flex flex-col gap-4">
+            {invite && mode === "signup" && <input type="hidden" name="invite" value={invite} />}
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="font-medium text-zinc-700 dark:text-zinc-300">{tr("Email", "ইমেইল")}</span>
               <input
