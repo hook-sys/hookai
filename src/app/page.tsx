@@ -12,7 +12,7 @@ import {
   Target,
   Truck,
 } from "lucide-react";
-import { LogoMark, cn } from "@/components/ui";
+import { Wordmark, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import { CASES, TOTALS, WHATSAPP_DISPLAY, type CaseResult } from "@/components/landing/results";
 import { WhatsAppButton, WhatsAppIcon } from "@/components/landing/WhatsApp";
@@ -226,12 +226,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/" aria-label={tr("Hook home", "Hook হোম")}>
             {/* ডার্ক মোডেও পেজ সাদা থাকে, তাই লোগোর লেখা নিজে রং ঠিক করে */}
-            <span className="flex items-center gap-2.5">
-              <LogoMark className="size-9 shadow-sm" />
-              <span className="text-sm font-bold tracking-wide text-[#3157B0]">
-                HOOK <span className="text-[#FF5A2C]">AI</span>
-              </span>
-            </span>
+            <Wordmark tone="dark" className="h-8 w-auto" />
           </Link>
           <nav aria-label={tr("Main menu", "প্রধান মেনু")} className="hidden items-center gap-7 text-sm text-zinc-600 md:flex">
             <a href="#results" className="hover:text-zinc-950">{tr("Results", "ফলাফল")}</a>

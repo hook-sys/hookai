@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo, LogoMark, buttonClass, cn } from "@/components/ui";
+import { Logo, Wordmark, buttonClass, cn } from "@/components/ui";
 import LanguageSwitch from "@/components/LanguageSwitch";
 import { getTr } from "@/lib/i18n-server";
 import { WhatsAppButton } from "@/components/landing/WhatsApp";
@@ -34,10 +34,7 @@ export async function SiteHeader({ loggedIn = false, tone = "paper" }: { loggedI
         <Link href="/" aria-label={tr("Hook AI home", "Hook AI হোম")} className="flex items-center gap-2.5">
           {ink ? (
             <>
-              <LogoMark className="size-8" />
-              <span className="text-sm font-bold tracking-wide">
-                HOOK <span className="text-[#FF7A4D]">AI</span>
-              </span>
+              <Wordmark tone="light" className="h-7 w-auto" />
             </>
           ) : (
             <>

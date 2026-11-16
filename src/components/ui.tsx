@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
 
 // পুরো অ্যাপে একই ধরনের বোতাম, কার্ড ও ব্যাজ রাখার জন্য ছোট কিছু অংশ
 
@@ -191,38 +192,37 @@ export function EmptyState({
 
 // Hook-এর লোগো চিহ্ন (cursor + তিনটি রশ্মি), নীল টাইলের উপর সাদা।
 // src/app/icon.svg (ব্রাউজার ট্যাবের আইকন) হুবহু একই নকশা; বদলালে দুটোই বদলাতে হবে।
+// Hook-এর ∞ আইকন (brand/logo/final থেকে)
 export function LogoMark({ className = "size-9" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={cn("shrink-0", className)} aria-hidden>
-      <rect width="64" height="64" rx="14" fill="#3157B0" />
-      <g transform="translate(4 3)">
-        <path
-          d="M17 31.2 39.4 25.1c2.2-.6 3.6 1 3 3.1L36 49c-.7 2.1-3.4 2-3.9-.2l-2.2-10.6c-.3-1.5-1.5-2.5-3-2.7L18 34.6c-2.3-.3-3.1-2.8-1-3.4Z"
-          fill="#fff"
-        />
-        <path d="M16 38.6l9.4.9c1.3.1 2.3 1.1 2.5 2.4l1.4 8.6H16Z" fill="#fff" />
-        <path d="M16.6 17.6l3.2-1.2 7.3 8.2-3.5 1Z" fill="#FF7A4D" />
-        <path d="M33.3 11.6l3.6-.7-.6 11.2-3.4.4Z" fill="#FF7A4D" />
-        <path d="M47.6 15.4l2.4 2.6-6.6 6.2c-.5-1.2-1.3-2.1-2.4-2.6Z" fill="#FF7A4D" />
-      </g>
-    </svg>
+    <span className={cn("flex shrink-0 items-center justify-center", className)} aria-hidden>
+      <Image src="/brand/hook-icon.png" alt="" width={256} height={162} className="h-auto w-full" priority />
+    </span>
   );
 }
 
-export function Logo({ compact = false }: { compact?: boolean }) {
+// শুধু H∞K লেখা; tone: "dark" = কালো লেখা (হালকা পটভূমি), "light" = সাদা লেখা (গাঢ় পটভূমি)
+export function Wordmark({ tone, className = "h-7 w-auto" }: { tone: "dark" | "light"; className?: string }) {
   return (
-    <span className="flex items-center gap-2.5">
-      <LogoMark className="size-9 shadow-sm" />
-      {!compact && (
-        <span className="leading-tight">
-          <span className="block text-sm font-bold tracking-wide text-[#3157B0] dark:text-zinc-50">
-            HOOK <span className="text-[#FF5A2C]">AI</span>
-          </span>
-          <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-            Meta Ads Agent
-          </span>
-        </span>
-      )}
+    <Image
+      src={tone === "dark" ? "/brand/hook-logo-dark.png" : "/brand/hook-logo-light.png"}
+      alt="Hook"
+      width={600}
+      height={221}
+      className={className}
+      priority
+    />
+  );
+}
+
+// পুরো লোগো: H∞K (হালকা পটভূমিতে কালো লেখা, গাঢ় পটভূমিতে সাদা লেখা)
+export function Logo({ compact = false }: { compact?: boolean }) {
+  if (compact) return <LogoMark className="size-9" />;
+  return (
+    <span className="flex flex-col leading-none">
+      <Image src="/brand/hook-logo-dark.png" alt="Hook" width={600} height={221} className="h-7 w-auto dark:hidden" priority />
+      <Image src="/brand/hook-logo-light.png" alt="Hook" width={600} height={221} className="hidden h-7 w-auto dark:block" priority />
+      <span className="mt-1 text-[10px] tracking-wide text-zinc-500 dark:text-zinc-400">Meta Ads Agent</span>
     </span>
   );
 }

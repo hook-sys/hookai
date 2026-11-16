@@ -27,7 +27,7 @@ import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { getTr } from "@/lib/i18n-server";
-import { LogoMark, cn } from "@/components/ui";
+import { LogoMark, Wordmark, cn } from "@/components/ui";
 import LiquidBackdrop from "@/components/LiquidBackdrop";
 import LensFlag from "@/components/LensFlag";
 import LanguageSwitch from "@/components/LanguageSwitch";
@@ -216,10 +216,8 @@ export default async function AppShell({
         <header className="sticky top-0 z-20 bg-gradient-to-b from-[#17181b] from-55% to-transparent px-3 pt-3 pb-5 print:hidden sm:px-4 lg:pr-6">
           <div className="flex items-center gap-2 lg:gap-3">
             <Link href={isAdmin ? "/home" : "/dashboard"} className="glass-panel lg-lens flex shrink-0 items-center rounded-full py-1 pr-3 pl-1" aria-label="Hook AI">
-              <LogoMark className="size-8 rounded-full" />
-              <span className="ml-2 hidden text-sm font-semibold tracking-wide sm:inline">
-                HOOK <span className="text-[#FF7A4D]">AI</span>
-              </span>
+              <LogoMark className="size-8 sm:hidden" />
+              <Wordmark tone="light" className="ml-1 hidden h-6 w-auto sm:block" />
             </Link>
             <nav aria-label={tabLabel} className="glass-panel lg-lens mx-auto hidden min-w-0 gap-0.5 overflow-x-auto rounded-full p-1 lg:flex">
               {tabs.map((item) => (
