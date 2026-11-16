@@ -5,6 +5,8 @@ export const SIGNUP_OPEN = process.env.NEXT_PUBLIC_SIGNUP_OPEN === "true";
 
 export const SITE = {
   name: "Hook AI",
+  // ট্রেড লাইসেন্সে লেখা আইনি নাম; Meta Business Verification ওয়েবসাইটে এই নাম খোঁজে
+  legalName: "Hook Marketing Agency",
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || null,
   country: "বাংলাদেশ",
   // আইনি পেজের শেষ হালনাগাদের তারিখ; লেখা বদলালে এটিও বদলাতে হবে

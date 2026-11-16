@@ -143,7 +143,7 @@ export async function SiteFooter() {
         ))}
       </div>
       <div className="border-t border-zinc-900/5 dark:border-white/5">
-        <p className="mx-auto max-w-6xl px-4 py-6 text-xs text-zinc-400 sm:px-6">© {new Date().getFullYear()} Hook AI</p>
+        <p className="mx-auto max-w-6xl px-4 py-6 text-xs text-zinc-400 sm:px-6">© {new Date().getFullYear()} Hook AI · a product of Hook Marketing Agency</p>
       </div>
     </footer>
   );

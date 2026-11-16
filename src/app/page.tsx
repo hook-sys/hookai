@@ -431,7 +431,7 @@ export default async function LandingPage() {
 
       <footer className="relative border-t border-zinc-900/[0.06] bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-zinc-500 sm:px-6">
-          <span>© {new Date().getFullYear()} Hook · hook.com.bd</span>
+          <span>© {new Date().getFullYear()} Hook Marketing Agency · hook.com.bd</span>
           <nav aria-label={tr("Legal", "আইনি")} className="flex flex-wrap gap-5">
             <Link href="/blog" className="hover:text-zinc-900">{tr("Blog", "ব্লগ")}</Link>
             <Link href="/privacy" className="hover:text-zinc-900">{tr("Privacy", "প্রাইভেসি")}</Link>

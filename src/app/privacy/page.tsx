@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const bodyEn = (tr: Tr) => `
 ## 1. Who we are
 
-${SITE.name} is an online service that reads your Facebook and Instagram advertising (Meta Ads) data and turns it into reports, alerts and AI advice. In this policy "we" means ${SITE.name} and "you" means the person using the service.
+${SITE.name} is an online service that reads your Facebook and Instagram advertising (Meta Ads) data and turns it into reports, alerts and AI advice. ${SITE.name} is run by ${SITE.legalName}, a business registered in Bangladesh. In this policy "we" means ${SITE.name} (${SITE.legalName}) and "you" means the person using the service.
 
 ## 2. What we collect
 
@@ -102,7 +102,7 @@ ${contactMarkdown(tr)}
 const bodyBn = (tr: Tr) => `
 ## ১. আমরা কে
 
-${SITE.name} একটি অনলাইন সেবা, যা Facebook ও Instagram বিজ্ঞাপনের (Meta Ads) ডাটা বিশ্লেষণ করে বাংলায় হিসাব, অ্যালার্ট ও AI পরামর্শ দেয়। এই নীতিতে "আমরা" মানে ${SITE.name}, আর "তুমি" মানে যে এই সেবা ব্যবহার করে।
+${SITE.name} একটি অনলাইন সেবা, যা Facebook ও Instagram বিজ্ঞাপনের (Meta Ads) ডাটা বিশ্লেষণ করে বাংলায় হিসাব, অ্যালার্ট ও AI পরামর্শ দেয়। ${SITE.name} পরিচালনা করে ${SITE.legalName}, বাংলাদেশে নিবন্ধিত একটি প্রতিষ্ঠান। এই নীতিতে "আমরা" মানে ${SITE.name} (${SITE.legalName}), আর "তুমি" মানে যে এই সেবা ব্যবহার করে।
 
 ## ২. আমরা কী তথ্য সংগ্রহ করি
 
