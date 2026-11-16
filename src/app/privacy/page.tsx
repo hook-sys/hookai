@@ -56,6 +56,8 @@ We don't build advertising profiles from your data and don't sell it to third pa
 
 When you ask for an AI summary or campaign report, the aggregated figures for that period (for example campaign names, spend, results and totals by age or region) are sent to an AI provider. We choose which one; it may be fal.ai, OpenAI, Google (Gemini) or Anthropic (Claude). Your email, password and Meta token are never sent to the AI. Each provider processes the request under its own policies.
 
+If you add Hook to Claude (by Anthropic) as a connector, Claude can read your ad results and make the changes you ask for through Hook. The data Claude reads is processed by Anthropic under its own policies. Every change made this way is logged, and you can remove the connector at any time.
+
 ## 6. Where data is stored and how it's protected
 
 - **Database:** Supabase (your account, ad data, reports)
@@ -142,6 +144,8 @@ ${SITE.name} একটি অনলাইন সেবা, যা Facebook ও I
 ## ৫. AI দিয়ে বিশ্লেষণ
 
 তুমি AI সারসংক্ষেপ বা ক্যাম্পেইন রিপোর্ট চাইলে, সেই সময়ের বিজ্ঞাপনের সমষ্টিগত হিসাব (যেমন ক্যাম্পেইনের নাম, খরচ, ফলাফল, বয়স-এলাকা অনুযায়ী মোট সংখ্যা) একটি AI সেবায় পাঠানো হয়। কোন AI সেবা ব্যবহার হবে তা আমরা ঠিক করি; এটি হতে পারে fal.ai, OpenAI, Google (Gemini) বা Anthropic (Claude)। তোমার ইমেইল, পাসওয়ার্ড বা Meta token AI-তে পাঠানো হয় না। AI সেবাগুলো নিজ নিজ নীতি অনুযায়ী এই অনুরোধ প্রসেস করে।
+
+তুমি Hook-কে Claude (Anthropic)-এ কানেক্টর হিসেবে যুক্ত করলে, Claude তোমার বিজ্ঞাপনের হিসাব পড়তে পারে আর তোমার বলা পরিবর্তনগুলো Hook-এর মাধ্যমে করতে পারে। Claude যে তথ্য পড়ে তা Anthropic নিজের নীতি অনুযায়ী প্রসেস করে। এভাবে করা প্রতিটা পরিবর্তনের লগ থাকে, আর যেকোনো সময় কানেক্টর সরিয়ে দিতে পারো।
 
 ## ৬. তথ্য কোথায় থাকে ও কীভাবে সুরক্ষিত থাকে
 

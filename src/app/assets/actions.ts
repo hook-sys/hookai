@@ -7,7 +7,7 @@ import { decrypt } from "@/lib/crypto";
 import { getTr } from "@/lib/i18n-server";
 import { isCurrentUserAdmin } from "@/lib/ai/config";
 import { accountInCurrentClient, currentClient } from "@/lib/clients";
-import { normalizeSiteUrl, reachablePixels, sharePixelToAccount } from "@/lib/meta/assets";
+import { hasBusinessManagement, normalizeSiteUrl, reachablePixels, sharePixelToAccount } from "@/lib/meta/assets";
 import { buildEvents, sendCapiEvents, type CapiOrder } from "@/lib/capi";
 
 export type AssetState = { ok: true; message: string } | { ok: false; error: string } | null;
@@ -53,6 +53,15 @@ export async function findPixels(): Promise<{ ok: true; pixels: PixelChoice[] } 
   const ctx = await context();
   if ("error" in ctx) return { ok: false, error: ctx.error ?? "" };
   try {
+    if (!(await hasBusinessManagement(ctx.token))) {
+      return {
+        ok: false,
+        error: ctx.tr(
+          "Finding pixels across your businesses isn't available. Add the pixel to this ad account in Meta Business Settings → Datasets → Connected assets.",
+          "সব BM থেকে Pixel খোঁজা এখন চালু নেই। Meta Business Settings → Datasets → Connected assets থেকে Pixel-টা এই Ad Account-এ যোগ করো।",
+        ),
+      };
+    }
     return { ok: true, pixels: await reachablePixels(ctx.token) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message.slice(0, 200) : "error" };

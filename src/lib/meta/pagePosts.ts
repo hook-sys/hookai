@@ -31,12 +31,21 @@ export async function postStates(token: string, postIds: string[]): Promise<Map<
     [...byPage].map(async ([page, ids]) => {
       try {
         const ptok = await pageToken(token, page, cache);
-        for (let i = 0; i < ids.length; i += 50) {
-          const res = await graphRequest<Record<string, { is_published?: boolean; permalink_url?: string }>>("/", {
-            params: { ids: ids.slice(i, i + 50).join(","), fields: "is_published,permalink_url" },
-            token: ptok,
-          });
-          for (const [id, p] of Object.entries(res)) out.set(id, { published: Boolean(p.is_published), url: p.permalink_url ?? null });
+        // নতুন Graph সংস্করণে ?ids= বন্ধ, তাই প্রতিটা পোস্ট আলাদা করে (একসাথে ৮টা করে)
+        for (let i = 0; i < ids.length; i += 8) {
+          await Promise.all(
+            ids.slice(i, i + 8).map(async (id) => {
+              try {
+                const p = await graphRequest<{ is_published?: boolean; permalink_url?: string }>(`/${id}`, {
+                  params: { fields: "is_published,permalink_url" },
+                  token: ptok,
+                });
+                out.set(id, { published: Boolean(p.is_published), url: p.permalink_url ?? null });
+              } catch {
+                // এই পোস্টের অবস্থা জানা গেল না
+              }
+            }),
+          );
         }
       } catch {
         // এই পেজের অবস্থা জানা গেল না; বোতাম তবুও দেখায়

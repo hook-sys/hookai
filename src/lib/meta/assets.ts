@@ -186,7 +186,19 @@ export async function pagesWithInstagram(token: string, accountId: string) {
 // ---------- Ad Account-এ Pixel যোগ ----------
 
 // ব্যবহারকারীর BM-গুলোতে যত Pixel আছে (নিজের বা partner হিসেবে পাওয়া)
+// এর জন্য business_management অনুমতি লাগে। Hook এখন এটা চায় না (App Review সহজ রাখতে),
+// তাই অনুমতি না থাকলে ফিচারটা বন্ধ থাকে।
+export async function hasBusinessManagement(token: string) {
+  try {
+    const res = await graphRequest<{ data: { permission: string; status: string }[] }>("/me/permissions", { token });
+    return res.data.some((p) => p.permission === "business_management" && p.status === "granted");
+  } catch {
+    return false;
+  }
+}
+
 export async function reachablePixels(token: string) {
+  if (!(await hasBusinessManagement(token))) return [];
   const bms = await graphGetAll<{ id: string; name: string }>("/me/businesses", { fields: "id,name", limit: "100" }, token, 2);
   const found = new Map<string, { id: string; name: string; businesses: { id: string; name: string }[] }>();
   await Promise.all(
